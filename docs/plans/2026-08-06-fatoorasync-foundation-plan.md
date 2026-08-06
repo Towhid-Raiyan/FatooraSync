@@ -6,7 +6,7 @@
 
 **Architecture:** Next.js (App Router, TypeScript) full-stack monolith. PostgreSQL via Prisma, with every tenant-scoped table carrying `tenantId` and enforced by Postgres Row-Level Security as a backstop to application-layer scoping. Auth.js (credentials provider) with database-backed sessions.
 
-**Tech Stack:** Next.js 15 (App Router), TypeScript, Tailwind CSS, Prisma + PostgreSQL, Auth.js v5, argon2 password hashing, Vitest, pino, Sentry, GitHub Actions, Docker (local Postgres).
+**Tech Stack:** Next.js 15 (App Router), TypeScript, Tailwind CSS, Prisma + PostgreSQL (Neon, cloud-hosted, used for local development directly), Auth.js v5, argon2 password hashing, Vitest, pino, Sentry, GitHub Actions.
 
 **Not in this plan:** Products, Customers, Sales Receipt, Quotation, and History UI/API — those are separate follow-on plans built on top of this foundation. The database schema below includes their tables now (schema is one cohesive unit), but no CRUD endpoints or pages for them exist yet.
 
@@ -15,7 +15,7 @@
 Check this section any time for an at-a-glance status. Updated as each task is reviewed and merged.
 
 - [x] Task 1: Project scaffold and test runner — done (commits `3e8abb3..41a687f` on `fatoorasync-foundation`)
-- [ ] Task 2: Database schema and local Postgres
+- [ ] Task 2: Database schema and Postgres connection
 - [ ] Task 3: Tenant isolation — Row-Level Security and data access layer
 - [ ] Task 4: Authentication
 - [ ] Task 5: Tenant onboarding seed
@@ -37,7 +37,6 @@ Check this section any time for an at-a-glance status. Updated as each task is r
 ## File Structure
 
 ```
-docker-compose.yml
 .env.example
 prisma/
   schema.prisma
@@ -164,10 +163,9 @@ git commit -m "Scaffold Next.js app with TypeScript, Tailwind, and Vitest"
 
 ---
 
-### Task 2: Database schema and local Postgres
+### Task 2: Database schema and Postgres connection
 
 **Files:**
-- Create: `docker-compose.yml`
 - Create: `prisma/schema.prisma`
 - Create: `.env.example`
 - Create: `src/lib/db/client.ts`
@@ -176,29 +174,17 @@ git commit -m "Scaffold Next.js app with TypeScript, Tailwind, and Vitest"
 **Interfaces:**
 - Produces: `prisma` client singleton at `src/lib/db/client.ts` exporting `prisma: PrismaClient`, used by every later task that touches the database.
 
-- [ ] **Step 1: Add local Postgres via Docker**
+- [ ] **Step 1: Use a cloud Postgres database for development**
 
-Create `docker-compose.yml`:
+Local Docker isn't available in this environment (virtualization disabled), so this project uses a Neon Postgres database for local development instead of a local Docker container. CI (Task 7) is unaffected and still uses its own disposable Postgres service container, since GitHub Actions runners provide that natively regardless of this machine's setup. A Neon project has already been created and its connection string placed in `.env` as `DATABASE_URL` (gitignored — do not read or print its value, just confirm the file exists and `prisma db pull`/migration commands can reach it).
 
-```yaml
-services:
-  postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: fatoorasync
-      POSTGRES_PASSWORD: fatoorasync
-      POSTGRES_DB: fatoorasync
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+Create `.env.example` (committed — no real secrets, this documents the variable shape only):
 
-volumes:
-  postgres_data:
+```
+DATABASE_URL="postgresql://user:password@host/dbname?sslmode=require"
 ```
 
-Run: `docker compose up -d`
-Expected: `docker compose ps` shows the `postgres` service as running/healthy.
+Confirm `.env` is already covered by `.gitignore` (it is, from the initial project setup).
 
 - [ ] **Step 2: Install Prisma**
 
@@ -208,23 +194,9 @@ npm install @prisma/client
 npx prisma init --datasource-provider postgresql
 ```
 
-- [ ] **Step 3: Configure environment variables**
+`prisma init` will create its own `prisma/schema.prisma` and may create or overwrite `.env` — if it overwrites the existing `.env`, restore the real `DATABASE_URL` value from your Neon project's connection string afterward (get it from your Neon project dashboard's Connection string panel again if needed; do not fabricate a placeholder value).
 
-Edit `.env` (created by `prisma init`):
-
-```
-DATABASE_URL="postgresql://fatoorasync:fatoorasync@localhost:5432/fatoorasync"
-```
-
-Create `.env.example` (committed — no real secrets, this is the local dev connection string shape):
-
-```
-DATABASE_URL="postgresql://fatoorasync:fatoorasync@localhost:5432/fatoorasync"
-```
-
-Confirm `.env` is already covered by `.gitignore` (it is, from the initial project setup).
-
-- [ ] **Step 4: Write the full schema**
+- [ ] **Step 3: Write the full schema**
 
 Replace `prisma/schema.prisma`:
 
@@ -378,7 +350,7 @@ model DocumentLine {
 }
 ```
 
-- [ ] **Step 5: Run the first migration**
+- [ ] **Step 4: Run the first migration**
 
 ```bash
 npx prisma migrate dev --name init
@@ -386,7 +358,7 @@ npx prisma migrate dev --name init
 
 Expected: migration applies with no errors, `prisma/migrations/<timestamp>_init/` is created.
 
-- [ ] **Step 6: Write the failing test**
+- [ ] **Step 5: Write the failing test**
 
 Create `src/lib/db/client.test.ts`:
 
@@ -416,12 +388,12 @@ describe("prisma client", () => {
 });
 ```
 
-- [ ] **Step 7: Run the test to verify it fails**
+- [ ] **Step 6: Run the test to verify it fails**
 
 Run: `npm test -- client.test.ts`
 Expected: FAIL with "Cannot find module './client'"
 
-- [ ] **Step 8: Write the Prisma client singleton**
+- [ ] **Step 7: Write the Prisma client singleton**
 
 Create `src/lib/db/client.ts`:
 
@@ -437,15 +409,15 @@ if (process.env.NODE_ENV !== "production") {
 }
 ```
 
-- [ ] **Step 9: Run the test to verify it passes**
+- [ ] **Step 8: Run the test to verify it passes**
 
 Run: `npm test -- client.test.ts`
 Expected: PASS.
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add docker-compose.yml .env.example prisma src/lib/db
+git add .env.example prisma src/lib/db
 git commit -m "Add database schema and Prisma client"
 ```
 
