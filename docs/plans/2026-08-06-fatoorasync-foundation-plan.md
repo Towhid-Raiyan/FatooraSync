@@ -20,7 +20,7 @@ Check this section any time for an at-a-glance status. Updated as each task is r
 - [x] Task 4: Authentication — done (commits `bfb6cab..69c7078` on `fatoorasync-foundation`)
 - [x] Task 5: Tenant onboarding seed — done (commits `b66dfff..2754749` on `fatoorasync-foundation`)
 - [x] Task 6: Settings API and page — done (commits `101cb6b..b2e4827` on `fatoorasync-foundation`)
-- [ ] Task 7: Continuous integration
+- [x] Task 7: Continuous integration — done (commits `bc6e886..274c264` on `fatoorasync-foundation`)
 - [ ] Task 8: Structured logging and error tracking
 
 ## Global Constraints
@@ -1270,7 +1270,7 @@ git commit -m "Add tenant settings API and page"
 **Files:**
 - Create: `.github/workflows/ci.yml`
 
-- [ ] **Step 1: Write the workflow**
+- [x] **Step 1: Write the workflow**
 
 Create `.github/workflows/ci.yml`:
 
@@ -1316,12 +1316,12 @@ jobs:
       - run: npm test
 ```
 
-- [ ] **Step 2: Verify the pipeline runs green**
+- [x] **Step 2: Verify the pipeline runs green**
 
 Push this branch and open a pull request (or push directly to `main`).
 Expected: the Actions tab shows the `test` job completing successfully.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add .github/workflows/ci.yml
