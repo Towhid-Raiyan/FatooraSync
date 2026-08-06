@@ -1302,6 +1302,8 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: postgresql://fatoorasync:fatoorasync@localhost:5432/fatoorasync
+      DIRECT_URL: postgresql://fatoorasync:fatoorasync@localhost:5432/fatoorasync
+      AUTH_SECRET: ci-test-secret-not-used-in-production
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
