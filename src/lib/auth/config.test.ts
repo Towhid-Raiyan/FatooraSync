@@ -51,4 +51,47 @@ describe("credentials authorize", () => {
     const user = await authorize({ email, password: "whatever" });
     expect(user).toBeNull();
   });
+
+  it("does not count successful logins toward the rate limit", async () => {
+    // 10 successful logins in a row (well over MAX_ATTEMPTS) must all
+    // succeed - only failed attempts should ever count toward the limit,
+    // otherwise the legitimate owner locks themselves out.
+    for (let i = 0; i < 10; i++) {
+      const user = await authorize({ email: "owner@example.com", password: "supersecret123" });
+      expect(user).not.toBeNull();
+    }
+  });
+
+  it("resets the rate limit counter after a successful login", async () => {
+    const email = "resets-after-success@example.com";
+
+    // Create a dedicated user for this test so a successful login is possible.
+    await prisma.user.create({
+      data: {
+        tenantId,
+        email,
+        passwordHash: await hashPassword("correct-password"),
+      },
+    });
+
+    // 4 failures - one below the 5-attempt threshold.
+    for (let i = 0; i < 4; i++) {
+      const failed = await authorize({ email, password: "wrong" });
+      expect(failed).toBeNull();
+    }
+
+    // A successful login should clear the counter entirely.
+    const success = await authorize({ email, password: "correct-password" });
+    expect(success).not.toBeNull();
+
+    // Another 4 failures immediately after should still not trip the limit,
+    // proving the counter was reset rather than merely not incremented.
+    for (let i = 0; i < 4; i++) {
+      const failed = await authorize({ email, password: "wrong" });
+      expect(failed).toBeNull();
+    }
+    // The account should still be reachable with the correct password.
+    const stillWorks = await authorize({ email, password: "correct-password" });
+    expect(stillWorks).not.toBeNull();
+  });
 });
