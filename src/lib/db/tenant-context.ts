@@ -17,8 +17,12 @@ const TENANT_SCOPED_MODELS = new Set(["Customer", "Product", "Document", "Docume
  * Instead, every query against a tenant-scoped model made through the
  * client returned by forTenant() has `tenantId` injected directly into its
  * `where`/`data` args before the query runs, so a call site cannot forget
- * the filter. A caller-supplied `tenantId` in `where` is overridden, not
- * merged, because it's spread first and `tenantId` is applied after.
+ * the filter. A caller-supplied `tenantId` in `where` or `data` is
+ * overridden, not merged, because it's spread first and `tenantId` is
+ * applied after -- this applies to `update`/`updateMany`/
+ * `updateManyAndReturn` too, so a caller can't relocate a row into another
+ * tenant's dataset via `data.tenantId` even though `where.tenantId` is
+ * correctly scoped to the active tenant.
  *
  * Known limitation: this only intercepts top-level model operations. Nested
  * writes through `include` / `data: { relation: { create: ... } }` do NOT
@@ -62,6 +66,17 @@ function forTenant(tenantId: string) {
             // tenantId must come after the spread so it always wins over
             // any tenantId the caller passed - override, never merge.
             typedArgs.where = { ...typedArgs.where, tenantId };
+
+            // update/updateMany/updateManyAndReturn also carry a `data`
+            // payload that can itself contain a caller-supplied tenantId
+            // (e.g. data: { tenantId: otherTenant, ... }). Without also
+            // stamping data.tenantId here, `where` would correctly find the
+            // active tenant's own row, but the write would relocate it into
+            // another tenant's dataset. Same override-not-merge rule as
+            // everywhere else: tenantId is applied after the spread.
+            if (operation === "update" || operation === "updateMany" || operation === "updateManyAndReturn") {
+              typedArgs.data = { ...(typedArgs.data as Record<string, unknown>), tenantId };
+            }
           }
           if (operation === "create") {
             typedArgs.data = { ...(typedArgs.data as Record<string, unknown>), tenantId };

@@ -80,6 +80,38 @@ describe("tenant isolation", () => {
     }
   });
 
+  it("overrides a caller-supplied tenantId in update's data, not just its where", async () => {
+    const target = await withTenant(tenantAId, (tx) =>
+      tx.customer.create({ data: { tenantId: tenantAId, name: "Update Target" } })
+    );
+
+    try {
+      // A malicious/buggy caller passes tenantId: tenantB inside `data`.
+      // `where` is correctly scoped by the extension and finds tenant A's
+      // own row, so the update must still apply -- but if data.tenantId
+      // weren't also overridden, this write would relocate the row into
+      // tenant B's dataset.
+      const result = await withTenant(tenantAId, (tx) =>
+        tx.customer.update({
+          where: { id: target.id },
+          data: { tenantId: tenantBId, name: "Renamed by update" },
+        })
+      );
+
+      expect(result.tenantId).toBe(tenantAId);
+      expect(result.name).toBe("Renamed by update");
+
+      const reloaded = await withTenant(tenantAId, (tx) => tx.customer.findUniqueOrThrow({ where: { id: target.id } }));
+      expect(reloaded.tenantId).toBe(tenantAId);
+
+      // Confirm it did NOT end up visible under tenant B.
+      const seenByB = await withTenant(tenantBId, (tx) => tx.customer.findMany({ where: { id: target.id } }));
+      expect(seenByB).toHaveLength(0);
+    } finally {
+      await withTenant(tenantAId, (tx) => tx.customer.delete({ where: { id: target.id } }));
+    }
+  });
+
   // A bare, unscoped query (bypassing withTenant()) is NOT filtered by the
   // database -- there is no RLS backstop on this Postgres provider (see
   // migration 20260806120225_disable_inert_rls). Both seeded customers come
