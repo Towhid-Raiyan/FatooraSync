@@ -20,16 +20,18 @@ describe("seedTenant", () => {
         ownerPassword: "seedpassword123",
       });
 
-      expect(result.tenant.tradeNameEn).toBe("Seed Test Shop");
-      expect(result.user.email).toBe(`seedowner+${uniqueId}@example.com`);
-      expect(result.settings.defaultVatRate.toString()).toBe("15");
-      expect(result.walkInCustomer.isWalkIn).toBe(true);
-      expect(result.walkInCustomer.name).toBe("Walk-in Customer");
-
-      await prisma.customer.deleteMany({ where: { tenantId: result.tenant.id } });
-      await prisma.settings.deleteMany({ where: { tenantId: result.tenant.id } });
-      await prisma.user.deleteMany({ where: { tenantId: result.tenant.id } });
-      await prisma.tenant.delete({ where: { id: result.tenant.id } });
+      try {
+        expect(result.tenant.tradeNameEn).toBe("Seed Test Shop");
+        expect(result.user.email).toBe(`seedowner+${uniqueId}@example.com`);
+        expect(result.settings.defaultVatRate.toString()).toBe("15");
+        expect(result.walkInCustomer.isWalkIn).toBe(true);
+        expect(result.walkInCustomer.name).toBe("Walk-in Customer");
+      } finally {
+        await prisma.customer.deleteMany({ where: { tenantId: result.tenant.id } });
+        await prisma.settings.deleteMany({ where: { tenantId: result.tenant.id } });
+        await prisma.user.deleteMany({ where: { tenantId: result.tenant.id } });
+        await prisma.tenant.delete({ where: { id: result.tenant.id } });
+      }
     }
   );
 });

@@ -10,7 +10,17 @@ export interface SeedTenantInput {
   ownerPassword: string;
 }
 
-export async function seedTenant(input: SeedTenantInput) {
+export interface SeedTenantResult {
+  tenant: { id: string; legalName: string; tradeNameEn: string; tradeNameAr: string | null; vatNumber: string };
+  user: { id: string; tenantId: string; email: string; passwordHash: string };
+  settings: { tenantId: string; defaultVatRate: number };
+  walkInCustomer: { id: string; tenantId: string; name: string; isWalkIn: boolean };
+}
+
+export async function seedTenant(input: SeedTenantInput): Promise<SeedTenantResult> {
+  // Uses raw prisma.$transaction instead of withTenant() because this is a bootstrap
+  // operation creating a new tenant; withTenant() scopes queries to an *existing* tenant.
+  // Each create() call explicitly sets the correct tenantId, so there is no cross-tenant risk.
   return prisma.$transaction(async (tx) => {
     const tenant = await tx.tenant.create({
       data: {
