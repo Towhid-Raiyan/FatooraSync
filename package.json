@@ -15,9 +15,11 @@
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
+    "@sentry/nextjs": "^10.69.0",
     "argon2": "^0.45.1",
     "next": "15.5.22",
     "next-auth": "^5.0.0-beta.32",
+    "pino": "^10.3.1",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },
