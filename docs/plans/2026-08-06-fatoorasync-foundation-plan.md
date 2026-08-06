@@ -10,6 +10,19 @@
 
 **Not in this plan:** Products, Customers, Sales Receipt, Quotation, and History UI/API — those are separate follow-on plans built on top of this foundation. The database schema below includes their tables now (schema is one cohesive unit), but no CRUD endpoints or pages for them exist yet.
 
+## Progress
+
+Check this section any time for an at-a-glance status. Updated as each task is reviewed and merged.
+
+- [x] Task 1: Project scaffold and test runner — done (commits `3e8abb3..41a687f` on `fatoorasync-foundation`)
+- [ ] Task 2: Database schema and local Postgres
+- [ ] Task 3: Tenant isolation — Row-Level Security and data access layer
+- [ ] Task 4: Authentication
+- [ ] Task 5: Tenant onboarding seed
+- [ ] Task 6: Settings API and page
+- [ ] Task 7: Continuous integration
+- [ ] Task 8: Structured logging and error tracking
+
 ## Global Constraints
 
 - Database: PostgreSQL. Every tenant-scoped table (`Customer`, `Product`, `Document`, `DocumentLine`, `Settings`) carries `tenantId` and has Row-Level Security enabled with `FORCE ROW LEVEL SECURITY` (so the connecting role is subject to it too, not just other roles).
@@ -64,7 +77,7 @@ sentry.edge.config.ts
 **Interfaces:**
 - Produces: a working `npm run dev`, `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test` command, used by every later task.
 
-- [ ] **Step 1: Scaffold the Next.js app**
+- [x] **Step 1: Scaffold the Next.js app**
 
 ```bash
 npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias "@/*"
@@ -72,7 +85,7 @@ npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --
 
 The directory already contains `.git`, `.gitignore`, and `docs/` — if prompted about a non-empty directory, confirm to continue.
 
-- [ ] **Step 2: Verify the scaffold builds and runs**
+- [x] **Step 2: Verify the scaffold builds and runs**
 
 Run: `npm run build`
 Expected: build completes with no errors.
@@ -80,7 +93,7 @@ Expected: build completes with no errors.
 Run: `npm run dev`, visit `http://localhost:3000`
 Expected: default Next.js welcome page loads. Stop the dev server (Ctrl+C) before continuing.
 
-- [ ] **Step 3: Add a `typecheck` script**
+- [x] **Step 3: Add a `typecheck` script**
 
 Edit `package.json` scripts:
 
@@ -92,7 +105,7 @@ Edit `package.json` scripts:
 }
 ```
 
-- [ ] **Step 4: Install and configure Vitest**
+- [x] **Step 4: Install and configure Vitest**
 
 ```bash
 npm install -D vitest vite-tsconfig-paths
@@ -123,7 +136,7 @@ Add to `package.json` scripts:
 }
 ```
 
-- [ ] **Step 5: Write a smoke test to prove the runner works**
+- [x] **Step 5: Write a smoke test to prove the runner works**
 
 Create `src/lib/example.test.ts`:
 
@@ -137,12 +150,12 @@ describe("test runner", () => {
 });
 ```
 
-- [ ] **Step 6: Run the test suite**
+- [x] **Step 6: Run the test suite**
 
 Run: `npm test`
 Expected: 1 test passes.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A
