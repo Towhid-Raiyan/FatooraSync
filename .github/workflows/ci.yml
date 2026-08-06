@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fatoorasync
+          POSTGRES_PASSWORD: fatoorasync
+          POSTGRES_DB: fatoorasync
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://fatoorasync:fatoorasync@localhost:5432/fatoorasync
+      DIRECT_URL: postgresql://fatoorasync:fatoorasync@localhost:5432/fatoorasync
+      AUTH_SECRET: ci-test-secret-not-used-in-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - name: Create application database role
+        # The enable_rls migration GRANTs privileges to "fatoorasync_app",
+        # the role Prisma connects as in real (Neon) environments. That role
+        # only exists there because it was created by hand in the Neon
+        # dashboard - it's not part of any migration. CI's Postgres service
+        # is a fresh container with no such role, so the GRANT statements in
+        # that migration would fail without creating it first. CI itself
+        # still connects as the "fatoorasync" superuser (see DATABASE_URL
+        # above); this role only needs to exist for the GRANT to succeed.
+        run: PGPASSWORD=fatoorasync psql -h localhost -U fatoorasync -d fatoorasync -c "CREATE ROLE fatoorasync_app LOGIN;"
+      - run: npx prisma migrate deploy
+      - run: npm test
