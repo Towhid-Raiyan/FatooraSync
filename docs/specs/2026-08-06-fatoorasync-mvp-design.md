@@ -58,7 +58,7 @@ FatooraSync is a cloud-based, multi-tenant POS/business-management SaaS for SMEs
 **Chosen: Option A — Next.js full-stack monolith.**
 
 - TypeScript, Next.js (App Router) for UI + API (route handlers)
-- PostgreSQL, tenant-scoped via `tenant_id` on every tenant table + Postgres Row-Level Security as a defense-in-depth backstop against app-layer isolation bugs
+- PostgreSQL (Neon), tenant-scoped via `tenant_id` on every tenant table, enforced by a Prisma Client Extension that injects `tenant_id` into every query. Originally designed with Postgres Row-Level Security as a defense-in-depth backstop; dropped during implementation after discovering Neon gives every role `BYPASSRLS` with no way to remove it, making RLS policies inert on this provider. Revisit if the project ever moves to a Postgres provider that supports non-bypassing roles (e.g. Supabase).
 - Prisma or Drizzle ORM (final pick pending — not architecturally significant, decide at implementation planning)
 - Auth.js for email/password auth, database-backed sessions
 - `next-intl` for AR/EN + RTL
@@ -68,7 +68,7 @@ FatooraSync is a cloud-based, multi-tenant POS/business-management SaaS for SMEs
 
 ## 6. Data Model — Core Entities
 
-**Multi-tenancy approach:** pooled/shared schema — one database, every tenant-scoped table carries `tenant_id`, enforced twice (application-layer query scoping through a single data-access layer that always injects `tenant_id` server-side + Postgres Row-Level Security as a backstop). This is the standard model for SaaS with many small tenants (Rewaa/Foodics/Shopify-style) — database-per-tenant or schema-per-tenant doesn't scale operationally once there are hundreds of tiny SME tenants each needing migrations run against them.
+**Multi-tenancy approach:** pooled/shared schema — one database, every tenant-scoped table carries `tenant_id`, enforced by a single data-access layer (a Prisma Client Extension) that always injects `tenant_id` into every query server-side. A Postgres Row-Level Security backstop was planned but is not achievable on Neon (see Architecture Decision above). This is the standard model for SaaS with many small tenants (Rewaa/Foodics/Shopify-style) — database-per-tenant or schema-per-tenant doesn't scale operationally once there are hundreds of tiny SME tenants each needing migrations run against them.
 
 **Entities:**
 
@@ -98,7 +98,7 @@ FatooraSync is a cloud-based, multi-tenant POS/business-management SaaS for SMEs
 
 **CI/CD:** GitHub Actions runs typecheck + lint + tests on every PR; Vercel auto-deploys `main`, with free preview deployments per PR doubling as a staging environment during the pilot phase. DB migrations committed to the repo and applied as a deploy step, never run by hand.
 
-**Security baseline:** every tenant-scoped query goes through one data-access layer that injects `tenant_id` server-side — a client-supplied `tenant_id` is never trusted; Postgres RLS is the backstop if that layer is ever bypassed by mistake. Basic rate limiting on the login endpoint, since MVP has no 2FA/OTP fallback.
+**Security baseline:** every tenant-scoped query goes through one data-access layer (a Prisma Client Extension) that injects `tenant_id` server-side and overrides any client-supplied value — a client-supplied `tenant_id` is never trusted. This is the sole isolation mechanism; a planned Postgres RLS backstop is not achievable on Neon (see Architecture Decision). Basic rate limiting on the login endpoint, since MVP has no 2FA/OTP fallback.
 
 ## Next Steps
 

@@ -4,7 +4,7 @@
 
 **Goal:** Stand up the multi-tenant foundation FatooraSync's product modules will be built on: project scaffold, full database schema, tenant isolation, authentication, tenant settings, CI, and observability.
 
-**Architecture:** Next.js (App Router, TypeScript) full-stack monolith. PostgreSQL via Prisma, with every tenant-scoped table carrying `tenantId` and enforced by Postgres Row-Level Security as a backstop to application-layer scoping. Auth.js (credentials provider) with database-backed sessions.
+**Architecture:** Next.js (App Router, TypeScript) full-stack monolith. PostgreSQL via Prisma, with every tenant-scoped table carrying `tenantId`, enforced by a Prisma Client Extension (`withTenant()`) that injects `tenantId` into every query at the application layer — originally designed with a Postgres Row-Level Security backstop, dropped after discovering Neon's roles cannot have `BYPASSRLS` removed (see Task 3). Auth.js (credentials provider) with database-backed sessions.
 
 **Tech Stack:** Next.js 15 (App Router), TypeScript, Tailwind CSS, Prisma + PostgreSQL (Neon, cloud-hosted, used for local development directly), Auth.js v5, argon2 password hashing, Vitest, pino, Sentry, GitHub Actions.
 
@@ -16,7 +16,7 @@ Check this section any time for an at-a-glance status. Updated as each task is r
 
 - [x] Task 1: Project scaffold and test runner — done (commits `3e8abb3..41a687f` on `fatoorasync-foundation`)
 - [x] Task 2: Database schema and Postgres connection — done (commits `44d97d7..72b7a05` on `fatoorasync-foundation`)
-- [ ] Task 3: Tenant isolation — Row-Level Security and data access layer
+- [ ] Task 3: Tenant isolation — data access layer
 - [ ] Task 4: Authentication
 - [ ] Task 5: Tenant onboarding seed
 - [ ] Task 6: Settings API and page
@@ -25,7 +25,7 @@ Check this section any time for an at-a-glance status. Updated as each task is r
 
 ## Global Constraints
 
-- Database: PostgreSQL. Every tenant-scoped table (`Customer`, `Product`, `Document`, `DocumentLine`, `Settings`) carries `tenantId` and has Row-Level Security enabled with `FORCE ROW LEVEL SECURITY` (so the connecting role is subject to it too, not just other roles).
+- Database: PostgreSQL (Neon). Every tenant-scoped table (`Customer`, `Product`, `Document`, `DocumentLine`, `Settings`) carries `tenantId`. Tenant isolation is enforced by the `withTenant()` Prisma Client Extension (Task 3) at the application layer, not by Postgres Row-Level Security — Neon gives every role `BYPASSRLS` with no way to remove it, so RLS policies are inert on this provider. All tenant-scoped queries must go through `withTenant()`; never query these models directly off the base `prisma` client outside of tests deliberately checking that behavior.
 - Auth: email + password only (no OTP/SSO), argon2id hashing, database-backed sessions (not pure JWT).
 - Default VAT rate: 15.00%, stored per-tenant in `Settings`, overridable per-product.
 - Default locale: Arabic (`ar`), RTL. Numerals are Western (0-9) even in Arabic UI.
@@ -423,62 +423,20 @@ git commit -m "Add database schema and Prisma client"
 
 ---
 
-### Task 3: Tenant isolation — Row-Level Security and data access layer
+### Task 3: Tenant isolation — data access layer
+
+**Revised approach:** the plan originally specified Postgres Row-Level Security as a database-level backstop, enforced via a `withTenant()` wrapper that set a `SET LOCAL app.tenant_id` session variable for RLS policies to read. During implementation we discovered Neon (our Postgres provider) gives every role — including ones created specifically to avoid it — the `BYPASSRLS` attribute, with no way to remove it via SQL or the Neon dashboard. RLS policies are silently inert for any connection we can create, so that design cannot work on Neon. Instead, tenant isolation for this phase is enforced entirely in the application layer via a **Prisma Client Extension**: `withTenant()` returns a wrapped Prisma Client where every query against a tenant-scoped model has `tenantId` injected automatically, so a call site cannot forget the filter — the same goal RLS was meant to guarantee, just enforced one layer up instead of at the database. This is a known, accepted gap (documented in the design spec) to revisit if the project ever moves to a Postgres provider that supports non-bypassing roles (e.g. Supabase).
 
 **Files:**
-- Create: `prisma/migrations/<timestamp>_enable_rls/migration.sql`
 - Create: `src/lib/db/tenant-context.ts`
 - Test: `src/lib/db/tenant-context.test.ts`
 
 **Interfaces:**
 - Consumes: `prisma` from `src/lib/db/client.ts` (Task 2)
-- Produces: `withTenant<T>(tenantId: string, fn: (tx) => Promise<T>): Promise<T>` from `src/lib/db/tenant-context.ts`, used by every future API route that touches tenant-scoped tables (`Customer`, `Product`, `Document`, `DocumentLine`, `Settings`).
+- Produces: `withTenant<T>(tenantId: string, fn: (tx) => Promise<T>): Promise<T>` from `src/lib/db/tenant-context.ts`, used by every future API route that touches tenant-scoped tables (`Customer`, `Product`, `Document`, `DocumentLine`, `Settings`). Call signature is unchanged from the original design, so later tasks' plan text referencing `withTenant(tenantId, (tx) => tx.customer...)` needs no changes.
+- **Known limitation for later tasks:** the extension only intercepts top-level model operations. Nested writes through `include`/relational `data: { relation: { create: ... } }` do NOT get `tenantId` auto-injected on the nested model — always pass `tenantId` explicitly in nested writes to tenant-scoped models, or perform them as separate top-level calls through the same `withTenant()` client.
 
-- [ ] **Step 1: Create an empty migration to hand-write**
-
-```bash
-npx prisma migrate dev --create-only --name enable_rls
-```
-
-- [ ] **Step 2: Write the RLS policies**
-
-Edit the generated `prisma/migrations/<timestamp>_enable_rls/migration.sql`:
-
-```sql
-ALTER TABLE "Customer" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Customer" FORCE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation ON "Customer"
-  USING ("tenantId" = current_setting('app.tenant_id', true)::uuid);
-
-ALTER TABLE "Product" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Product" FORCE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation ON "Product"
-  USING ("tenantId" = current_setting('app.tenant_id', true)::uuid);
-
-ALTER TABLE "Document" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Document" FORCE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation ON "Document"
-  USING ("tenantId" = current_setting('app.tenant_id', true)::uuid);
-
-ALTER TABLE "DocumentLine" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "DocumentLine" FORCE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation ON "DocumentLine"
-  USING ("tenantId" = current_setting('app.tenant_id', true)::uuid);
-
-ALTER TABLE "Settings" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Settings" FORCE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation ON "Settings"
-  USING ("tenantId" = current_setting('app.tenant_id', true)::uuid);
-```
-
-`User` and `Session` intentionally have no RLS policy — login looks up a user by email before any tenant context exists.
-
-- [ ] **Step 3: Apply the migration**
-
-Run: `npx prisma migrate dev`
-Expected: applies with no errors.
-
-- [ ] **Step 4: Write the failing tenant-isolation test**
+- [ ] **Step 1: Write the failing tenant-isolation test**
 
 Create `src/lib/db/tenant-context.test.ts`:
 
@@ -510,7 +468,8 @@ describe("tenant isolation", () => {
   });
 
   afterAll(async () => {
-    await prisma.customer.deleteMany({ where: { tenantId: { in: [tenantAId, tenantBId] } } });
+    await withTenant(tenantAId, (tx) => tx.customer.deleteMany({ where: { tenantId: tenantAId } }));
+    await withTenant(tenantBId, (tx) => tx.customer.deleteMany({ where: { tenantId: tenantBId } }));
     await prisma.tenant.deleteMany({ where: { id: { in: [tenantAId, tenantBId] } } });
     await prisma.$disconnect();
   });
@@ -525,6 +484,14 @@ describe("tenant isolation", () => {
     expect(customersSeenByB[0].name).toBe("Customer of B");
   });
 
+  it("overrides a caller-supplied tenantId in the where clause rather than merging with it", async () => {
+    const result = await withTenant(tenantAId, (tx) =>
+      tx.customer.findMany({ where: { tenantId: tenantBId } })
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("Customer of A");
+  });
+
   it("returns nothing when no tenant context is set", async () => {
     const customers = await prisma.customer.findMany();
     expect(customers).toHaveLength(0);
@@ -532,12 +499,25 @@ describe("tenant isolation", () => {
 });
 ```
 
-- [ ] **Step 5: Run the test to verify it fails**
+Note the last test still passes even without RLS: it queries `prisma` directly (not through `withTenant()`), and no rows created by this test file happen to satisfy an unfiltered `findMany()` returning zero — actually, an unfiltered `prisma.customer.findMany()` would return ALL customers including any from other tests if run non-isolated. Skip asserting `toHaveLength(0)` if the suite shares a database with other test files; assert instead that both seeded customers ARE present when queried without tenant scoping, proving `withTenant()` — not the database — is what's doing the filtering:
+
+```typescript
+  it("returns rows unfiltered when bypassing withTenant (no DB-level backstop)", async () => {
+    const customers = await prisma.customer.findMany({
+      where: { tenantId: { in: [tenantAId, tenantBId] } },
+    });
+    expect(customers).toHaveLength(2);
+  });
+```
+
+Use whichever of these two final assertions actually matches this database's real behavior — run it and observe, don't guess.
+
+- [ ] **Step 2: Run the test to verify it fails**
 
 Run: `npm test -- tenant-context.test.ts`
 Expected: FAIL with "Cannot find module './tenant-context'"
 
-- [ ] **Step 6: Write the tenant-scoped data access wrapper**
+- [ ] **Step 3: Write the tenant-scoped data access wrapper**
 
 Create `src/lib/db/tenant-context.ts`:
 
@@ -545,29 +525,63 @@ Create `src/lib/db/tenant-context.ts`:
 import { prisma } from "./client";
 import type { Prisma } from "@prisma/client";
 
-export type TenantTx = Prisma.TransactionClient;
+const TENANT_SCOPED_MODELS = new Set(["Customer", "Product", "Document", "DocumentLine", "Settings"]);
+
+function forTenant(tenantId: string) {
+  return prisma.$extends({
+    query: {
+      $allModels: {
+        async $allOperations({ model, operation, args, query }) {
+          if (!model || !TENANT_SCOPED_MODELS.has(model)) {
+            return query(args);
+          }
+
+          const filteredOps = new Set([
+            "findMany", "findFirst", "findFirstOrThrow", "findUnique", "findUniqueOrThrow",
+            "count", "aggregate", "groupBy", "update", "updateMany", "delete", "deleteMany",
+          ]);
+
+          const typedArgs = args as { where?: Record<string, unknown>; data?: unknown };
+
+          if (filteredOps.has(operation)) {
+            // tenantId must come after the spread so it always wins over
+            // any tenantId the caller passed — override, never merge.
+            typedArgs.where = { ...typedArgs.where, tenantId };
+          }
+          if (operation === "create") {
+            typedArgs.data = { ...(typedArgs.data as Record<string, unknown>), tenantId };
+          }
+          if (operation === "createMany") {
+            typedArgs.data = (typedArgs.data as Record<string, unknown>[]).map((row) => ({ ...row, tenantId }));
+          }
+
+          return query(typedArgs as typeof args);
+        },
+      },
+    },
+  });
+}
+
+export type TenantClient = ReturnType<typeof forTenant>;
 
 export async function withTenant<T>(
   tenantId: string,
-  fn: (tx: TenantTx) => Promise<T>
+  fn: (tx: TenantClient) => Promise<T>
 ): Promise<T> {
-  return prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
-    return fn(tx);
-  });
+  return fn(forTenant(tenantId));
 }
 ```
 
-- [ ] **Step 7: Run the test to verify it passes**
+- [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npm test -- tenant-context.test.ts`
-Expected: both tests PASS.
+Expected: all tests PASS.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add prisma src/lib/db
-git commit -m "Enforce tenant isolation with Postgres row-level security"
+git add src/lib/db
+git commit -m "Enforce tenant isolation via a Prisma client extension"
 ```
 
 ---
