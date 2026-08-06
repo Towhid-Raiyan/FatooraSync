@@ -42,7 +42,7 @@ FatooraSync is a cloud-based, multi-tenant POS/business-management SaaS for SMEs
 | Quotation mutability | **Editable/deletable** by the owner, unlike receipts | Quotations aren't fiscal documents; owners routinely revise and resend quotes |
 | Product/Customer deletion | **Soft delete** (inactive flag) | Disappears from search/autocomplete immediately, but historical receipts referencing it keep showing correct name/price/VAT — no delete is ever blocked by history |
 | Timeline | 1–3 months to first pilot business | Favors lean, low-ceremony architecture over maximal separation |
-| Auth method | Email + password, database-backed sessions | Simpler to build correctly than phone/OTP; sessions are revocable |
+| Auth method | Email + password, JWT sessions (24h expiry) | Simpler to build correctly than phone/OTP. Database-backed sessions were the original intent for revocability, but Auth.js structurally cannot produce them for a Credentials-only provider (confirmed during implementation); accepted JWT + short expiry for MVP's single-owner-login scope rather than building a manual session layer now |
 | Print language | Bilingual (AR + EN) on every printed receipt, regardless of active UI language | Standard for KSA retail; avoids ambiguity for mixed customer bases |
 | VAT granularity | **Per-product VAT rate/exemption**, defaulting to the tenant's global VAT setting | Real KSA grocery/pharmacy baskets mix standard-rated and zero-rated/exempt items; retrofitting later touches receipt totals, ZATCA fields, and historical reports |
 
@@ -60,7 +60,7 @@ FatooraSync is a cloud-based, multi-tenant POS/business-management SaaS for SMEs
 - TypeScript, Next.js (App Router) for UI + API (route handlers)
 - PostgreSQL (Neon), tenant-scoped via `tenant_id` on every tenant table, enforced by a Prisma Client Extension that injects `tenant_id` into every query. Originally designed with Postgres Row-Level Security as a defense-in-depth backstop; dropped during implementation after discovering Neon gives every role `BYPASSRLS` with no way to remove it, making RLS policies inert on this provider. Revisit if the project ever moves to a Postgres provider that supports non-bypassing roles (e.g. Supabase).
 - Prisma or Drizzle ORM (final pick pending — not architecturally significant, decide at implementation planning)
-- Auth.js for email/password auth, database-backed sessions
+- Auth.js for email/password auth, JWT sessions (24h expiry) — see §7 for why database sessions weren't feasible
 - `next-intl` for AR/EN + RTL
 - Deployment: Vercel + managed Postgres (Neon or Supabase — final pick pending)
 
@@ -82,7 +82,7 @@ FatooraSync is a cloud-based, multi-tenant POS/business-management SaaS for SMEs
 
 ## 7. Cross-Cutting Design
 
-**Auth:** Auth.js (NextAuth), credentials provider, email + password (argon2id hashing), database-backed sessions via the ORM adapter (revocable, unlike pure JWT). `User.tenant_id` is a direct FK.
+**Auth:** Auth.js (NextAuth), credentials provider, email + password (argon2id hashing). Sessions are JWT-based with a 24-hour expiry, not database-backed — Auth.js's Credentials provider cannot produce database sessions through its own session engine (confirmed against library source during implementation: the Credentials sign-in path never calls the adapter's session creation, unconditionally for any config). A manual database-session layer (write a `Session` row on login, verify it directly per request) would restore true revocability but was deferred as more complexity than MVP's single-owner-login scope justifies; the `Session` table is kept, unused, reserved for that work if the risk profile changes (e.g. once staff logins exist). `User.tenant_id` is a direct FK.
 
 **i18n/RTL:** `next-intl`, Arabic as default locale, `dir="rtl"` toggled on the root `<html>` element per locale, Tailwind logical properties (`ms-`/`me-`) for automatic layout mirroring. Language preference stored on `Settings`, switchable instantly without a full reload.
 

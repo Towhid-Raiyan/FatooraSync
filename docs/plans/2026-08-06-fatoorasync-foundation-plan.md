@@ -26,7 +26,7 @@ Check this section any time for an at-a-glance status. Updated as each task is r
 ## Global Constraints
 
 - Database: PostgreSQL (Neon). Every tenant-scoped table (`Customer`, `Product`, `Document`, `DocumentLine`, `Settings`) carries `tenantId`. Tenant isolation is enforced by the `withTenant()` Prisma Client Extension (Task 3) at the application layer, not by Postgres Row-Level Security — Neon gives every role `BYPASSRLS` with no way to remove it, so RLS policies are inert on this provider. All tenant-scoped queries must go through `withTenant()`; never query these models directly off the base `prisma` client outside of tests deliberately checking that behavior.
-- Auth: email + password only (no OTP/SSO), argon2id hashing, database-backed sessions (not pure JWT).
+- Auth: email + password only (no OTP/SSO), argon2id hashing. Sessions are JWT-based with a 24-hour expiry (`session.maxAge`), not database-backed — Auth.js structurally cannot produce database sessions through its own session engine for a Credentials-only provider (confirmed against `@auth/core` source during Task 4; a manual database-session layer was considered and explicitly deferred, accepted trade-off for MVP scope of one owner login per tenant). The `Session` Prisma model is kept, unused, reserved for that future work.
 - Default VAT rate: 15.00%, stored per-tenant in `Settings`, overridable per-product.
 - Default locale: Arabic (`ar`), RTL. Numerals are Western (0-9) even in Arabic UI.
 - No payment gateway, no offline/local sync client, no multi-currency, no multi-store in this phase.
