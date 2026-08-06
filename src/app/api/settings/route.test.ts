@@ -4,9 +4,10 @@ import { withTenant } from "@/lib/db/tenant-context";
 import { GET, PATCH } from "./route";
 
 let tenantId: string;
+let mockSession: { user: { tenantId: string } } | null = null;
 
 vi.mock("@/lib/auth/config", () => ({
-  auth: async () => ({ user: { tenantId } }),
+  auth: async () => mockSession,
 }));
 
 describe("/api/settings", () => {
@@ -15,6 +16,7 @@ describe("/api/settings", () => {
       data: { legalName: "Settings Test Co", tradeNameEn: "Settings Test Shop", vatNumber: "300000000000006" },
     });
     tenantId = tenant.id;
+    mockSession = { user: { tenantId } };
     await withTenant(tenantId, (tx) => tx.settings.create({ data: { tenantId } }));
   });
 
@@ -42,5 +44,56 @@ describe("/api/settings", () => {
     const after = await withTenant(tenantId, (tx) => tx.settings.findUniqueOrThrow({ where: { tenantId } }));
     expect(after.defaultVatRate.toString()).toBe("10");
     expect(after.language).toBe("en");
+  });
+
+  it("GET returns 401 when unauthenticated", async () => {
+    mockSession = null;
+    try {
+      const response = await GET();
+      expect(response.status).toBe(401);
+    } finally {
+      mockSession = { user: { tenantId } };
+    }
+  });
+
+  it("PATCH returns 401 when unauthenticated", async () => {
+    mockSession = null;
+    try {
+      const request = new Request("http://localhost/api/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ defaultVatRate: "10", language: "en" }),
+      });
+      const response = await PATCH(request);
+      expect(response.status).toBe(401);
+    } finally {
+      mockSession = { user: { tenantId } };
+    }
+  });
+
+  it("PATCH returns 400 for an out-of-range VAT rate", async () => {
+    const request = new Request("http://localhost/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ defaultVatRate: "150", language: "en" }),
+    });
+    const response = await PATCH(request);
+    expect(response.status).toBe(400);
+  });
+
+  it("PATCH returns 400 for a non-numeric VAT rate", async () => {
+    const request = new Request("http://localhost/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ defaultVatRate: "not-a-number", language: "en" }),
+    });
+    const response = await PATCH(request);
+    expect(response.status).toBe(400);
+  });
+
+  it("PATCH returns 400 for an invalid language", async () => {
+    const request = new Request("http://localhost/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ defaultVatRate: "10", language: "fr" }),
+    });
+    const response = await PATCH(request);
+    expect(response.status).toBe(400);
   });
 });
