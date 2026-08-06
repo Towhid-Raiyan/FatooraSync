@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "./client";
 import { hashPassword } from "@/lib/auth/password";
 
@@ -13,7 +14,7 @@ export interface SeedTenantInput {
 export interface SeedTenantResult {
   tenant: { id: string; legalName: string; tradeNameEn: string; tradeNameAr: string | null; vatNumber: string };
   user: { id: string; tenantId: string; email: string; passwordHash: string };
-  settings: { tenantId: string; defaultVatRate: number };
+  settings: { tenantId: string; defaultVatRate: Prisma.Decimal };
   walkInCustomer: { id: string; tenantId: string; name: string; isWalkIn: boolean };
 }
 
