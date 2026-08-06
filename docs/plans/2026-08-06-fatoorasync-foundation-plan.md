@@ -15,7 +15,7 @@
 Check this section any time for an at-a-glance status. Updated as each task is reviewed and merged.
 
 - [x] Task 1: Project scaffold and test runner — done (commits `3e8abb3..41a687f` on `fatoorasync-foundation`)
-- [ ] Task 2: Database schema and Postgres connection
+- [x] Task 2: Database schema and Postgres connection — done (commits `44d97d7..72b7a05` on `fatoorasync-foundation`)
 - [ ] Task 3: Tenant isolation — Row-Level Security and data access layer
 - [ ] Task 4: Authentication
 - [ ] Task 5: Tenant onboarding seed
@@ -174,7 +174,7 @@ git commit -m "Scaffold Next.js app with TypeScript, Tailwind, and Vitest"
 **Interfaces:**
 - Produces: `prisma` client singleton at `src/lib/db/client.ts` exporting `prisma: PrismaClient`, used by every later task that touches the database.
 
-- [ ] **Step 1: Use a cloud Postgres database for development**
+- [x] **Step 1: Use a cloud Postgres database for development**
 
 Local Docker isn't available in this environment (virtualization disabled), so this project uses a Neon Postgres database for local development instead of a local Docker container. CI (Task 7) is unaffected and still uses its own disposable Postgres service container, since GitHub Actions runners provide that natively regardless of this machine's setup. A Neon project has already been created and its connection string placed in `.env` as `DATABASE_URL` (gitignored — do not read or print its value, just confirm the file exists and `prisma db pull`/migration commands can reach it).
 
@@ -186,7 +186,7 @@ DATABASE_URL="postgresql://user:password@host/dbname?sslmode=require"
 
 Confirm `.env` is already covered by `.gitignore` (it is, from the initial project setup).
 
-- [ ] **Step 2: Install Prisma**
+- [x] **Step 2: Install Prisma**
 
 ```bash
 npm install -D prisma
@@ -196,7 +196,7 @@ npx prisma init --datasource-provider postgresql
 
 `prisma init` will create its own `prisma/schema.prisma` and may create or overwrite `.env` — if it overwrites the existing `.env`, restore the real `DATABASE_URL` value from your Neon project's connection string afterward (get it from your Neon project dashboard's Connection string panel again if needed; do not fabricate a placeholder value).
 
-- [ ] **Step 3: Write the full schema**
+- [x] **Step 3: Write the full schema**
 
 Replace `prisma/schema.prisma`:
 
@@ -350,7 +350,7 @@ model DocumentLine {
 }
 ```
 
-- [ ] **Step 4: Run the first migration**
+- [x] **Step 4: Run the first migration**
 
 ```bash
 npx prisma migrate dev --name init
@@ -358,7 +358,7 @@ npx prisma migrate dev --name init
 
 Expected: migration applies with no errors, `prisma/migrations/<timestamp>_init/` is created.
 
-- [ ] **Step 5: Write the failing test**
+- [x] **Step 5: Write the failing test**
 
 Create `src/lib/db/client.test.ts`:
 
@@ -388,12 +388,12 @@ describe("prisma client", () => {
 });
 ```
 
-- [ ] **Step 6: Run the test to verify it fails**
+- [x] **Step 6: Run the test to verify it fails**
 
 Run: `npm test -- client.test.ts`
 Expected: FAIL with "Cannot find module './client'"
 
-- [ ] **Step 7: Write the Prisma client singleton**
+- [x] **Step 7: Write the Prisma client singleton**
 
 Create `src/lib/db/client.ts`:
 
@@ -409,12 +409,12 @@ if (process.env.NODE_ENV !== "production") {
 }
 ```
 
-- [ ] **Step 8: Run the test to verify it passes**
+- [x] **Step 8: Run the test to verify it passes**
 
 Run: `npm test -- client.test.ts`
 Expected: PASS.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add .env.example prisma src/lib/db
