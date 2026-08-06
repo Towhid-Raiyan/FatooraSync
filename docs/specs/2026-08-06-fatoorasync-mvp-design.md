@@ -1,12 +1,11 @@
 # FatooraSync — MVP Design Spec
 
-**Status:** Design complete — pending final user review of this document, then handoff to `superpowers:writing-plans` for an implementation plan.
+**Status:** Approved
 **Last updated:** 2026-08-06
-**Process:** Produced via the `superpowers:brainstorming` skill. Do not begin implementation/coding until the user has reviewed this file and explicitly approved it.
 
 ## 1. Vision
 
-FatooraSync is a cloud-based, multi-tenant POS/business-management SaaS for SMEs (grocery, chocolate, hardware, retail, electronics, pharmacy shops), launching in Saudi Arabia with planned future expansion to UAE, Qatar, Kuwait, Bahrain, Oman. Core philosophy: simplicity, speed, zero learning curve, bilingual (Arabic-first, full RTL) + English, enterprise-grade reliability under the hood. Long-term (post-MVP) goal: offline-capable local+cloud hybrid sync. Full original vision brief is preserved in project conversation history; this doc captures the distilled, decided design.
+FatooraSync is a cloud-based, multi-tenant POS/business-management SaaS for SMEs (grocery, chocolate, hardware, retail, electronics, pharmacy shops), launching in Saudi Arabia with planned future expansion to UAE, Qatar, Kuwait, Bahrain, Oman. Core philosophy: simplicity, speed, zero learning curve, bilingual (Arabic-first, full RTL) + English, enterprise-grade reliability under the hood. Long-term (post-MVP) goal: offline-capable local+cloud hybrid sync.
 
 ## 2. MVP Scope — APPROVED
 
@@ -47,7 +46,7 @@ FatooraSync is a cloud-based, multi-tenant POS/business-management SaaS for SMEs
 | Print language | Bilingual (AR + EN) on every printed receipt, regardless of active UI language | Standard for KSA retail; avoids ambiguity for mixed customer bases |
 | VAT granularity | **Per-product VAT rate/exemption**, defaulting to the tenant's global VAT setting | Real KSA grocery/pharmacy baskets mix standard-rated and zero-rated/exempt items; retrofitting later touches receipt totals, ZATCA fields, and historical reports |
 
-## 4. Assumptions (stated, not yet challenged by user)
+## 4. Assumptions
 
 1. **Currency:** SAR only for MVP; multi-currency deferred to GCC expansion.
 2. **Locations:** one location per tenant in MVP (multi-store is explicitly future).
@@ -101,6 +100,6 @@ FatooraSync is a cloud-based, multi-tenant POS/business-management SaaS for SMEs
 
 **Security baseline:** every tenant-scoped query goes through one data-access layer that injects `tenant_id` server-side — a client-supplied `tenant_id` is never trusted; Postgres RLS is the backstop if that layer is ever bypassed by mistake. Basic rate limiting on the login endpoint, since MVP has no 2FA/OTP fallback.
 
-## Next Step
+## Next Steps
 
-Once the user has reviewed and approved this document as written, the next step is to invoke `superpowers:writing-plans` to produce a concrete implementation plan (milestones, epics, tasks) — not to begin coding directly from this spec.
+Translate this design into an implementation plan — milestones, epics, and task breakdown — before development begins.
