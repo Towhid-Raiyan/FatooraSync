@@ -16,6 +16,16 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+### Database setup
+
+Copy `.env.example` to `.env` and fill in `DATABASE_URL`, `DIRECT_URL`, and `AUTH_SECRET`.
+
+Before running migrations against a fresh Postgres instance (a new environment, a
+local database, CI), the `fatoorasync_app` role referenced by the migrations must
+be created first — it isn't created by any migration itself. See
+[`prisma/migrations/README.md`](prisma/migrations/README.md) for why and the exact
+bootstrap step.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
