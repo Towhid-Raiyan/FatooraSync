@@ -1087,7 +1087,27 @@ git commit -m "Add tenant onboarding seed"
 - Consumes: `withTenant` from `src/lib/db/tenant-context.ts` (Task 3), `auth` from `src/lib/auth/config.ts` (Task 4)
 - Produces: `GET /api/settings` and `PATCH /api/settings` route handlers.
 
-- [ ] **Step 1: Write the failing test**
+**Note on session typing:** Task 4 populates `session.user.tenantId` via callbacks (see `src/lib/auth/auth.config.ts`) but never declared it in Auth.js's `Session` type — deliberately deferred to this task. `session.user`'s default type has no `tenantId` field at all, so `session.user.tenantId` won't compile without a module augmentation (a same-value cast afterward can't fix a property that doesn't exist on the type). Step 1 below adds that augmentation before any code needs it.
+
+- [ ] **Step 1: Add session type augmentation**
+
+Create `src/lib/auth/next-auth.d.ts`:
+
+```typescript
+import type { DefaultSession } from "next-auth";
+
+declare module "next-auth" {
+  interface Session {
+    user: {
+      tenantId: string;
+    } & DefaultSession["user"];
+  }
+}
+```
+
+This makes `session.user.tenantId` a real, typed property everywhere `Session` is used — no casts needed in this task's route code below.
+
+- [ ] **Step 2: Write the failing test**
 
 Create `src/app/api/settings/route.test.ts`:
 
@@ -1140,12 +1160,12 @@ describe("/api/settings", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 3: Run test to verify it fails**
 
 Run: `npm test -- settings/route.test.ts`
 Expected: FAIL with "Cannot find module './route'"
 
-- [ ] **Step 3: Implement the route**
+- [ ] **Step 4: Implement the route**
 
 Create `src/app/api/settings/route.ts`:
 
@@ -1156,7 +1176,7 @@ import { withTenant } from "@/lib/db/tenant-context";
 
 export async function GET() {
   const session = await auth();
-  const tenantId = session!.user.tenantId as string;
+  const tenantId = session!.user.tenantId;
 
   const settings = await withTenant(tenantId, (tx) => tx.settings.findUniqueOrThrow({ where: { tenantId } }));
   return NextResponse.json(settings);
@@ -1164,7 +1184,7 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   const session = await auth();
-  const tenantId = session!.user.tenantId as string;
+  const tenantId = session!.user.tenantId;
   const body = await request.json();
 
   await withTenant(tenantId, (tx) =>
@@ -1178,12 +1198,12 @@ export async function PATCH(request: Request) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 5: Run test to verify it passes**
 
 Run: `npm test -- settings/route.test.ts`
 Expected: both tests PASS.
 
-- [ ] **Step 5: Build a minimal settings page**
+- [ ] **Step 6: Build a minimal settings page**
 
 Create `src/app/settings/page.tsx`:
 
@@ -1231,15 +1251,15 @@ export default function SettingsPage() {
 }
 ```
 
-- [ ] **Step 6: Manually verify persistence**
+- [ ] **Step 7: Manually verify persistence**
 
 Run: `npm run dev`, log in, visit `/settings`, change the VAT rate, save, reload the page.
 Expected: the changed value persists after reload.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add src/app/api/settings src/app/settings
+git add src/app/api/settings src/app/settings src/lib/auth/next-auth.d.ts
 git commit -m "Add tenant settings API and page"
 ```
 
