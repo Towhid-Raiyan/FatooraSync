@@ -595,6 +595,7 @@ git commit -m "Enforce tenant isolation via a Prisma client extension"
 **Files:**
 - Create: `src/lib/auth/password.ts`
 - Create: `src/lib/auth/rate-limit.ts`
+- Create: `src/lib/auth/auth.config.ts`
 - Create: `src/lib/auth/config.ts`
 - Create: `src/app/api/auth/[...nextauth]/route.ts`
 - Create: `src/app/login/page.tsx`
@@ -610,8 +611,10 @@ git commit -m "Enforce tenant isolation via a Prisma client extension"
 - [x] **Step 1: Install dependencies**
 
 ```bash
-npm install next-auth@beta @auth/prisma-adapter argon2
+npm install next-auth@beta argon2
 ```
+
+`@auth/prisma-adapter` is deliberately not installed — see Step 12.
 
 - [x] **Step 2: Write the failing password test**
 
@@ -787,15 +790,50 @@ Expected: FAIL with "Cannot find module './config'"
 
 - [x] **Step 12: Implement the auth config**
 
-Create `src/lib/auth/config.ts`:
+Auth.js rejects the `"database"` session strategy when Credentials is the
+only provider (`assertConfig` in `@auth/core` requires JWT for
+credentials-only setups), which rules out `@auth/prisma-adapter` too — it
+depends on `Account`/`VerificationToken` models this schema doesn't have,
+and its session/user persistence goes unused under JWT anyway. So the
+config is JWT-based (24h `maxAge`) and split into two files instead of one:
+
+`src/lib/auth/auth.config.ts` — the edge-safe half (session strategy and
+`jwt`/`session` callbacks only, no providers), because `src/middleware.ts`
+runs in the Edge runtime and can't bundle the Credentials provider's
+`authorize()` chain (`password.ts` → `argon2`, a native Node addon):
+
+```typescript
+import type { NextAuthConfig } from "next-auth";
+
+export const authConfig: NextAuthConfig = {
+  session: { strategy: "jwt", maxAge: 60 * 60 * 24 },
+  providers: [],
+  callbacks: {
+    jwt: ({ token, user }) => {
+      if (user) {
+        token.tenantId = (user as { tenantId: string }).tenantId;
+      }
+      return token;
+    },
+    session: ({ session, token }) => ({
+      ...session,
+      user: { ...session.user, tenantId: token.tenantId as string },
+    }),
+  },
+};
+```
+
+`src/lib/auth/config.ts` — spreads `authConfig` and adds the Credentials
+provider. Only safe to import from Node.js-runtime code (the API route
+handler, server components, tests):
 
 ```typescript
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/db/client";
 import { verifyPassword } from "./password";
 import { isRateLimited } from "./rate-limit";
+import { authConfig } from "./auth.config";
 
 export async function authorize(credentials: { email: string; password: string }) {
   if (isRateLimited(credentials.email)) return null;
@@ -810,8 +848,7 @@ export async function authorize(credentials: { email: string; password: string }
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
-  session: { strategy: "database" },
+  ...authConfig,
   providers: [
     Credentials({
       credentials: {
@@ -822,12 +859,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         authorize({ email: credentials.email as string, password: credentials.password as string }),
     }),
   ],
-  callbacks: {
-    session: ({ session, user }) => ({
-      ...session,
-      user: { ...session.user, tenantId: (user as { tenantId: string }).tenantId },
-    }),
-  },
 });
 ```
 
@@ -848,11 +879,19 @@ export const { GET, POST } = handlers;
 
 - [x] **Step 15: Add route protection middleware**
 
-Create `src/middleware.ts`:
+Create `src/middleware.ts`. It deliberately builds its own `NextAuth(authConfig)`
+from the edge-safe `auth.config.ts`, instead of importing `auth` from
+`@/lib/auth/config` — importing the full config would pull the Credentials
+provider (and the `argon2` native addon behind it) into the Edge runtime
+bundle, which fails at request time. Reading the session JWT to gate routes
+doesn't need the provider list at all:
 
 ```typescript
-import { auth } from "@/lib/auth/config";
+import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
+import { authConfig } from "@/lib/auth/auth.config";
+
+const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const isPublic = req.nextUrl.pathname.startsWith("/login") || req.nextUrl.pathname.startsWith("/api/auth");
@@ -1339,6 +1378,7 @@ git commit -m "Add continuous integration workflow"
 **Files:**
 - Create: `src/lib/logger.ts`
 - Create: `sentry.server.config.ts`, `sentry.client.config.ts`, `sentry.edge.config.ts`
+- Create: `src/instrumentation.ts`, `src/instrumentation-client.ts`
 - Test: `src/lib/logger.test.ts`
 
 **Interfaces:**
@@ -1421,6 +1461,34 @@ Sentry.init({
 
 Add `SENTRY_DSN=` to `.env.example`.
 
+Create `src/instrumentation.ts` and `src/instrumentation-client.ts`, the Next.js
+App Router hooks `@sentry/nextjs` needs to load the right config per runtime:
+
+```typescript
+// src/instrumentation.ts
+import * as Sentry from "@sentry/nextjs";
+
+export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    await import("../sentry.server.config");
+  }
+
+  if (process.env.NEXT_RUNTIME === "edge") {
+    await import("../sentry.edge.config");
+  }
+}
+
+export const onRequestError = Sentry.captureRequestError;
+```
+
+```typescript
+// src/instrumentation-client.ts
+import * as Sentry from "@sentry/nextjs";
+import "../sentry.client.config";
+
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
+```
+
 Wrap `next.config.ts` with Sentry's config helper:
 
 ```typescript
@@ -1440,6 +1508,6 @@ Expected: the error appears in the Sentry project dashboard.
 - [x] **Step 8: Commit**
 
 ```bash
-git add src/lib/logger.ts sentry.*.config.ts next.config.ts .env.example
+git add src/lib/logger.ts sentry.*.config.ts src/instrumentation.ts src/instrumentation-client.ts next.config.ts .env.example
 git commit -m "Add structured logging and error tracking"
 ```
