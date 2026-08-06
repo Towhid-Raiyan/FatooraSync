@@ -16,7 +16,7 @@ Check this section any time for an at-a-glance status. Updated as each task is r
 
 - [x] Task 1: Project scaffold and test runner — done (commits `3e8abb3..41a687f` on `fatoorasync-foundation`)
 - [x] Task 2: Database schema and Postgres connection — done (commits `44d97d7..72b7a05` on `fatoorasync-foundation`)
-- [ ] Task 3: Tenant isolation — data access layer
+- [x] Task 3: Tenant isolation — data access layer — done (commits `3486fac..f8fb893` on `fatoorasync-foundation`)
 - [ ] Task 4: Authentication
 - [ ] Task 5: Tenant onboarding seed
 - [ ] Task 6: Settings API and page
@@ -436,7 +436,7 @@ git commit -m "Add database schema and Prisma client"
 - Produces: `withTenant<T>(tenantId: string, fn: (tx) => Promise<T>): Promise<T>` from `src/lib/db/tenant-context.ts`, used by every future API route that touches tenant-scoped tables (`Customer`, `Product`, `Document`, `DocumentLine`, `Settings`). Call signature is unchanged from the original design, so later tasks' plan text referencing `withTenant(tenantId, (tx) => tx.customer...)` needs no changes.
 - **Known limitation for later tasks:** the extension only intercepts top-level model operations. Nested writes through `include`/relational `data: { relation: { create: ... } }` do NOT get `tenantId` auto-injected on the nested model — always pass `tenantId` explicitly in nested writes to tenant-scoped models, or perform them as separate top-level calls through the same `withTenant()` client.
 
-- [ ] **Step 1: Write the failing tenant-isolation test**
+- [x] **Step 1: Write the failing tenant-isolation test**
 
 Create `src/lib/db/tenant-context.test.ts`:
 
@@ -512,12 +512,12 @@ Note the last test still passes even without RLS: it queries `prisma` directly (
 
 Use whichever of these two final assertions actually matches this database's real behavior — run it and observe, don't guess.
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npm test -- tenant-context.test.ts`
 Expected: FAIL with "Cannot find module './tenant-context'"
 
-- [ ] **Step 3: Write the tenant-scoped data access wrapper**
+- [x] **Step 3: Write the tenant-scoped data access wrapper**
 
 Create `src/lib/db/tenant-context.ts`:
 
@@ -572,12 +572,12 @@ export async function withTenant<T>(
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npm test -- tenant-context.test.ts`
 Expected: all tests PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/db
