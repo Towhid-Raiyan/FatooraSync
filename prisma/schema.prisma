@@ -58,6 +58,11 @@ model User {
   sessions Session[]
 }
 
+// Reserved, not currently used: Task 4's auth is JWT-based (Auth.js rejects
+// database sessions for a Credentials-only provider), so nothing writes to
+// this table today. Kept in the schema for a future manual database-session
+// layer if the risk profile changes (e.g. revocable staff logins rather than
+// a single owner login per tenant).
 model Session {
   id           String   @id @default(uuid())
   sessionToken String   @unique

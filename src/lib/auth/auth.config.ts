@@ -11,7 +11,10 @@ import type { NextAuthConfig } from "next-auth";
  * in the Node.js-runtime API route handler.
  */
 export const authConfig: NextAuthConfig = {
-  session: { strategy: "jwt" },
+  // 24h expiry bounds exposure from the JWT strategy - MVP scope is a
+  // single owner login per tenant, not staff accounts needing revocable
+  // database sessions. Revisit if/when that risk profile changes.
+  session: { strategy: "jwt", maxAge: 60 * 60 * 24 },
   providers: [],
   callbacks: {
     jwt: ({ token, user }) => {

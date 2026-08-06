@@ -23,9 +23,10 @@ export async function authorize(credentials: { email: string; password: string }
 // not usable here without OAuth/email providers: it depends on Account and
 // VerificationToken models that don't exist in this schema (auth only needs
 // User + Session per Task 2/3's design), and its session/user persistence
-// methods go unused under the JWT strategy anyway. So sessions are JWT-based,
-// and tenantId travels through the jwt/session callbacks (defined in
-// auth.config.ts) instead of via the adapter's user object.
+// methods go unused under the JWT strategy anyway - so @auth/prisma-adapter
+// isn't installed. Sessions are JWT-based (24h expiry, see auth.config.ts),
+// and tenantId travels through the jwt/session callbacks there instead of
+// via an adapter's user object.
 //
 // This full config (with the Credentials provider) is only safe to import
 // from Node.js-runtime code (the API route handler, server components,
