@@ -21,7 +21,9 @@ Check this section any time for an at-a-glance status. Updated as each task is r
 - [x] Task 5: Tenant onboarding seed — done (commits `b66dfff..2754749` on `fatoorasync-foundation`)
 - [x] Task 6: Settings API and page — done (commits `101cb6b..b2e4827` on `fatoorasync-foundation`)
 - [x] Task 7: Continuous integration — done (commits `bc6e886..274c264` on `fatoorasync-foundation`)
-- [ ] Task 8: Structured logging and error tracking
+- [x] Task 8: Structured logging and error tracking — done (commits `7b4c997..0c2783b` on `fatoorasync-foundation`)
+
+**All 8 tasks complete.** Final whole-branch review next, before merging into `main`.
 
 ## Global Constraints
 
@@ -62,6 +64,8 @@ src/
 sentry.server.config.ts
 sentry.client.config.ts
 sentry.edge.config.ts
+src/instrumentation.ts
+src/instrumentation-client.ts
 .github/workflows/ci.yml
 ```
 
@@ -1340,13 +1344,13 @@ git commit -m "Add continuous integration workflow"
 **Interfaces:**
 - Produces: `getLogger(tenantId?: string)` from `src/lib/logger.ts`, used by future API routes for structured, tenant-tagged logging.
 
-- [ ] **Step 1: Install dependencies**
+- [x] **Step 1: Install dependencies**
 
 ```bash
 npm install pino @sentry/nextjs
 ```
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Create `src/lib/logger.test.ts`:
 
@@ -1374,12 +1378,12 @@ describe("createLogger", () => {
 });
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run: `npm test -- logger.test.ts`
 Expected: FAIL with "Cannot find module './logger'"
 
-- [ ] **Step 4: Implement the logger**
+- [x] **Step 4: Implement the logger**
 
 Create `src/lib/logger.ts`:
 
@@ -1397,12 +1401,12 @@ export function getLogger(tenantId?: string) {
 }
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `npm test -- logger.test.ts`
 Expected: PASS.
 
-- [ ] **Step 6: Add Sentry configuration**
+- [x] **Step 6: Add Sentry configuration**
 
 Create `sentry.server.config.ts`, `sentry.client.config.ts`, and `sentry.edge.config.ts`, each with:
 
@@ -1428,12 +1432,12 @@ const nextConfig: NextConfig = {};
 export default withSentryConfig(nextConfig, { silent: true });
 ```
 
-- [ ] **Step 7: Manually verify Sentry capture**
+- [x] **Step 7: Manually verify Sentry capture**
 
 Set `SENTRY_DSN` in `.env` to a real DSN from a Sentry project, temporarily add `throw new Error("sentry test")` to a route handler, hit it, then remove the temporary throw.
 Expected: the error appears in the Sentry project dashboard.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/lib/logger.ts sentry.*.config.ts next.config.ts .env.example
