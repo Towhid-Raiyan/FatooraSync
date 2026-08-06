@@ -18,7 +18,7 @@ Check this section any time for an at-a-glance status. Updated as each task is r
 - [x] Task 2: Database schema and Postgres connection — done (commits `44d97d7..72b7a05` on `fatoorasync-foundation`)
 - [x] Task 3: Tenant isolation — data access layer — done (commits `3486fac..f8fb893` on `fatoorasync-foundation`)
 - [x] Task 4: Authentication — done (commits `bfb6cab..69c7078` on `fatoorasync-foundation`)
-- [ ] Task 5: Tenant onboarding seed
+- [x] Task 5: Tenant onboarding seed — done (commits `b66dfff..2754749` on `fatoorasync-foundation`)
 - [ ] Task 6: Settings API and page
 - [ ] Task 7: Continuous integration
 - [ ] Task 8: Structured logging and error tracking
@@ -923,7 +923,7 @@ git commit -m "Add email and password authentication"
 - Consumes: `hashPassword` from `src/lib/auth/password.ts` (Task 4)
 - Produces: `seedTenant(input: SeedTenantInput): Promise<SeedTenantResult>` from `src/lib/db/seed-tenant.ts`, used by `prisma/seed.ts` and by future pilot-tenant provisioning tooling.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/lib/db/seed-tenant.test.ts`:
 
@@ -960,12 +960,12 @@ describe("seedTenant", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test -- seed-tenant.test.ts`
 Expected: FAIL with "Cannot find module './seed-tenant'"
 
-- [ ] **Step 3: Implement seedTenant**
+- [x] **Step 3: Implement seedTenant**
 
 Create `src/lib/db/seed-tenant.ts`:
 
@@ -1014,12 +1014,12 @@ export async function seedTenant(input: SeedTenantInput) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm test -- seed-tenant.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Write the CLI seed entrypoint**
+- [x] **Step 5: Write the CLI seed entrypoint**
 
 Create `prisma/seed.ts`:
 
@@ -1059,7 +1059,7 @@ Add to `package.json`:
 npm install -D tsx
 ```
 
-- [ ] **Step 6: Manually run and verify the seed**
+- [x] **Step 6: Manually run and verify the seed**
 
 Run: `npx prisma db seed`
 Expected: completes with no errors.
@@ -1067,7 +1067,7 @@ Expected: completes with no errors.
 Run: `npx prisma studio`, inspect the `Tenant`, `User`, `Settings`, and `Customer` tables.
 Expected: one tenant row, one user row with a hashed password, one settings row with `defaultVatRate = 15`, one customer row with `isWalkIn = true`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/lib/db/seed-tenant.ts prisma/seed.ts package.json
