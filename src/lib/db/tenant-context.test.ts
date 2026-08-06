@@ -49,6 +49,37 @@ describe("tenant isolation", () => {
     expect(result[0].name).toBe("Customer of A");
   });
 
+  it("scopes upsert to the active tenant, both in where and in create/update", async () => {
+    const target = await withTenant(tenantAId, (tx) =>
+      tx.customer.create({ data: { tenantId: tenantAId, name: "Upsert Target" } })
+    );
+
+    try {
+      // where.tenantId names tenant B; create/update also don't mention the
+      // real tenant. If any of the three weren't overridden, this would
+      // either miss the existing tenant-A row (falling through to create,
+      // under the wrong tenant) or leave the update unscoped.
+      const result = await withTenant(tenantAId, (tx) =>
+        tx.customer.upsert({
+          where: { id: target.id, tenantId: tenantBId },
+          create: { tenantId: tenantBId, name: "Should not be created" },
+          update: { name: "Updated by upsert" },
+        })
+      );
+
+      expect(result.id).toBe(target.id);
+      expect(result.tenantId).toBe(tenantAId);
+      expect(result.name).toBe("Updated by upsert");
+
+      const totalCustomers = await withTenant(tenantAId, (tx) => tx.customer.count());
+      // The upsert must have matched and updated the existing row, not
+      // created a second one under tenant B that would be invisible here.
+      expect(totalCustomers).toBe(2);
+    } finally {
+      await withTenant(tenantAId, (tx) => tx.customer.delete({ where: { id: target.id } }));
+    }
+  });
+
   // A bare, unscoped query (bypassing withTenant()) is NOT filtered by the
   // database -- there is no RLS backstop on this Postgres provider (see
   // migration 20260806120225_disable_inert_rls). Both seeded customers come

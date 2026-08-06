@@ -37,12 +37,28 @@ function forTenant(tenantId: string) {
 
           const filteredOps = new Set([
             "findMany", "findFirst", "findFirstOrThrow", "findUnique", "findUniqueOrThrow",
-            "count", "aggregate", "groupBy", "update", "updateMany", "delete", "deleteMany",
+            "count", "aggregate", "groupBy",
+            "update", "updateMany", "updateManyAndReturn",
+            "delete", "deleteMany",
           ]);
 
-          const typedArgs = args as { where?: Record<string, unknown>; data?: unknown };
+          const typedArgs = args as {
+            where?: Record<string, unknown>;
+            data?: unknown;
+            create?: Record<string, unknown>;
+            update?: Record<string, unknown>;
+          };
 
-          if (filteredOps.has(operation)) {
+          if (operation === "upsert") {
+            // upsert is both a read-filter (where) and a write-stamp
+            // (create/update sub-objects) in one call - all three need
+            // tenantId injected, or a caller could read/write another
+            // tenant's row via the where clause, or create/update a row
+            // silently outside the active tenant.
+            typedArgs.where = { ...typedArgs.where, tenantId };
+            typedArgs.create = { ...typedArgs.create, tenantId };
+            typedArgs.update = { ...typedArgs.update, tenantId };
+          } else if (filteredOps.has(operation)) {
             // tenantId must come after the spread so it always wins over
             // any tenantId the caller passed - override, never merge.
             typedArgs.where = { ...typedArgs.where, tenantId };
@@ -50,7 +66,7 @@ function forTenant(tenantId: string) {
           if (operation === "create") {
             typedArgs.data = { ...(typedArgs.data as Record<string, unknown>), tenantId };
           }
-          if (operation === "createMany") {
+          if (operation === "createMany" || operation === "createManyAndReturn") {
             typedArgs.data = (typedArgs.data as Record<string, unknown>[]).map((row) => ({ ...row, tenantId }));
           }
 
