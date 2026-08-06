@@ -19,7 +19,7 @@ Check this section any time for an at-a-glance status. Updated as each task is r
 - [x] Task 3: Tenant isolation — data access layer — done (commits `3486fac..f8fb893` on `fatoorasync-foundation`)
 - [x] Task 4: Authentication — done (commits `bfb6cab..69c7078` on `fatoorasync-foundation`)
 - [x] Task 5: Tenant onboarding seed — done (commits `b66dfff..2754749` on `fatoorasync-foundation`)
-- [ ] Task 6: Settings API and page
+- [x] Task 6: Settings API and page — done (commits `101cb6b..b2e4827` on `fatoorasync-foundation`)
 - [ ] Task 7: Continuous integration
 - [ ] Task 8: Structured logging and error tracking
 
@@ -1089,7 +1089,7 @@ git commit -m "Add tenant onboarding seed"
 
 **Note on session typing:** Task 4 populates `session.user.tenantId` via callbacks (see `src/lib/auth/auth.config.ts`) but never declared it in Auth.js's `Session` type — deliberately deferred to this task. `session.user`'s default type has no `tenantId` field at all, so `session.user.tenantId` won't compile without a module augmentation (a same-value cast afterward can't fix a property that doesn't exist on the type). Step 1 below adds that augmentation before any code needs it.
 
-- [ ] **Step 1: Add session type augmentation**
+- [x] **Step 1: Add session type augmentation**
 
 Create `src/lib/auth/next-auth.d.ts`:
 
@@ -1107,7 +1107,7 @@ declare module "next-auth" {
 
 This makes `session.user.tenantId` a real, typed property everywhere `Session` is used — no casts needed in this task's route code below.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Create `src/app/api/settings/route.test.ts`:
 
@@ -1160,12 +1160,12 @@ describe("/api/settings", () => {
 });
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run: `npm test -- settings/route.test.ts`
 Expected: FAIL with "Cannot find module './route'"
 
-- [ ] **Step 4: Implement the route**
+- [x] **Step 4: Implement the route**
 
 Create `src/app/api/settings/route.ts`:
 
@@ -1198,12 +1198,12 @@ export async function PATCH(request: Request) {
 }
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `npm test -- settings/route.test.ts`
 Expected: both tests PASS.
 
-- [ ] **Step 6: Build a minimal settings page**
+- [x] **Step 6: Build a minimal settings page**
 
 Create `src/app/settings/page.tsx`:
 
@@ -1251,12 +1251,12 @@ export default function SettingsPage() {
 }
 ```
 
-- [ ] **Step 7: Manually verify persistence**
+- [x] **Step 7: Manually verify persistence**
 
 Run: `npm run dev`, log in, visit `/settings`, change the VAT rate, save, reload the page.
 Expected: the changed value persists after reload.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/app/api/settings src/app/settings src/lib/auth/next-auth.d.ts
