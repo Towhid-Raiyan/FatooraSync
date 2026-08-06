@@ -4,7 +4,7 @@
 
 **Goal:** Stand up the multi-tenant foundation FatooraSync's product modules will be built on: project scaffold, full database schema, tenant isolation, authentication, tenant settings, CI, and observability.
 
-**Architecture:** Next.js (App Router, TypeScript) full-stack monolith. PostgreSQL via Prisma, with every tenant-scoped table carrying `tenantId`, enforced by a Prisma Client Extension (`withTenant()`) that injects `tenantId` into every query at the application layer — originally designed with a Postgres Row-Level Security backstop, dropped after discovering Neon's roles cannot have `BYPASSRLS` removed (see Task 3). Auth.js (credentials provider) with database-backed sessions.
+**Architecture:** Next.js (App Router, TypeScript) full-stack monolith. PostgreSQL via Prisma, with every tenant-scoped table carrying `tenantId`, enforced by a Prisma Client Extension (`withTenant()`) that injects `tenantId` into every query at the application layer — originally designed with a Postgres Row-Level Security backstop, dropped after discovering Neon's roles cannot have `BYPASSRLS` removed (see Task 3). Auth.js (credentials provider) with JWT sessions (24h expiry) — originally designed with database-backed sessions, dropped after confirming Auth.js cannot produce those for a Credentials-only provider (see Task 4).
 
 **Tech Stack:** Next.js 15 (App Router), TypeScript, Tailwind CSS, Prisma + PostgreSQL (Neon, cloud-hosted, used for local development directly), Auth.js v5, argon2 password hashing, Vitest, pino, Sentry, GitHub Actions.
 
@@ -17,7 +17,7 @@ Check this section any time for an at-a-glance status. Updated as each task is r
 - [x] Task 1: Project scaffold and test runner — done (commits `3e8abb3..41a687f` on `fatoorasync-foundation`)
 - [x] Task 2: Database schema and Postgres connection — done (commits `44d97d7..72b7a05` on `fatoorasync-foundation`)
 - [x] Task 3: Tenant isolation — data access layer — done (commits `3486fac..f8fb893` on `fatoorasync-foundation`)
-- [ ] Task 4: Authentication
+- [x] Task 4: Authentication — done (commits `bfb6cab..69c7078` on `fatoorasync-foundation`)
 - [ ] Task 5: Tenant onboarding seed
 - [ ] Task 6: Settings API and page
 - [ ] Task 7: Continuous integration
@@ -603,13 +603,13 @@ git commit -m "Enforce tenant isolation via a Prisma client extension"
 - Consumes: `prisma` from `src/lib/db/client.ts` (Task 2)
 - Produces: `hashPassword(plain: string): Promise<string>` and `verifyPassword(plain: string, hash: string): Promise<boolean>` from `src/lib/auth/password.ts`, `isRateLimited(identifier: string): boolean` from `src/lib/auth/rate-limit.ts` — both used by Task 5's seed and any future user-management code.
 
-- [ ] **Step 1: Install dependencies**
+- [x] **Step 1: Install dependencies**
 
 ```bash
 npm install next-auth@beta @auth/prisma-adapter argon2
 ```
 
-- [ ] **Step 2: Write the failing password test**
+- [x] **Step 2: Write the failing password test**
 
 Create `src/lib/auth/password.test.ts`:
 
@@ -630,12 +630,12 @@ describe("password hashing", () => {
 });
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run: `npm test -- password.test.ts`
 Expected: FAIL with "Cannot find module './password'"
 
-- [ ] **Step 4: Implement password hashing**
+- [x] **Step 4: Implement password hashing**
 
 Create `src/lib/auth/password.ts`:
 
@@ -651,12 +651,12 @@ export async function verifyPassword(plain: string, hash: string): Promise<boole
 }
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `npm test -- password.test.ts`
 Expected: both tests PASS.
 
-- [ ] **Step 6: Write the failing rate-limit test**
+- [x] **Step 6: Write the failing rate-limit test**
 
 Create `src/lib/auth/rate-limit.test.ts`:
 
@@ -679,12 +679,12 @@ describe("isRateLimited", () => {
 });
 ```
 
-- [ ] **Step 7: Run test to verify it fails**
+- [x] **Step 7: Run test to verify it fails**
 
 Run: `npm test -- rate-limit.test.ts`
 Expected: FAIL with "Cannot find module './rate-limit'"
 
-- [ ] **Step 8: Implement rate limiting**
+- [x] **Step 8: Implement rate limiting**
 
 Create `src/lib/auth/rate-limit.ts`:
 
@@ -710,12 +710,12 @@ export function isRateLimited(identifier: string): boolean {
 
 This is an in-memory, per-instance limiter — sufficient to blunt basic credential-stuffing at pilot scale on a single Vercel deployment, but not consistent across multiple concurrent serverless instances. Revisit with a shared store (e.g. Upstash Redis) once real traffic justifies it.
 
-- [ ] **Step 9: Run test to verify it passes**
+- [x] **Step 9: Run test to verify it passes**
 
 Run: `npm test -- rate-limit.test.ts`
 Expected: both tests PASS.
 
-- [ ] **Step 10: Write the failing auth config test**
+- [x] **Step 10: Write the failing auth config test**
 
 Create `src/lib/auth/config.test.ts`:
 
@@ -776,12 +776,12 @@ describe("credentials authorize", () => {
 });
 ```
 
-- [ ] **Step 11: Run test to verify it fails**
+- [x] **Step 11: Run test to verify it fails**
 
 Run: `npm test -- config.test.ts`
 Expected: FAIL with "Cannot find module './config'"
 
-- [ ] **Step 12: Implement the auth config**
+- [x] **Step 12: Implement the auth config**
 
 Create `src/lib/auth/config.ts`:
 
@@ -827,12 +827,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 });
 ```
 
-- [ ] **Step 13: Run test to verify it passes**
+- [x] **Step 13: Run test to verify it passes**
 
 Run: `npm test -- config.test.ts`
 Expected: all 4 tests PASS.
 
-- [ ] **Step 14: Wire up the route handler**
+- [x] **Step 14: Wire up the route handler**
 
 Create `src/app/api/auth/[...nextauth]/route.ts`:
 
@@ -842,7 +842,7 @@ import { handlers } from "@/lib/auth/config";
 export const { GET, POST } = handlers;
 ```
 
-- [ ] **Step 15: Add route protection middleware**
+- [x] **Step 15: Add route protection middleware**
 
 Create `src/middleware.ts`:
 
@@ -862,7 +862,7 @@ export const config = {
 };
 ```
 
-- [ ] **Step 16: Build a minimal login page**
+- [x] **Step 16: Build a minimal login page**
 
 Create `src/app/login/page.tsx`:
 
@@ -898,12 +898,12 @@ export default function LoginPage() {
 }
 ```
 
-- [ ] **Step 17: Manually verify route protection**
+- [x] **Step 17: Manually verify route protection**
 
 Run: `npm run dev`, visit `http://localhost:3000/` while logged out.
 Expected: redirected to `/login`.
 
-- [ ] **Step 18: Commit**
+- [x] **Step 18: Commit**
 
 ```bash
 git add src/lib/auth src/app/api/auth src/app/login src/middleware.ts
