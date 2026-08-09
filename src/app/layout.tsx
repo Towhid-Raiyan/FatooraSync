@@ -5,7 +5,7 @@ import "./globals.css";
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-jakarta",
-  weight: ["500", "600", "700", "800"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
