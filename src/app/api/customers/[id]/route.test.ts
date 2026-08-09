@@ -8,6 +8,8 @@ let otherTenantId: string;
 let customerId: string;
 let walkInId: string;
 let otherTenantCustomerId: string;
+let customerWithVatId: string;
+let customerWithoutVatId: string;
 let mockSession: { user: { tenantId: string } } | null = null;
 
 vi.mock("@/lib/auth/config", () => ({
@@ -35,6 +37,16 @@ describe("/api/customers/[id]", () => {
       tx.customer.create({ data: { name: "Walk-in Customer", isWalkIn: true } })
     );
     walkInId = walkIn.id;
+
+    const custWithVat = await withTenant(tenantId, (tx) =>
+      tx.customer.create({ data: { name: "Customer With VAT", vatId: "300000000000088" } })
+    );
+    customerWithVatId = custWithVat.id;
+
+    const custWithoutVat = await withTenant(tenantId, (tx) =>
+      tx.customer.create({ data: { name: "Customer Without VAT" } })
+    );
+    customerWithoutVatId = custWithoutVat.id;
 
     const otherTenant = await prisma.tenant.create({
       data: { legalName: "Other Patch Co", tradeNameEn: "Other Patch Shop", vatNumber: "300000000000051" },
@@ -81,6 +93,11 @@ describe("/api/customers/[id]", () => {
     expect(response.status).toBe(403);
   });
 
+  it("returns 403 when targeting the Walk-in Customer with different body shape", async () => {
+    const response = await PATCH(patchRequest({ name: "Should not work" }), { params: Promise.resolve({ id: walkInId }) });
+    expect(response.status).toBe(403);
+  });
+
   it("returns 404 for a nonexistent id", async () => {
     const response = await PATCH(patchRequest({ name: "Nope" }), {
       params: Promise.resolve({ id: "00000000-0000-0000-0000-000000000000" }),
@@ -108,5 +125,14 @@ describe("/api/customers/[id]", () => {
     } finally {
       mockSession = { user: { tenantId } };
     }
+  });
+
+  it("returns 409 when updating vatId to one already used in the same tenant", async () => {
+    const response = await PATCH(patchRequest({ vatId: "300000000000088" }), {
+      params: Promise.resolve({ id: customerWithoutVatId }),
+    });
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error).toBe("This VAT ID is already used by another customer");
   });
 });
