@@ -10,7 +10,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   });
 
   return (
-    <AppShell tenantName={tenant.tradeNameEn} userEmail={session!.user.email ?? ""} title="FatooraSync">
+    <AppShell tenantName={tenant.tradeNameEn} userEmail={session!.user.email ?? ""}>
       {children}
     </AppShell>
   );
