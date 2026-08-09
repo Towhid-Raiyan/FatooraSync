@@ -1,0 +1,49 @@
+import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
+import { auth } from "@/lib/auth/config";
+import { withTenant } from "@/lib/db/tenant-context";
+
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user?.tenantId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const tenantId = session.user.tenantId;
+  const { id } = await params;
+  const body = await request.json();
+
+  const existing = await withTenant(tenantId, (tx) => tx.customer.findUnique({ where: { id } }));
+  if (!existing) {
+    return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+  }
+  if (existing.isWalkIn) {
+    return NextResponse.json({ error: "The Walk-in Customer cannot be edited" }, { status: 403 });
+  }
+
+  const data: Record<string, unknown> = {};
+  if (body.name !== undefined) {
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!name) {
+      return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    }
+    data.name = name;
+  }
+  if (body.vatId !== undefined) data.vatId = body.vatId || null;
+  if (body.crNumber !== undefined) data.crNumber = body.crNumber || null;
+  if (body.phone !== undefined) data.phone = body.phone || null;
+  if (body.address !== undefined) data.address = body.address || null;
+  if (body.isActive !== undefined) data.isActive = Boolean(body.isActive);
+
+  try {
+    const customer = await withTenant(tenantId, (tx) => tx.customer.update({ where: { id }, data }));
+    return NextResponse.json(customer);
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return NextResponse.json(
+        { error: "This VAT ID is already used by another customer" },
+        { status: 409 }
+      );
+    }
+    throw err;
+  }
+}
