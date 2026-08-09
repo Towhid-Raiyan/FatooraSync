@@ -26,7 +26,7 @@ export function DesertScene() {
         </g>
 
         <defs>
-          <g id="datepalm-scene">
+          <symbol id="datepalm-scene" viewBox="0 0 100 140">
             <path d="M47 140 C46 110 47 80 49 62 L53 62 C55 80 55 110 55 140 Z" />
             <path d="M51 60 C51 60 30 46 10 46 C10 46 26 62 48 66 Z" />
             <path d="M51 60 C51 60 72 46 92 46 C92 46 76 62 54 66 Z" />
@@ -36,7 +36,7 @@ export function DesertScene() {
             <path d="M51 56 C51 56 72 22 80 2 C80 2 64 16 54 46 Z" />
             <path d="M51 54 C51 54 44 18 46 0 C46 0 54 4 52 44 Z" />
             <path d="M51 54 C51 54 58 18 56 0 C56 0 48 4 50 44 Z" />
-          </g>
+          </symbol>
         </defs>
 
         <use href="#datepalm-scene" x="260" y="130" width="130" height="240" className="fill-primary opacity-[0.12]" />
