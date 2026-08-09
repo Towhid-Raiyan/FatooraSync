@@ -95,7 +95,7 @@ Open `src/app/globals.css`. Shadcn's `init` step will have added its own `:root`
 
   --color-heading: #0A3D24;
   --color-body: #3F5C4D;
-  --color-muted: #8A968E;
+  --color-muted-fg: #8A968E;
   --color-border-subtle: #E1E8E3;
   --color-bg-app: #FAFBFA;
   --color-bg-card: #FFFFFF;
@@ -115,7 +115,7 @@ Then, inside the `@theme inline` block (or add one if the CLI didn't create it),
   --color-accent-beige: var(--color-accent-beige);
   --color-heading: var(--color-heading);
   --color-body: var(--color-body);
-  --color-muted: var(--color-muted);
+  --color-muted-fg: var(--color-muted-fg);
   --color-border-subtle: var(--color-border-subtle);
   --color-bg-app: var(--color-bg-app);
   --color-bg-card: var(--color-bg-card);
@@ -125,6 +125,8 @@ Then, inside the `@theme inline` block (or add one if the CLI didn't create it),
 ```
 
 This makes `bg-primary`, `text-heading`, `border-border-subtle`, `font-sans`, `font-arabic`, etc. available as Tailwind utility classes.
+
+**Important — token naming:** the muted-text token is named `--color-muted-fg`, not `--color-muted`. shadcn/ui reserves the exact name `muted` (and `muted-foreground`) for its own internal semantic token, used by `Button`'s `ghost`/`outline` variants and `CardFooter` for hover/background states (see the generated `src/components/ui/button.tsx` and `src/components/ui/card.tsx`). Reusing that exact name would silently override shadcn's own hover-state color with our text-muted color wherever those component variants are used — `muted-fg` avoids the collision while keeping the same design intent (labels, secondary text). Every later task in this plan that references muted/secondary text uses the class `text-muted-fg`, not `text-muted`.
 
 - [ ] **Step 4: Add the bilingual font pair**
 
@@ -390,7 +392,7 @@ export function Topbar({ title, userEmail }: { title: string; userEmail: string 
   return (
     <div className="relative z-10 flex items-center justify-between border-b border-border-subtle bg-white/70 px-7 py-3.5 backdrop-blur-sm">
       <div className="text-[15px] font-bold text-heading">{title}</div>
-      <div className="text-[12.5px] text-muted">{userEmail}</div>
+      <div className="text-[12.5px] text-muted-fg">{userEmail}</div>
     </div>
   );
 }
@@ -540,7 +542,7 @@ export default function LoginPage() {
         className="relative z-10 w-full max-w-[340px] rounded-2xl border border-border-subtle bg-white/90 p-8 shadow-[0_1px_2px_rgba(16,44,30,0.04),0_14px_34px_rgba(16,44,30,0.1),0_4px_10px_rgba(16,44,30,0.06)] backdrop-blur-md"
       >
         <h1 className="text-center text-[19px] font-extrabold text-heading">Welcome back</h1>
-        <p className="mb-6 text-center text-xs text-muted">Sign in to your business account</p>
+        <p className="mb-6 text-center text-xs text-muted-fg">Sign in to your business account</p>
 
         <div className="mb-4">
           <Label htmlFor="email" className="mb-1.5 block text-xs font-semibold text-body">
@@ -574,7 +576,7 @@ export default function LoginPage() {
           Sign In
         </Button>
 
-        <p className="mt-5 flex items-center justify-center gap-1.5 text-[11px] text-muted">
+        <p className="mt-5 flex items-center justify-center gap-1.5 text-[11px] text-muted-fg">
           <span className="h-1 w-1 rounded-full bg-accent-mint" />
           Powered by FatooraSync
         </p>
@@ -743,11 +745,11 @@ export default async function HomePage() {
 
   return (
     <div className="flex h-full flex-col items-center justify-center text-center">
-      <div className="text-xs font-semibold uppercase tracking-wider text-muted">Welcome back</div>
+      <div className="text-xs font-semibold uppercase tracking-wider text-muted-fg">Welcome back</div>
       <h1 className="my-2 bg-gradient-to-br from-primary-hover via-primary to-primary-dark bg-clip-text text-5xl font-extrabold text-transparent">
         {tenant.tradeNameEn}
       </h1>
-      <p className="mb-9 flex items-center justify-center gap-1.5 text-[11.5px] font-medium text-muted">
+      <p className="mb-9 flex items-center justify-center gap-1.5 text-[11.5px] font-medium text-muted-fg">
         <span className="h-[5px] w-[5px] rounded-full bg-accent-mint" />
         Powered by FatooraSync
       </p>
@@ -755,11 +757,11 @@ export default async function HomePage() {
       <div className="flex gap-4">
         <div className="min-w-[130px] rounded-xl border border-border-subtle bg-white px-6 py-4 shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] transition-transform hover:-translate-y-0.5">
           <div className="text-2xl font-bold text-heading">{productCount}</div>
-          <div className="mt-1 text-[11.5px] text-muted">Products</div>
+          <div className="mt-1 text-[11.5px] text-muted-fg">Products</div>
         </div>
         <div className="min-w-[130px] rounded-xl border border-border-subtle bg-white px-6 py-4 shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] transition-transform hover:-translate-y-0.5">
           <div className="text-2xl font-bold text-heading">{customerCount}</div>
-          <div className="mt-1 text-[11.5px] text-muted">Customers</div>
+          <div className="mt-1 text-[11.5px] text-muted-fg">Customers</div>
         </div>
       </div>
     </div>
