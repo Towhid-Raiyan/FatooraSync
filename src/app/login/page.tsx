@@ -26,7 +26,7 @@ export default function LoginPage() {
     <div className="relative flex min-h-screen items-center justify-center bg-bg-app">
       <DesertScene />
 
-      <div className="absolute left-8 top-7 z-10 flex items-center gap-2 text-[15px] font-bold text-heading">
+      <div className="absolute start-8 top-7 z-10 flex items-center gap-2 text-[15px] font-bold text-heading">
         <span className="h-[9px] w-[9px] animate-pulse rounded-full bg-primary" />
         FatooraSync
       </div>
@@ -39,12 +39,13 @@ export default function LoginPage() {
         <p className="mb-6 text-center text-xs text-muted-fg">Sign in to your business account</p>
 
         <div className="mb-4">
-          <Label htmlFor="email" className="mb-1.5 block text-xs font-semibold text-body">
+          <Label htmlFor="email" className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wider text-muted-fg">
             Email
           </Label>
           <Input
             id="email"
             type="email"
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="owner@yourbusiness.com"
@@ -52,21 +53,26 @@ export default function LoginPage() {
         </div>
 
         <div className="mb-4">
-          <Label htmlFor="password" className="mb-1.5 block text-xs font-semibold text-body">
+          <Label htmlFor="password" className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wider text-muted-fg">
             Password
           </Label>
           <Input
             id="password"
             type="password"
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
           />
         </div>
 
-        {error && <p className="mb-3 text-xs text-red-600">{error}</p>}
+        {error && (
+          <p role="alert" className="mb-3 text-xs text-red-600">
+            {error}
+          </p>
+        )}
 
-        <Button type="submit" className="w-full bg-gradient-to-br from-primary-hover to-primary-dark">
+        <Button type="submit" variant="primary" className="w-full">
           Sign In
         </Button>
 

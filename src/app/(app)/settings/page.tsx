@@ -27,34 +27,34 @@ export default function SettingsPage() {
   }
 
   return (
-    <Card className="max-w-md border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
+    <Card className="max-w-md border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
       <CardHeader>
         <CardTitle className="text-heading">Settings</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <Label htmlFor="vat" className="mb-1.5 block text-xs font-semibold text-body">
+          <Label htmlFor="vat" className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wider text-muted-fg">
             Default VAT Rate (%)
           </Label>
           <Input id="vat" value={defaultVatRate} onChange={(e) => setDefaultVatRate(e.target.value)} />
         </div>
 
         <div>
-          <Label htmlFor="lang" className="mb-1.5 block text-xs font-semibold text-body">
+          <Label htmlFor="lang" className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wider text-muted-fg">
             Language
           </Label>
           <select
             id="lang"
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
-            className="w-full rounded-md border border-border-subtle px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-input h-8 px-3 text-sm bg-background"
           >
             <option value="ar">Arabic</option>
             <option value="en">English</option>
           </select>
         </div>
 
-        <Button onClick={handleSave} className="bg-gradient-to-br from-primary-hover to-primary-dark">
+        <Button onClick={handleSave} variant="primary">
           Save Changes
         </Button>
       </CardContent>
