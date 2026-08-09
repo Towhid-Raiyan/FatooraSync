@@ -609,11 +609,14 @@ git commit -m "Restyle the login page with the desert background"
 **Interfaces:**
 - Consumes: `Button`/`Input`/`Label`/`Card`/`CardHeader`/`CardTitle`/`CardContent` from `@/components/ui/*` (Task 1). Automatically wrapped by the `(app)` layout's `AppShell` (Task 3) — this page does not import `AppShell` itself.
 
-- [ ] **Step 1: Move the file**
+- [ ] **Step 1: Move the file and commit the move on its own**
 
 ```bash
 git mv src/app/settings/page.tsx src/app/\(app\)/settings/page.tsx
+git commit -m "Move the settings page into the app shell route group"
 ```
+
+Commit the pure move by itself, before making any content changes. A rename combined with a heavy content edit in the same commit falls below git's default rename-detection similarity threshold (50%) — `git log --follow`, `git blame`, and most diff viewers would then show this as an unrelated delete+create instead of a move, defeating the point of using `git mv`. Committing the rename alone first (100% identical content, always detected as a rename) keeps history genuinely traceable; Step 5 below commits the restyle separately on top.
 
 - [ ] **Step 2: Restyle it**
 
@@ -695,13 +698,13 @@ Expected: still passes — this task only moved/restyled the page component, the
 Run: `npm run dev`, log in, visit `/settings`.
 Expected: renders inside the app shell (sidebar + topbar visible), styled with the new design system, change the VAT rate, save, reload, confirm it persisted (same behavior as before, new appearance).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Commit the restyle separately from the move**
 
-`git mv` already staged the rename; the edit from Step 2 needs staging too:
+The move was already committed by itself in Step 1. This commit is content-only (same file path, new content), which keeps the rename's history traceable:
 
 ```bash
 git add src/app/\(app\)/settings/page.tsx
-git commit -m "Move and restyle the settings page into the app shell"
+git commit -m "Restyle the settings page with the design system"
 ```
 
 ---
