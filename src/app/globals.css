@@ -29,6 +29,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
@@ -52,7 +53,7 @@
   --color-accent-beige: var(--color-accent-beige);
   --color-heading: var(--color-heading);
   --color-body: var(--color-body);
-  --color-muted: var(--color-muted);
+  --color-muted-fg: var(--color-muted-fg);
   --color-border-subtle: var(--color-border-subtle);
   --color-bg-app: var(--color-bg-app);
   --color-bg-card: var(--color-bg-card);
@@ -72,7 +73,7 @@
 
   --color-heading: #0A3D24;
   --color-body: #3F5C4D;
-  --color-muted: #8A968E;
+  --color-muted-fg: #8A968E;
   --color-border-subtle: #E1E8E3;
   --color-bg-app: #FAFBFA;
   --color-bg-card: #FFFFFF;
