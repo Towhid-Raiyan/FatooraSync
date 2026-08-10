@@ -18,6 +18,7 @@ class ReceiptError extends Error {
 interface RawLine {
   productId?: unknown;
   quantity?: unknown;
+  discount?: unknown;
 }
 
 export async function POST(request: Request) {
@@ -33,24 +34,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Add at least one item" }, { status: 400 });
   }
 
-  const parsedLines: { productId: string; quantity: number }[] = [];
+  const parsedLines: { productId: string; quantity: number; discount: number }[] = [];
   for (const line of rawLines) {
     const quantity = Number(line.quantity);
+    const discount = line.discount === undefined || line.discount === "" ? 0 : Number(line.discount);
     if (typeof line.productId !== "string" || !Number.isFinite(quantity) || quantity <= 0) {
       return NextResponse.json({ error: "Each item must have a positive quantity" }, { status: 400 });
     }
-    parsedLines.push({ productId: line.productId, quantity });
+    if (!Number.isFinite(discount) || discount < 0) {
+      return NextResponse.json({ error: "Discount must be zero or more" }, { status: 400 });
+    }
+    parsedLines.push({ productId: line.productId, quantity, discount });
   }
 
-  const hasExistingCustomer = typeof body.customerId === "string" && body.customerId.length > 0;
-  const newCustomer = body.newCustomer;
-  let newCustomerName = "";
-  if (!hasExistingCustomer) {
-    newCustomerName = typeof newCustomer?.name === "string" ? newCustomer.name.trim() : "";
-    if (!newCustomerName) {
-      return NextResponse.json({ error: "A customer is required" }, { status: 400 });
-    }
-  }
+  // Customer: a flat { name, vatId, crNumber, phone, address } draft, not a
+  // customerId/newCustomer split -- see docs/specs/2026-08-10-fatoorasync-sales-receipt-design.md
+  // for the full resolution rule this implements.
+  const customerDraft = body.customer ?? {};
+  const draftName = typeof customerDraft.name === "string" ? customerDraft.name.trim() : "";
+  const draftVatId = typeof customerDraft.vatId === "string" ? customerDraft.vatId.trim() : "";
+  const hasFullCustomer = draftName.length > 0 && draftVatId.length > 0;
 
   const trimmedNotes = typeof body.notes === "string" ? body.notes.trim() : "";
   const notes = trimmedNotes || null;
@@ -67,22 +70,40 @@ export async function POST(request: Request) {
       const settings = await txn.settings.findUniqueOrThrow({ where: { tenantId } });
 
       let customerId: string;
-      if (hasExistingCustomer) {
-        const existing = await txn.customer.findFirst({ where: { id: body.customerId, tenantId } });
-        if (!existing) throw new ReceiptError("Selected customer not found", 400);
-        customerId = existing.id;
+      if (hasFullCustomer) {
+        // Find-or-create by VAT ID: the cashier may have picked a suggestion (in
+        // which case these fields already exactly match a stored customer) or typed
+        // the VAT ID manually without using the suggestion dropdown. Either way, VAT
+        // ID is the tenant-unique key, so look up first rather than blindly creating
+        // -- this also means any edits to the other fields after a match are silently
+        // ignored in favor of the stored record, which is deliberate: a receipt save
+        // is not a customer-editing flow, and VAT ID/legal name are treated as fixed
+        // facts here, not something a cashier can casually overwrite mid-sale.
+        const existing = await txn.customer.findFirst({ where: { tenantId, vatId: draftVatId } });
+        if (existing) {
+          customerId = existing.id;
+        } else {
+          const created = await txn.customer.create({
+            data: {
+              tenantId,
+              name: draftName,
+              vatId: draftVatId,
+              crNumber: typeof customerDraft.crNumber === "string" ? customerDraft.crNumber.trim() || null : null,
+              phone: typeof customerDraft.phone === "string" ? customerDraft.phone.trim() || null : null,
+              address: typeof customerDraft.address === "string" ? customerDraft.address.trim() || null : null,
+            } as Prisma.CustomerUncheckedCreateInput,
+          });
+          customerId = created.id;
+        }
       } else {
-        const created = await txn.customer.create({
-          data: {
-            tenantId,
-            name: newCustomerName,
-            vatId: newCustomer?.vatId || null,
-            crNumber: newCustomer?.crNumber || null,
-            phone: newCustomer?.phone || null,
-            address: newCustomer?.address || null,
-          } as Prisma.CustomerUncheckedCreateInput,
-        });
-        customerId = created.id;
+        // Name or VAT ID (or both) missing -- per spec, this is never saved to the
+        // Customers table; the receipt falls back to the tenant's walk-in customer
+        // and whatever partial info was typed is simply not persisted anywhere.
+        const walkIn = await txn.customer.findFirst({ where: { tenantId, isWalkIn: true } });
+        if (!walkIn) {
+          throw new ReceiptError("No walk-in customer configured for this tenant", 400);
+        }
+        customerId = walkIn.id;
       }
 
       const resolvedLines: {
@@ -90,6 +111,7 @@ export async function POST(request: Request) {
         productName: string;
         quantity: number;
         unitPrice: number;
+        discount: number;
         vatRate: number;
         lineSubtotal: number;
         lineVat: number;
@@ -104,13 +126,23 @@ export async function POST(request: Request) {
           throw new ReceiptError("One or more items are no longer available", 400);
         }
         const unitPrice = Number(product.unitPrice);
+        const rawSubtotal = unitPrice * line.quantity;
+        if (line.discount > rawSubtotal) {
+          throw new ReceiptError("Discount cannot exceed the item's subtotal", 400);
+        }
         const vatRate = product.vatRate !== null ? Number(product.vatRate) : Number(settings.defaultVatRate);
-        const { lineSubtotal, lineVat, lineTotal } = calculateLine({ unitPrice, quantity: line.quantity, vatRate });
+        const { lineSubtotal, lineVat, lineTotal } = calculateLine({
+          unitPrice,
+          quantity: line.quantity,
+          vatRate,
+          discount: line.discount,
+        });
         resolvedLines.push({
           productId: product.id,
           productName: product.nameEn,
           quantity: line.quantity,
           unitPrice,
+          discount: line.discount,
           vatRate,
           lineSubtotal,
           lineVat,
@@ -169,6 +201,7 @@ export async function POST(request: Request) {
               productName: line.productName,
               quantity: line.quantity,
               unitPrice: line.unitPrice,
+              discount: line.discount,
               vatRate: line.vatRate,
               lineSubtotal: line.lineSubtotal,
               lineVat: line.lineVat,

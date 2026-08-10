@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { UNIT_LABELS } from "@/components/products/product-form-dialog";
 import type { SerializedProduct } from "@/components/products/products-client";
 import type { LineTotals } from "@/lib/receipts/calculate-totals";
 
@@ -13,8 +14,10 @@ export interface ReceiptLine {
   productId: string;
   sku: string | null;
   productName: string;
+  unit: string;
   quantity: string;
   unitPrice: string;
+  discount: string;
   vatRate: string | null;
   stockAtAdd: string;
 }
@@ -26,6 +29,7 @@ interface ItemsSectionProps {
   onAddLine: (product: SerializedProduct) => void;
   onRemoveLine: (key: string) => void;
   onQuantityChange: (key: string, quantity: string) => void;
+  onDiscountChange: (key: string, discount: string) => void;
   onOpenQuickCreate: () => void;
 }
 
@@ -36,6 +40,7 @@ export function ItemsSection({
   onAddLine,
   onRemoveLine,
   onQuantityChange,
+  onDiscountChange,
   onOpenQuickCreate,
 }: ItemsSectionProps) {
   const [search, setSearch] = useState("");
@@ -102,12 +107,15 @@ export function ItemsSection({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>#</TableHead>
                 <TableHead>SKU</TableHead>
                 <TableHead>Product</TableHead>
-                <TableHead className="text-right">Unit Price</TableHead>
+                <TableHead>Unit</TableHead>
                 <TableHead className="text-right">Qty</TableHead>
+                <TableHead className="text-right">Unit Price</TableHead>
+                <TableHead className="text-right">Discount</TableHead>
                 <TableHead>VAT</TableHead>
-                <TableHead className="text-right">Line Total</TableHead>
+                <TableHead className="text-right">Total</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -116,12 +124,13 @@ export function ItemsSection({
                 const exceedsStock = Number(line.quantity) > Number(line.stockAtAdd);
                 return (
                   <TableRow key={line.key}>
+                    <TableCell>{index + 1}</TableCell>
                     <TableCell className="font-mono text-xs">{line.sku ?? "—"}</TableCell>
                     <TableCell>
                       {line.productName}
                       {exceedsStock && <div className="text-xs text-amber-600">exceeds stock</div>}
                     </TableCell>
-                    <TableCell className="text-right">{line.unitPrice}</TableCell>
+                    <TableCell>{UNIT_LABELS[line.unit] ?? line.unit}</TableCell>
                     <TableCell className="text-right">
                       <Input
                         type="number"
@@ -129,6 +138,17 @@ export function ItemsSection({
                         min="0.001"
                         value={line.quantity}
                         onChange={(e) => onQuantityChange(line.key, e.target.value)}
+                        className="w-20 text-right"
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">{line.unitPrice}</TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={line.discount}
+                        onChange={(e) => onDiscountChange(line.key, e.target.value)}
                         className="w-20 text-right"
                       />
                     </TableCell>

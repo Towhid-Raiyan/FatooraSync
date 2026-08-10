@@ -8,10 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import type { SerializedProduct } from "@/components/products/products-client";
 import { calculateLine, calculateDocumentTotals } from "@/lib/receipts/calculate-totals";
-import { CustomerSection, type NewCustomerDraft } from "./customer-section";
+import { CustomerSection, type CustomerDraft } from "./customer-section";
 import { ItemsSection, type ReceiptLine } from "./items-section";
 
-const EMPTY_NEW_CUSTOMER: NewCustomerDraft = { name: "", vatId: "", crNumber: "", phone: "", address: "" };
+const EMPTY_CUSTOMER_DRAFT: CustomerDraft = { name: "", vatId: "", crNumber: "", phone: "", address: "" };
 
 interface ReceiptFormProps {
   initialCustomers: Customer[];
@@ -24,10 +24,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
   const [customers, setCustomers] = useState(initialCustomers);
   const [products, setProducts] = useState(initialProducts);
 
-  const walkIn = customers.find((c) => c.isWalkIn) ?? null;
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(walkIn?.id ?? null);
-  const [addingNewCustomer, setAddingNewCustomer] = useState(false);
-  const [newCustomerDraft, setNewCustomerDraft] = useState<NewCustomerDraft>(EMPTY_NEW_CUSTOMER);
+  const [customerDraft, setCustomerDraft] = useState<CustomerDraft>(EMPTY_CUSTOMER_DRAFT);
 
   const [lines, setLines] = useState<ReceiptLine[]>([]);
   const [notes, setNotes] = useState("");
@@ -47,6 +44,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
           unitPrice: Number(line.unitPrice),
           quantity: Number(line.quantity),
           vatRate: Number(line.vatRate ?? defaultVatRate),
+          discount: Number(line.discount),
         })
       ),
     [lines, defaultVatRate]
@@ -61,8 +59,10 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
         productId: product.id,
         sku: product.sku,
         productName: product.nameEn,
+        unit: product.unit,
         quantity: "1",
         unitPrice: product.unitPrice,
+        discount: "0",
         vatRate: product.vatRate,
         stockAtAdd: product.quantity,
       },
@@ -76,9 +76,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
   }
 
   function resetForm() {
-    setSelectedCustomerId(walkIn?.id ?? null);
-    setAddingNewCustomer(false);
-    setNewCustomerDraft(EMPTY_NEW_CUSTOMER);
+    setCustomerDraft(EMPTY_CUSTOMER_DRAFT);
     setLines([]);
     setNotes("");
     setError(null);
@@ -93,9 +91,8 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
     setError(null);
 
     const payload = {
-      customerId: addingNewCustomer ? undefined : selectedCustomerId,
-      newCustomer: addingNewCustomer ? newCustomerDraft : undefined,
-      lines: lines.map((line) => ({ productId: line.productId, quantity: line.quantity })),
+      customer: customerDraft,
+      lines: lines.map((line) => ({ productId: line.productId, quantity: line.quantity, discount: line.discount })),
       notes,
     };
 
@@ -109,22 +106,27 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
         return;
       }
 
-      if (addingNewCustomer) {
-        setCustomers((prev) => [
-          ...prev,
-          {
-            id: body.customerId,
-            tenantId: "", // not used by any UI in this list -- fine to leave blank client-side
-            name: newCustomerDraft.name,
-            vatId: newCustomerDraft.vatId || null,
-            crNumber: newCustomerDraft.crNumber || null,
-            phone: newCustomerDraft.phone || null,
-            address: newCustomerDraft.address || null,
-            isWalkIn: false,
-            isActive: true,
-            createdAt: new Date(),
-          },
-        ]);
+      const trimmedName = customerDraft.name.trim();
+      const trimmedVatId = customerDraft.vatId.trim();
+      if (trimmedName && trimmedVatId) {
+        setCustomers((prev) => {
+          if (prev.some((c) => c.vatId === trimmedVatId)) return prev;
+          return [
+            ...prev,
+            {
+              id: body.customerId,
+              tenantId: "", // not used by any UI in this list -- fine to leave blank client-side
+              name: trimmedName,
+              vatId: trimmedVatId,
+              crNumber: customerDraft.crNumber.trim() || null,
+              phone: customerDraft.phone.trim() || null,
+              address: customerDraft.address.trim() || null,
+              isWalkIn: false,
+              isActive: true,
+              createdAt: new Date(),
+            },
+          ];
+        });
       }
 
       if (printAfter) {
@@ -146,22 +148,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
   return (
     <div className="grid grid-cols-3 gap-4">
       <div className="col-span-2 flex flex-col gap-4">
-        <CustomerSection
-          customers={customers}
-          selectedCustomerId={selectedCustomerId}
-          addingNew={addingNewCustomer}
-          newCustomerDraft={newCustomerDraft}
-          onSelectCustomer={setSelectedCustomerId}
-          onStartAddNew={() => {
-            setAddingNewCustomer(true);
-            setSelectedCustomerId(null);
-          }}
-          onCancelAddNew={() => {
-            setAddingNewCustomer(false);
-            setSelectedCustomerId(walkIn?.id ?? null);
-          }}
-          onNewCustomerDraftChange={setNewCustomerDraft}
-        />
+        <CustomerSection customers={customers} draft={customerDraft} onDraftChange={setCustomerDraft} />
 
         <ItemsSection
           products={products}
@@ -171,6 +158,9 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
           onRemoveLine={(key) => setLines((prev) => prev.filter((l) => l.key !== key))}
           onQuantityChange={(key, quantity) =>
             setLines((prev) => prev.map((l) => (l.key === key ? { ...l, quantity } : l)))
+          }
+          onDiscountChange={(key, discount) =>
+            setLines((prev) => prev.map((l) => (l.key === key ? { ...l, discount } : l)))
           }
           onOpenQuickCreate={() => setQuickCreateOpen(true)}
         />

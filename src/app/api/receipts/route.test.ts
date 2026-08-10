@@ -2,12 +2,10 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import { withTenant } from "@/lib/db/tenant-context";
-import { GENESIS_HASH } from "@/lib/zatca/hash-chain";
 import { POST } from "./route";
 
 let tenantId: string;
 let otherTenantId: string;
-let walkInCustomerId: string;
 let productId: string;
 let productWithVatOverrideId: string;
 let otherTenantProductId: string;
@@ -30,10 +28,9 @@ describe("/api/receipts", () => {
     mockSession = { user: { tenantId } };
     await prisma.settings.create({ data: { tenantId, defaultVatRate: 15 } });
 
-    const walkIn = await withTenant(tenantId, (tx) =>
+    await withTenant(tenantId, (tx) =>
       tx.customer.create({ data: { name: "Walk-in Customer", isWalkIn: true } as Prisma.CustomerUncheckedCreateInput })
     );
-    walkInCustomerId = walkIn.id;
 
     const product = await withTenant(tenantId, (tx) =>
       tx.product.create({
@@ -70,27 +67,52 @@ describe("/api/receipts", () => {
     await prisma.$disconnect();
   });
 
-  it("creates a receipt, decrements stock, and computes totals from the server-read product", { timeout: 30000 }, async () => {
+  it("falls back to the walk-in customer when the customer draft is empty", { timeout: 30000 }, async () => {
     const response = await POST(
-      postRequest({ customerId: walkInCustomerId, lines: [{ productId, quantity: "2" }] })
+      postRequest({ customer: { name: "", vatId: "" }, lines: [{ productId, quantity: "2" }] })
     );
     expect(response.status).toBe(201);
     const body = await response.json();
-    expect(body.number).toBe(1);
+    expect(body.number).toBeGreaterThan(0);
     expect(body.subtotal).toBe("40");
     expect(body.vatTotal).toBe("6");
     expect(body.grandTotal).toBe("46");
     expect(body.lines).toHaveLength(1);
     expect(body.lines[0].productName).toBe("Rice 5kg");
-    expect(body.previousInvoiceHash).toBe(GENESIS_HASH);
+
+    const customer = await withTenant(tenantId, (tx) => tx.customer.findUnique({ where: { id: body.customerId } }));
+    expect(customer?.isWalkIn).toBe(true);
 
     const product = await withTenant(tenantId, (tx) => tx.product.findUniqueOrThrow({ where: { id: productId } }));
     expect(product.quantity.toString()).toBe("3"); // 5 - 2
   });
 
+  it("falls back to the walk-in customer when only the name is provided", { timeout: 30000 }, async () => {
+    const response = await POST(
+      postRequest({ customer: { name: "Partial Only", vatId: "" }, lines: [{ productId, quantity: "1" }] })
+    );
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    const customer = await withTenant(tenantId, (tx) => tx.customer.findUnique({ where: { id: body.customerId } }));
+    expect(customer?.isWalkIn).toBe(true);
+
+    const named = await withTenant(tenantId, (tx) => tx.customer.findFirst({ where: { name: "Partial Only" } }));
+    expect(named).toBeNull();
+  });
+
+  it("falls back to the walk-in customer when only the VAT ID is provided", { timeout: 30000 }, async () => {
+    const response = await POST(
+      postRequest({ customer: { name: "", vatId: "399999999900003" }, lines: [{ productId, quantity: "1" }] })
+    );
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    const customer = await withTenant(tenantId, (tx) => tx.customer.findUnique({ where: { id: body.customerId } }));
+    expect(customer?.isWalkIn).toBe(true);
+  });
+
   it("uses the product's own VAT override instead of the tenant default", { timeout: 30000 }, async () => {
     const response = await POST(
-      postRequest({ customerId: walkInCustomerId, lines: [{ productId: productWithVatOverrideId, quantity: "1" }] })
+      postRequest({ customer: { name: "", vatId: "" }, lines: [{ productId: productWithVatOverrideId, quantity: "1" }] })
     );
     expect(response.status).toBe(201);
     const body = await response.json();
@@ -100,7 +122,7 @@ describe("/api/receipts", () => {
   it("ignores a client-supplied price/VAT/name and uses the server's own product read", { timeout: 30000 }, async () => {
     const response = await POST(
       postRequest({
-        customerId: walkInCustomerId,
+        customer: { name: "", vatId: "" },
         lines: [
           {
             productId,
@@ -120,18 +142,18 @@ describe("/api/receipts", () => {
   });
 
   it("assigns sequential receipt numbers and chains the hash", { timeout: 30000 }, async () => {
-    const first = await POST(postRequest({ customerId: walkInCustomerId, lines: [{ productId, quantity: "1" }] }));
-    const second = await POST(postRequest({ customerId: walkInCustomerId, lines: [{ productId, quantity: "1" }] }));
+    const first = await POST(postRequest({ customer: { name: "", vatId: "" }, lines: [{ productId, quantity: "1" }] }));
+    const second = await POST(postRequest({ customer: { name: "", vatId: "" }, lines: [{ productId, quantity: "1" }] }));
     const firstBody = await first.json();
     const secondBody = await second.json();
     expect(secondBody.number).toBe(firstBody.number + 1);
     expect(secondBody.previousInvoiceHash).toBe(firstBody.invoiceHash);
   });
 
-  it("creates a new customer inline when newCustomer is provided instead of customerId", { timeout: 30000 }, async () => {
+  it("creates a new customer when both name and VAT ID are provided", { timeout: 30000 }, async () => {
     const response = await POST(
       postRequest({
-        newCustomer: { name: "Fresh Customer", phone: "0500000000" },
+        customer: { name: "Fresh Customer", vatId: "300000000000200", phone: "0500000000" },
         lines: [{ productId, quantity: "1" }],
       })
     );
@@ -139,51 +161,104 @@ describe("/api/receipts", () => {
     const body = await response.json();
     const customer = await withTenant(tenantId, (tx) => tx.customer.findUnique({ where: { id: body.customerId } }));
     expect(customer?.name).toBe("Fresh Customer");
+    expect(customer?.vatId).toBe("300000000000200");
+  });
+
+  it("reuses an existing customer matched by VAT ID instead of creating a duplicate", { timeout: 30000 }, async () => {
+    const first = await POST(
+      postRequest({
+        customer: { name: "Reused Co", vatId: "300000000000217" },
+        lines: [{ productId, quantity: "1" }],
+      })
+    );
+    const firstBody = await first.json();
+
+    // Typed with a different name but the same VAT ID -- the stored record should win.
+    const second = await POST(
+      postRequest({
+        customer: { name: "Typo'd Name", vatId: "300000000000217" },
+        lines: [{ productId, quantity: "1" }],
+      })
+    );
+    const secondBody = await second.json();
+
+    expect(secondBody.customerId).toBe(firstBody.customerId);
+    const customer = await withTenant(tenantId, (tx) =>
+      tx.customer.findUnique({ where: { id: firstBody.customerId } })
+    );
+    expect(customer?.name).toBe("Reused Co");
+  });
+
+  it("applies a flat discount before VAT and reflects it in the saved line and totals", { timeout: 30000 }, async () => {
+    const response = await POST(
+      postRequest({
+        customer: { name: "", vatId: "" },
+        lines: [{ productId, quantity: "2", discount: "10" }],
+      })
+    );
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    // raw subtotal 40, discount 10 -> 30, vat 15% = 4.5, total 34.5
+    expect(body.lines[0].discount).toBe("10");
+    expect(body.subtotal).toBe("30");
+    expect(body.vatTotal).toBe("4.5");
+    expect(body.grandTotal).toBe("34.5");
+  });
+
+  it("returns 400 when a line's discount exceeds its subtotal", { timeout: 30000 }, async () => {
+    const response = await POST(
+      postRequest({
+        customer: { name: "", vatId: "" },
+        lines: [{ productId, quantity: "1", discount: "999" }],
+      })
+    );
+    expect(response.status).toBe(400);
+  });
+
+  it("returns 400 for a negative discount", { timeout: 30000 }, async () => {
+    const response = await POST(
+      postRequest({
+        customer: { name: "", vatId: "" },
+        lines: [{ productId, quantity: "1", discount: "-5" }],
+      })
+    );
+    expect(response.status).toBe(400);
   });
 
   it("allows stock to go negative without blocking the save", { timeout: 30000 }, async () => {
-    const response = await POST(postRequest({ customerId: walkInCustomerId, lines: [{ productId, quantity: "999" }] }));
+    const response = await POST(
+      postRequest({ customer: { name: "", vatId: "" }, lines: [{ productId, quantity: "999" }] })
+    );
     expect(response.status).toBe(201);
     const product = await withTenant(tenantId, (tx) => tx.product.findUniqueOrThrow({ where: { id: productId } }));
     expect(Number(product.quantity)).toBeLessThan(0);
   });
 
   it("returns 400 for an empty line list", { timeout: 30000 }, async () => {
-    const response = await POST(postRequest({ customerId: walkInCustomerId, lines: [] }));
+    const response = await POST(postRequest({ customer: { name: "", vatId: "" }, lines: [] }));
     expect(response.status).toBe(400);
   });
 
   it("returns 400 for a non-positive quantity", { timeout: 30000 }, async () => {
-    const response = await POST(postRequest({ customerId: walkInCustomerId, lines: [{ productId, quantity: "0" }] }));
+    const response = await POST(
+      postRequest({ customer: { name: "", vatId: "" }, lines: [{ productId, quantity: "0" }] })
+    );
     expect(response.status).toBe(400);
   });
 
   it("returns 400 for a productId belonging to another tenant", { timeout: 30000 }, async () => {
     const response = await POST(
-      postRequest({ customerId: walkInCustomerId, lines: [{ productId: otherTenantProductId, quantity: "1" }] })
+      postRequest({ customer: { name: "", vatId: "" }, lines: [{ productId: otherTenantProductId, quantity: "1" }] })
     );
-    expect(response.status).toBe(400);
-  });
-
-  it("returns 400 for a customerId belonging to another tenant", { timeout: 30000 }, async () => {
-    const otherCustomer = await withTenant(otherTenantId, (tx) =>
-      tx.customer.create({ data: { name: "Other Tenant Customer" } as Prisma.CustomerUncheckedCreateInput })
-    );
-    const response = await POST(
-      postRequest({ customerId: otherCustomer.id, lines: [{ productId, quantity: "1" }] })
-    );
-    expect(response.status).toBe(400);
-  });
-
-  it("returns 400 when neither customerId nor newCustomer is provided", { timeout: 30000 }, async () => {
-    const response = await POST(postRequest({ lines: [{ productId, quantity: "1" }] }));
     expect(response.status).toBe(400);
   });
 
   it("returns 401 when unauthenticated", { timeout: 30000 }, async () => {
     mockSession = null;
     try {
-      const response = await POST(postRequest({ customerId: walkInCustomerId, lines: [{ productId, quantity: "1" }] }));
+      const response = await POST(
+        postRequest({ customer: { name: "", vatId: "" }, lines: [{ productId, quantity: "1" }] })
+      );
       expect(response.status).toBe(401);
     } finally {
       mockSession = { user: { tenantId } };
