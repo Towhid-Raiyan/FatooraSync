@@ -150,13 +150,18 @@ export async function POST(request: Request) {
   try {
     const customer = await withTenant(tenantId, (tx) =>
       tx.customer.create({
+        // `tenantId` is intentionally absent here — withTenant()'s Prisma extension injects it
+        // at runtime. But the extension can't loosen the *type* Prisma generates for `create`,
+        // which still requires `tenantId` (or a `tenant: { connect }` relation) in `data` at
+        // compile time. The cast documents that this is a known, safe gap between the runtime
+        // guarantee and the static type, not a missing field.
         data: {
           name,
           vatId: body.vatId || null,
           crNumber: body.crNumber || null,
           phone: body.phone || null,
           address: body.address || null,
-        },
+        } as Prisma.CustomerUncheckedCreateInput,
       })
     );
     return NextResponse.json(customer, { status: 201 });
@@ -180,6 +185,7 @@ Create `src/app/api/customers/route.test.ts`:
 
 ```typescript
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import { withTenant } from "@/lib/db/tenant-context";
 import { GET, POST } from "./route";
@@ -204,7 +210,13 @@ describe("/api/customers", () => {
       data: { legalName: "Other Co", tradeNameEn: "Other Shop", vatNumber: "300000000000020" },
     });
     otherTenantId = otherTenant.id;
-    await withTenant(otherTenantId, (tx) => tx.customer.create({ data: { name: "Other Tenant's Customer" } }));
+    // The `as Prisma.CustomerUncheckedCreateInput` cast here and on every other direct
+    // tx.customer.create() call below documents a known gap: withTenant()'s Prisma extension
+    // injects tenantId at runtime, but can't loosen the type Prisma generates for `create`,
+    // which still requires tenantId (or a tenant relation) in `data` at compile time.
+    await withTenant(otherTenantId, (tx) =>
+      tx.customer.create({ data: { name: "Other Tenant's Customer" } as Prisma.CustomerUncheckedCreateInput })
+    );
   });
 
   afterAll(async () => {
@@ -388,6 +400,7 @@ Create `src/app/api/customers/[id]/route.test.ts`:
 
 ```typescript
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import { withTenant } from "@/lib/db/tenant-context";
 import { PATCH } from "./route";
@@ -415,13 +428,17 @@ describe("/api/customers/[id]", () => {
     tenantId = tenant.id;
     mockSession = { user: { tenantId } };
 
+    // The `as Prisma.CustomerUncheckedCreateInput` cast on every direct tx.customer.create()
+    // call in this file documents a known gap: withTenant()'s Prisma extension injects
+    // tenantId at runtime, but can't loosen the type Prisma generates for `create`, which
+    // still requires tenantId (or a tenant relation) in `data` at compile time.
     const customer = await withTenant(tenantId, (tx) =>
-      tx.customer.create({ data: { name: "Editable Customer", phone: "0500000000" } })
+      tx.customer.create({ data: { name: "Editable Customer", phone: "0500000000" } as Prisma.CustomerUncheckedCreateInput })
     );
     customerId = customer.id;
 
     const walkIn = await withTenant(tenantId, (tx) =>
-      tx.customer.create({ data: { name: "Walk-in Customer", isWalkIn: true } })
+      tx.customer.create({ data: { name: "Walk-in Customer", isWalkIn: true } as Prisma.CustomerUncheckedCreateInput })
     );
     walkInId = walkIn.id;
 
@@ -430,7 +447,7 @@ describe("/api/customers/[id]", () => {
     });
     otherTenantId = otherTenant.id;
     const otherCustomer = await withTenant(otherTenantId, (tx) =>
-      tx.customer.create({ data: { name: "Other Tenant Customer" } })
+      tx.customer.create({ data: { name: "Other Tenant Customer" } as Prisma.CustomerUncheckedCreateInput })
     );
     otherTenantCustomerId = otherCustomer.id;
   });
