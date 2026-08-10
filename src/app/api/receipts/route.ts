@@ -52,7 +52,8 @@ export async function POST(request: Request) {
     }
   }
 
-  const notes = typeof body.notes === "string" && body.notes.trim() ? body.notes : null;
+  const trimmedNotes = typeof body.notes === "string" ? body.notes.trim() : "";
+  const notes = trimmedNotes || null;
 
   try {
     // This transaction does ~8-10 sequential round trips (settings read, customer
