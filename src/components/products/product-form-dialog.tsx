@@ -15,13 +15,17 @@ interface ProductFormDialogProps {
   onSaved: (product: SerializedProduct) => void;
 }
 
-const UNIT_OPTIONS = [
+export const UNIT_OPTIONS = [
   { value: "PIECE", label: "Piece" },
   { value: "KG", label: "KG" },
   { value: "BOX", label: "Box" },
   { value: "CARTON", label: "Carton" },
   { value: "LITER", label: "Liter" },
 ];
+
+export const UNIT_LABELS: Record<string, string> = Object.fromEntries(
+  UNIT_OPTIONS.map((opt) => [opt.value, opt.label])
+);
 
 const EMPTY_FORM = {
   nameEn: "",
@@ -189,7 +193,7 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
             </div>
           </div>
 
-          <div>
+          <div className="grid grid-cols-2 items-end gap-3">
             <label className="mb-1.5 flex items-center gap-2 text-xs text-body">
               <Checkbox
                 checked={form.useDefaultVat}
@@ -198,15 +202,20 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
               Use default VAT rate
             </label>
             {!form.useDefaultVat && (
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                max="100"
-                placeholder="VAT rate (%)"
-                value={form.vatRate}
-                onChange={(e) => setForm({ ...form, vatRate: e.target.value })}
-              />
+              <div>
+                <Label htmlFor="product-vat-rate" className={LABEL_CLASS}>
+                  VAT Rate (%)
+                </Label>
+                <Input
+                  id="product-vat-rate"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={form.vatRate}
+                  onChange={(e) => setForm({ ...form, vatRate: e.target.value })}
+                />
+              </div>
             )}
           </div>
 

@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { ProductFormDialog } from "./product-form-dialog";
+import { ProductFormDialog, UNIT_LABELS } from "./product-form-dialog";
 
 export type SerializedProduct = Omit<Product, "unitPrice" | "vatRate" | "quantity"> & {
   unitPrice: string;
@@ -123,7 +123,7 @@ export function ProductsClient({ initialProducts }: { initialProducts: Serialize
                     {product.nameEn}
                     {product.nameAr && <div className="text-xs text-muted-fg">{product.nameAr}</div>}
                   </TableCell>
-                  <TableCell>{product.unit}</TableCell>
+                  <TableCell>{UNIT_LABELS[product.unit] ?? product.unit}</TableCell>
                   <TableCell className="text-right">{product.unitPrice}</TableCell>
                   <TableCell>
                     {product.vatRate === null ? (
