@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import { withTenant } from "@/lib/db/tenant-context";
+import { GENESIS_HASH } from "@/lib/zatca/hash-chain";
 import { POST } from "./route";
 
 let tenantId: string;
@@ -81,6 +82,7 @@ describe("/api/receipts", () => {
     expect(body.grandTotal).toBe("46");
     expect(body.lines).toHaveLength(1);
     expect(body.lines[0].productName).toBe("Rice 5kg");
+    expect(body.previousInvoiceHash).toBe(GENESIS_HASH);
 
     const product = await withTenant(tenantId, (tx) => tx.product.findUniqueOrThrow({ where: { id: productId } }));
     expect(product.quantity.toString()).toBe("3"); // 5 - 2
