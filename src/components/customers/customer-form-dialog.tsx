@@ -36,6 +36,7 @@ export function CustomerFormDialog({ open, customer, onOpenChange, onSaved }: Cu
           : EMPTY_FORM
       );
       setError(null);
+      setSaving(false);
     }
   }, [open, customer]);
 
@@ -47,15 +48,20 @@ export function CustomerFormDialog({ open, customer, onOpenChange, onSaved }: Cu
     const url = customer ? `/api/customers/${customer.id}` : "/api/customers";
     const method = customer ? "PATCH" : "POST";
 
-    const response = await fetch(url, { method, body: JSON.stringify(form) });
-    const body = await response.json();
-    setSaving(false);
+    try {
+      const response = await fetch(url, { method, body: JSON.stringify(form) });
+      const body = await response.json();
 
-    if (!response.ok) {
-      setError(body.error ?? "Something went wrong");
-      return;
+      if (!response.ok) {
+        setError(body.error ?? "Something went wrong");
+        return;
+      }
+      onSaved(body);
+    } catch {
+      setError("Something went wrong");
+    } finally {
+      setSaving(false);
     }
-    onSaved(body);
   }
 
   return (
