@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import { withTenant } from "@/lib/db/tenant-context";
 import { PATCH } from "./route";
@@ -29,22 +30,22 @@ describe("/api/customers/[id]", () => {
     mockSession = { user: { tenantId } };
 
     const customer = await withTenant(tenantId, (tx) =>
-      tx.customer.create({ data: { name: "Editable Customer", phone: "0500000000" } })
+      tx.customer.create({ data: { name: "Editable Customer", phone: "0500000000" } as Prisma.CustomerUncheckedCreateInput })
     );
     customerId = customer.id;
 
     const walkIn = await withTenant(tenantId, (tx) =>
-      tx.customer.create({ data: { name: "Walk-in Customer", isWalkIn: true } })
+      tx.customer.create({ data: { name: "Walk-in Customer", isWalkIn: true } as Prisma.CustomerUncheckedCreateInput })
     );
     walkInId = walkIn.id;
 
     const custWithVat = await withTenant(tenantId, (tx) =>
-      tx.customer.create({ data: { name: "Customer With VAT", vatId: "300000000000088" } })
+      tx.customer.create({ data: { name: "Customer With VAT", vatId: "300000000000088" } as Prisma.CustomerUncheckedCreateInput })
     );
     customerWithVatId = custWithVat.id;
 
     const custWithoutVat = await withTenant(tenantId, (tx) =>
-      tx.customer.create({ data: { name: "Customer Without VAT" } })
+      tx.customer.create({ data: { name: "Customer Without VAT" } as Prisma.CustomerUncheckedCreateInput })
     );
     customerWithoutVatId = custWithoutVat.id;
 
@@ -53,7 +54,7 @@ describe("/api/customers/[id]", () => {
     });
     otherTenantId = otherTenant.id;
     const otherCustomer = await withTenant(otherTenantId, (tx) =>
-      tx.customer.create({ data: { name: "Other Tenant Customer" } })
+      tx.customer.create({ data: { name: "Other Tenant Customer" } as Prisma.CustomerUncheckedCreateInput })
     );
     otherTenantCustomerId = otherCustomer.id;
   });

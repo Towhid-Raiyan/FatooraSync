@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import { withTenant } from "@/lib/db/tenant-context";
 import { GET, POST } from "./route";
@@ -23,7 +24,7 @@ describe("/api/customers", () => {
       data: { legalName: "Other Co", tradeNameEn: "Other Shop", vatNumber: "300000000000020" },
     });
     otherTenantId = otherTenant.id;
-    await withTenant(otherTenantId, (tx) => tx.customer.create({ data: { name: "Other Tenant's Customer" } }));
+    await withTenant(otherTenantId, (tx) => tx.customer.create({ data: { name: "Other Tenant's Customer" } as Prisma.CustomerUncheckedCreateInput }));
   });
 
   afterAll(async () => {

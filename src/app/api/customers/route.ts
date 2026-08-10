@@ -30,6 +30,8 @@ export async function POST(request: Request) {
   }
 
   try {
+    // tenantId is intentionally absent from data; it's injected by the withTenant extension.
+    // The cast documents the known gap between the runtime guarantee and the static type.
     const customer = await withTenant(tenantId, (tx) =>
       tx.customer.create({
         data: {
@@ -38,7 +40,7 @@ export async function POST(request: Request) {
           crNumber: body.crNumber || null,
           phone: body.phone || null,
           address: body.address || null,
-        },
+        } as Prisma.CustomerUncheckedCreateInput,
       })
     );
     return NextResponse.json(customer, { status: 201 });
