@@ -171,6 +171,57 @@ describe("/api/receipts", () => {
     expect(response.status).toBe(400);
   });
 
+  it("treats an empty-string unitPrice as an explicit zero override, not a fallback to the catalog price", { timeout: 30000 }, async () => {
+    const response = await POST(
+      postRequest({
+        customer: { name: "", vatId: "" },
+        lines: [{ productId, quantity: "1", unitPrice: "" }],
+      })
+    );
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.lines[0].unitPrice).toBe("0");
+    expect(body.grandTotal).toBe("0");
+  });
+
+  it("falls back to the catalog price when unitPrice is explicitly null", { timeout: 30000 }, async () => {
+    const response = await POST(
+      postRequest({
+        customer: { name: "", vatId: "" },
+        lines: [{ productId, quantity: "1", unitPrice: null }],
+      })
+    );
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.lines[0].unitPrice).toBe("20");
+  });
+
+  it("checks discount against the overridden price, not the catalog price -- rejecting when the override makes it too small", { timeout: 30000 }, async () => {
+    // catalog price is 20 (would allow a discount of 10), but the override drops
+    // the effective subtotal to 5, which a 10 discount now exceeds
+    const response = await POST(
+      postRequest({
+        customer: { name: "", vatId: "" },
+        lines: [{ productId, quantity: "1", unitPrice: "5", discount: "10" }],
+      })
+    );
+    expect(response.status).toBe(400);
+  });
+
+  it("checks discount against the overridden price, not the catalog price -- allowing when the override makes it large enough", { timeout: 30000 }, async () => {
+    // catalog price is 20 (would reject a discount of 30), but the override raises
+    // the effective subtotal to 50, which comfortably covers a 30 discount
+    const response = await POST(
+      postRequest({
+        customer: { name: "", vatId: "" },
+        lines: [{ productId, quantity: "1", unitPrice: "50", discount: "30" }],
+      })
+    );
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.subtotal).toBe("20"); // 50 - 30
+  });
+
   it("assigns sequential receipt numbers and chains the hash", { timeout: 30000 }, async () => {
     const first = await POST(postRequest({ customer: { name: "", vatId: "" }, lines: [{ productId, quantity: "1" }] }));
     const second = await POST(postRequest({ customer: { name: "", vatId: "" }, lines: [{ productId, quantity: "1" }] }));

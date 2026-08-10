@@ -48,11 +48,16 @@ export async function POST(request: Request) {
     // `unitPrice` is the one exception to "never trust the client for price" (see
     // the note above the per-line resolution loop below): a cashier can override a
     // line's price at the point of sale, so an explicit value here is honored
-    // instead of always re-reading the catalog price. `undefined`/`""` means "use
-    // the catalog price" -- that is NOT the same as a `0` override, which is a
-    // valid (if unusual) free-item price.
+    // instead of always re-reading the catalog price. Only `undefined`/`null` --
+    // the field genuinely not supplied -- falls back to the catalog price. An
+    // empty string is deliberately NOT treated the same as "not supplied": the
+    // client always sends the line's current on-screen Unit Price, so `""` means
+    // the cashier cleared that field, which `Number("")` parses as `0` -- a real
+    // free-item override, matching what the client is already displaying for that
+    // line (a $0 total). Falling back to the catalog price for `""` would silently
+    // save a different amount than what was shown on screen before saving.
     const unitPriceOverride =
-      line.unitPrice === undefined || line.unitPrice === "" ? null : round2(Number(line.unitPrice));
+      line.unitPrice === undefined || line.unitPrice === null ? null : round2(Number(line.unitPrice));
     if (typeof line.productId !== "string" || !Number.isFinite(quantity) || quantity <= 0) {
       return NextResponse.json({ error: "Each item must have a positive quantity" }, { status: 400 });
     }

@@ -77,9 +77,15 @@ export function ItemsSection({
     setSearch("");
   }
 
-  function commitTotalDraft(key: string) {
+  // Only commits if the draft actually differs from what the field was seeded
+  // with on focus. Without this check, simply tabbing through a Total cell with
+  // no edit still round-trips through the back-calculation -- and because
+  // `deriveUnitPriceFromTotal` inverts continuous-math while `calculateLine`
+  // rounds at several points, a no-op focus/blur could silently nudge the unit
+  // price by a cent on fractional quantities.
+  function commitTotalDraft(key: string, seededValue: string) {
     const draft = totalDrafts[key];
-    if (draft !== undefined) {
+    if (draft !== undefined && draft !== seededValue) {
       onTotalChange(key, draft);
     }
     setTotalDrafts((prev) => {
@@ -214,7 +220,7 @@ export function ItemsSection({
                           onChange={(e) =>
                             setTotalDrafts((prev) => ({ ...prev, [line.key]: e.target.value }))
                           }
-                          onBlur={() => commitTotalDraft(line.key)}
+                          onBlur={() => commitTotalDraft(line.key, lineTotal.toFixed(2))}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") e.currentTarget.blur();
                           }}

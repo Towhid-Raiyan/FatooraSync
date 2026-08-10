@@ -54,8 +54,38 @@ export interface UnitPriceFromTotalInput {
 // target total low enough to imply a negative unit price is not representable,
 // so it's floored rather than propagated as a negative price.
 export function deriveUnitPriceFromTotal(input: UnitPriceFromTotalInput): number {
+  if (!(input.quantity > 0)) return 0;
   const lineSubtotal = input.lineTotal / (1 + input.vatRate / 100);
   const rawSubtotal = lineSubtotal + input.discount;
-  const unitPrice = input.quantity > 0 ? rawSubtotal / input.quantity : 0;
-  return round2(Math.max(0, unitPrice));
+  const estimate = round2(Math.max(0, rawSubtotal / input.quantity));
+
+  // The algebra above is exact in continuous math, but `calculateLine` rounds at
+  // three separate points (raw subtotal, discounted subtotal, VAT), so forward-
+  // calculating from the algebraic estimate doesn't always reproduce the exact
+  // target total. Search a small neighborhood of cent-precision candidates around
+  // the estimate for the one whose forward calculation comes closest -- this
+  // keeps the function a true (nearest-cent) inverse of `calculateLine` rather
+  // than just its continuous-math approximation.
+  let best = estimate;
+  let bestDiff = Math.abs(forwardTotal(estimate, input) - input.lineTotal);
+  for (let cents = -5; cents <= 5; cents++) {
+    if (cents === 0) continue;
+    const candidate = round2(estimate + cents / 100);
+    if (candidate < 0) continue;
+    const diff = Math.abs(forwardTotal(candidate, input) - input.lineTotal);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = candidate;
+    }
+  }
+  return best;
+}
+
+function forwardTotal(unitPrice: number, input: UnitPriceFromTotalInput): number {
+  return calculateLine({
+    unitPrice,
+    quantity: input.quantity,
+    vatRate: input.vatRate,
+    discount: input.discount,
+  }).lineTotal;
 }

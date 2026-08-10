@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import type { SerializedProduct } from "@/components/products/products-client";
-import { calculateLine, calculateDocumentTotals, deriveUnitPriceFromTotal } from "@/lib/receipts/calculate-totals";
+import { round2, calculateLine, calculateDocumentTotals, deriveUnitPriceFromTotal } from "@/lib/receipts/calculate-totals";
 import { CustomerSection, type CustomerDraft } from "./customer-section";
 import { ItemsSection, type ReceiptLine } from "./items-section";
 
@@ -36,12 +36,16 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
   // Resolves each line's VAT the same way the server does (Task 2): the product's
   // own override if it has one, otherwise the tenant's real default -- never a
   // hardcoded 0%, which would silently understate every default-VAT line's total
-  // on screen relative to what actually gets saved.
+  // on screen relative to what actually gets saved. `unitPrice` is rounded to 2dp
+  // here too, matching the server's own `round2` on the same field (route.ts) --
+  // a manually-typed sub-cent price (e.g. "2.345") would otherwise feed an
+  // unrounded value into `calculateLine` on screen but a rounded one on save,
+  // producing two different totals for the same typed input.
   const lineTotals = useMemo(
     () =>
       lines.map((line) =>
         calculateLine({
-          unitPrice: Number(line.unitPrice),
+          unitPrice: round2(Number(line.unitPrice)),
           quantity: Number(line.quantity),
           vatRate: Number(line.vatRate ?? defaultVatRate),
           discount: Number(line.discount),
@@ -85,9 +89,11 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
 
   // Editing Total is the reverse direction: back-solve the Unit Price that would
   // produce the typed total, holding quantity/discount/VAT fixed, using the same
-  // pure function the totals math itself is built on. An unparsable or negative
-  // total is simply ignored -- the line keeps its last valid price rather than
-  // being corrupted by a stray edit.
+  // pure function the totals math itself is built on. A genuinely unparsable or
+  // negative total is ignored -- the line keeps its last valid price rather than
+  // being corrupted by a stray edit. A cleared field parses as `0`, same as
+  // Unit Price, and is honored as an explicit zero rather than being ignored --
+  // it's indistinguishable from deliberately typing "0".
   function handleTotalChange(key: string, rawTotal: string) {
     const newTotal = Number(rawTotal);
     if (!Number.isFinite(newTotal) || newTotal < 0) return;
@@ -195,6 +201,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
+            rows={3}
             className="w-full flex-1 rounded-lg border border-input bg-transparent p-2.5 text-sm"
           />
         </CardContent>

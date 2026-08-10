@@ -77,4 +77,40 @@ describe("deriveUnitPriceFromTotal", () => {
   it("returns zero for a zero or negative quantity rather than dividing by it", () => {
     expect(deriveUnitPriceFromTotal({ lineTotal: 100, quantity: 0, discount: 0, vatRate: 15 })).toBe(0);
   });
+
+  it("round-trips to the exact target total when a cent-precision price achieving it exists", () => {
+    // qty 4, price 25.00 -> raw subtotal 100 -> vat 15 -> total 115, all exact
+    // divisions with no rounding along the way, so this target IS exactly
+    // achievable (unlike some quantity/total combinations, where chained
+    // rounding in calculateLine means no cent-precision price reproduces the
+    // target exactly -- see the next test for that case).
+    const unitPrice = deriveUnitPriceFromTotal({ lineTotal: 115, quantity: 4, discount: 0, vatRate: 15 });
+    expect(unitPrice).toBe(25);
+    const { lineTotal: reproduced } = calculateLine({ unitPrice, quantity: 4, vatRate: 15, discount: 0 });
+    expect(reproduced).toBe(115);
+  });
+
+  it("finds a unit price no worse than any other cent-precision candidate nearby, even when no price reproduces the target exactly", () => {
+    // Chained rounding in calculateLine (raw subtotal, discounted subtotal, VAT)
+    // means some totals simply aren't reachable by any cent-precision price at a
+    // given quantity -- e.g. nothing at qty 3 / 15% VAT reproduces exactly 100.
+    // What the nearest-cent search guarantees isn't universal exactness, but that
+    // no other candidate in its search window does strictly better.
+    for (const quantity of [3, 6, 7]) {
+      for (const lineTotal of [100, 50, 33, 25]) {
+        const unitPrice = deriveUnitPriceFromTotal({ lineTotal, quantity, discount: 0, vatRate: 15 });
+        const achievedDiff = Math.abs(
+          calculateLine({ unitPrice, quantity, vatRate: 15, discount: 0 }).lineTotal - lineTotal
+        );
+        for (let cents = -20; cents <= 20; cents++) {
+          const candidate = round2(unitPrice + cents / 100);
+          if (candidate < 0) continue;
+          const candidateDiff = Math.abs(
+            calculateLine({ unitPrice: candidate, quantity, vatRate: 15, discount: 0 }).lineTotal - lineTotal
+          );
+          expect(candidateDiff).toBeGreaterThanOrEqual(achievedDiff);
+        }
+      }
+    }
+  });
 });
