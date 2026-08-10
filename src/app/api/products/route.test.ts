@@ -103,6 +103,18 @@ describe("/api/products", () => {
     expect(response.status).toBe(400);
   });
 
+  it("POST stores an explicit VAT rate of 0 distinctly from no override", async () => {
+    const request = new Request("http://localhost/api/products", {
+      method: "POST",
+      body: JSON.stringify({ nameEn: "Exempt Item", unitPrice: "10", vatRate: "0" }),
+    });
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.vatRate).not.toBeNull();
+    expect(Number(body.vatRate)).toBe(0);
+  });
+
   it("POST returns 409 for a SKU already used within the same tenant", async () => {
     const request = new Request("http://localhost/api/products", {
       method: "POST",

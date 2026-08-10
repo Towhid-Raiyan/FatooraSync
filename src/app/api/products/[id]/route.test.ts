@@ -109,6 +109,18 @@ describe("/api/products/[id]", () => {
     expect(response.status).toBe(400);
   });
 
+  it("PATCH clears a VAT override back to the tenant default via vatRate: null", async () => {
+    const withVat = await withTenant(tenantId, (tx) =>
+      tx.product.create({
+        data: { nameEn: "Has Vat Override", unitPrice: 10, vatRate: 5 } as Prisma.ProductUncheckedCreateInput,
+      })
+    );
+    const response = await PATCH(patchRequest({ vatRate: null }), { params: Promise.resolve({ id: withVat.id }) });
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.vatRate).toBeNull();
+  });
+
   it("returns 409 when updating sku to one already used in the same tenant", async () => {
     const response = await PATCH(patchRequest({ sku: "SKU-EXIST" }), { params: Promise.resolve({ id: productId }) });
     expect(response.status).toBe(409);
