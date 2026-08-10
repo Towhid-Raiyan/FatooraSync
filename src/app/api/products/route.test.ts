@@ -141,7 +141,7 @@ describe("/api/products", () => {
     expect(body.error).toContain("barcode");
   });
 
-  it("POST allows the same barcode across two different tenants, and independent SKU counters", async () => {
+  it("POST allows the same barcode across two different tenants, with independent SKU counters", async () => {
     mockSession = { user: { tenantId: otherTenantId } };
     try {
       const request = new Request("http://localhost/api/products", {
@@ -151,8 +151,12 @@ describe("/api/products", () => {
       const response = await POST(request);
       expect(response.status).toBe(201);
       const body = await response.json();
-      // otherTenantId's own counter, independent of tenantId's -- no cross-tenant SKU collision possible.
-      expect(body.sku).toMatch(/^SKU-\d{6}$/);
+      // otherTenantId's beforeAll fixture was created via a direct tx.product.create() call,
+      // bypassing generateNextSku, so its counter never advanced past the default of 1 -- this
+      // is genuinely otherTenantId's *first* generated SKU, proving the counters are separate
+      // per tenant rather than one shared sequence (which would have produced a much higher
+      // number here, since tenantId's counter has already advanced several times by this point).
+      expect(body.sku).toBe("SKU-000001");
     } finally {
       mockSession = { user: { tenantId } };
     }
