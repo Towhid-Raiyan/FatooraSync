@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import type { Unit } from "@prisma/client";
 import { auth } from "@/lib/auth/config";
 import { withTenant } from "@/lib/db/tenant-context";
-import { findUniquenessConflict } from "../check-uniqueness";
+import { findBarcodeConflict } from "../check-uniqueness";
 
 const VALID_UNITS: Unit[] = ["PIECE", "KG", "BOX", "CARTON", "LITER"];
 
@@ -63,22 +63,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (body.unit !== undefined) {
     data.unit = VALID_UNITS.includes(body.unit) ? body.unit : "PIECE";
   }
-  if (body.sku !== undefined) data.sku = typeof body.sku === "string" ? body.sku.trim() || null : null;
-  if (body.barcode !== undefined) data.barcode = typeof body.barcode === "string" ? body.barcode.trim() || null : null;
+  if (body.barcode !== undefined) {
+    data.barcode = typeof body.barcode === "string" ? body.barcode.trim() || null : null;
+  }
   if (body.isActive !== undefined) data.isActive = Boolean(body.isActive);
+  // sku is intentionally never accepted here -- it's assigned once at creation
+  // and is not editable, even if a caller includes it in the request body.
 
-  const conflict = await withTenant(tenantId, (tx) =>
-    findUniquenessConflict(
-      tx,
-      { sku: data.sku as string | null | undefined, barcode: data.barcode as string | null | undefined },
-      id
-    )
+  const barcodeConflict = await withTenant(tenantId, (tx) =>
+    findBarcodeConflict(tx, data.barcode as string | null | undefined, id)
   );
-  if (conflict) {
-    return NextResponse.json(
-      { error: `This ${conflict === "sku" ? "SKU" : "barcode"} is already in use by another product` },
-      { status: 409 }
-    );
+  if (barcodeConflict) {
+    return NextResponse.json({ error: "This barcode is already in use by another product" }, { status: 409 });
   }
 
   try {
@@ -86,10 +82,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json(product);
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return NextResponse.json(
-        { error: "This SKU or barcode is already in use by another product" },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: "This barcode is already in use by another product" }, { status: 409 });
     }
     throw err;
   }

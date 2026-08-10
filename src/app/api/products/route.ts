@@ -3,7 +3,8 @@ import { Prisma } from "@prisma/client";
 import type { Unit } from "@prisma/client";
 import { auth } from "@/lib/auth/config";
 import { withTenant } from "@/lib/db/tenant-context";
-import { findUniquenessConflict } from "./check-uniqueness";
+import { findBarcodeConflict } from "./check-uniqueness";
+import { generateNextSku } from "./generate-sku";
 
 const VALID_UNITS: Unit[] = ["PIECE", "KG", "BOX", "CARTON", "LITER"];
 
@@ -55,20 +56,19 @@ export async function POST(request: Request) {
   }
 
   const unit: Unit = VALID_UNITS.includes(body.unit) ? body.unit : "PIECE";
-  const sku = typeof body.sku === "string" ? body.sku.trim() || null : null;
   const barcode = typeof body.barcode === "string" ? body.barcode.trim() || null : null;
+  // sku is intentionally never read from the request body -- it's always
+  // system-generated below, never user-supplied.
 
-  const conflict = await withTenant(tenantId, (tx) => findUniquenessConflict(tx, { sku, barcode }));
-  if (conflict) {
-    return NextResponse.json(
-      { error: `This ${conflict === "sku" ? "SKU" : "barcode"} is already in use by another product` },
-      { status: 409 }
-    );
+  const barcodeConflict = await withTenant(tenantId, (tx) => findBarcodeConflict(tx, barcode));
+  if (barcodeConflict) {
+    return NextResponse.json({ error: "This barcode is already in use by another product" }, { status: 409 });
   }
 
   try {
-    const product = await withTenant(tenantId, (tx) =>
-      tx.product.create({
+    const product = await withTenant(tenantId, async (tx) => {
+      const sku = await generateNextSku(tx, tenantId);
+      return tx.product.create({
         data: {
           nameEn,
           nameAr: body.nameAr || null,
@@ -79,17 +79,13 @@ export async function POST(request: Request) {
           vatRate,
           quantity,
         } as Prisma.ProductUncheckedCreateInput,
-      })
-    );
+      });
+    });
     return NextResponse.json(product, { status: 201 });
   } catch (err) {
-    // Backstop for the rare race between the proactive check above and this write —
-    // the check already names the specific field in the common case.
+    // Backstop for the rare race between the proactive check above and this write.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return NextResponse.json(
-        { error: "This SKU or barcode is already in use by another product" },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: "This barcode is already in use by another product" }, { status: 409 });
     }
     throw err;
   }

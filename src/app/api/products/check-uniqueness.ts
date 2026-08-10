@@ -1,21 +1,16 @@
 import type { TenantClient } from "@/lib/db/tenant-context";
 
-export async function findUniquenessConflict(
+// SKU is system-generated (see generate-sku.ts) and can never collide by
+// construction, so this only ever needs to guard barcode, the one field a
+// user can still enter.
+export async function findBarcodeConflict(
   tx: TenantClient,
-  fields: { sku?: string | null; barcode?: string | null },
+  barcode: string | null | undefined,
   excludeId?: string
-): Promise<"sku" | "barcode" | null> {
-  if (fields.sku) {
-    const existing = await tx.product.findFirst({
-      where: { sku: fields.sku, ...(excludeId ? { id: { not: excludeId } } : {}) },
-    });
-    if (existing) return "sku";
-  }
-  if (fields.barcode) {
-    const existing = await tx.product.findFirst({
-      where: { barcode: fields.barcode, ...(excludeId ? { id: { not: excludeId } } : {}) },
-    });
-    if (existing) return "barcode";
-  }
-  return null;
+): Promise<boolean> {
+  if (!barcode) return false;
+  const existing = await tx.product.findFirst({
+    where: { barcode, ...(excludeId ? { id: { not: excludeId } } : {}) },
+  });
+  return existing !== null;
 }
