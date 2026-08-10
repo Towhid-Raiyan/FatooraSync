@@ -3,6 +3,11 @@ import QRCode from "qrcode";
 import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/client";
 import { withTenant } from "@/lib/db/tenant-context";
+import { PrintButton } from "@/components/receipts/print-button";
+
+function money(value: { toString(): string }): string {
+  return Number(value.toString()).toFixed(2);
+}
 
 export default async function ReceiptPrintPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -62,9 +67,9 @@ export default async function ReceiptPrintPage({ params }: { params: Promise<{ i
             <tr key={line.id} className="border-b border-gray-300">
               <td className="py-1">{line.productName}</td>
               <td className="py-1 text-right">{line.quantity.toString()}</td>
-              <td className="py-1 text-right">{line.unitPrice.toString()}</td>
-              <td className="py-1 text-right">{line.lineVat.toString()}</td>
-              <td className="py-1 text-right">{line.lineTotal.toString()}</td>
+              <td className="py-1 text-right">{money(line.unitPrice)}</td>
+              <td className="py-1 text-right">{money(line.lineVat)}</td>
+              <td className="py-1 text-right">{money(line.lineTotal)}</td>
             </tr>
           ))}
         </tbody>
@@ -73,15 +78,15 @@ export default async function ReceiptPrintPage({ params }: { params: Promise<{ i
       <div className="mt-3 space-y-1 text-xs">
         <div className="flex justify-between">
           <span>الإجمالي الفرعي / Subtotal</span>
-          <span>{document.subtotal.toString()}</span>
+          <span>{money(document.subtotal)} SAR</span>
         </div>
         <div className="flex justify-between">
           <span>ضريبة القيمة المضافة / VAT Total</span>
-          <span>{document.vatTotal.toString()}</span>
+          <span>{money(document.vatTotal)} SAR</span>
         </div>
         <div className="flex justify-between text-sm font-bold">
           <span>الإجمالي / Grand Total</span>
-          <span>{document.grandTotal.toString()}</span>
+          <span>{money(document.grandTotal)} SAR</span>
         </div>
       </div>
 
@@ -91,6 +96,8 @@ export default async function ReceiptPrintPage({ params }: { params: Promise<{ i
         // eslint-disable-next-line @next/next/no-img-element
         <img src={qrImageDataUrl} alt="ZATCA QR code" className="mx-auto mt-4 h-32 w-32" />
       )}
+
+      <PrintButton />
 
       <style>{`
         @media print {
