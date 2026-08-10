@@ -127,7 +127,7 @@ describe("/api/receipts", () => {
     expect(body.vatTotal).toBe("0");
   });
 
-  it("ignores a client-supplied price/VAT/name and uses the server's own product read", { timeout: 30000 }, async () => {
+  it("still ignores a client-supplied vatRate/productName and uses the server's own product read", { timeout: 30000 }, async () => {
     const response = await POST(
       postRequest({
         customer: { name: "", vatId: "" },
@@ -135,7 +135,6 @@ describe("/api/receipts", () => {
           {
             productId,
             quantity: "1",
-            unitPrice: "999999.99",
             vatRate: "0",
             productName: "Forged Line Item",
           },
@@ -146,7 +145,30 @@ describe("/api/receipts", () => {
     const body = await response.json();
     expect(body.lines[0].unitPrice).toBe("20");
     expect(body.lines[0].productName).toBe("Rice 5kg");
-    expect(body.grandTotal).toBe("23"); // 20 * 1.15, not the forged total
+    expect(body.grandTotal).toBe("23"); // 20 * 1.15 (catalog price + real VAT), not the forged values
+  });
+
+  it("honors a client-supplied unitPrice override for a manual price at the point of sale", { timeout: 30000 }, async () => {
+    const response = await POST(
+      postRequest({
+        customer: { name: "", vatId: "" },
+        lines: [{ productId, quantity: "1", unitPrice: "18" }],
+      })
+    );
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.lines[0].unitPrice).toBe("18");
+    expect(body.grandTotal).toBe("20.7"); // 18 * 1.15, not the catalog price of 20
+  });
+
+  it("returns 400 for a negative unitPrice override", { timeout: 30000 }, async () => {
+    const response = await POST(
+      postRequest({
+        customer: { name: "", vatId: "" },
+        lines: [{ productId, quantity: "1", unitPrice: "-5" }],
+      })
+    );
+    expect(response.status).toBe(400);
   });
 
   it("assigns sequential receipt numbers and chains the hash", { timeout: 30000 }, async () => {

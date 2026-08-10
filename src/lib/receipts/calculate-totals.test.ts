@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { round2, calculateLine, calculateDocumentTotals } from "./calculate-totals";
+import { round2, calculateLine, calculateDocumentTotals, deriveUnitPriceFromTotal } from "./calculate-totals";
 
 describe("round2", () => {
   it("rounds to 2 decimal places", () => {
@@ -50,5 +50,31 @@ describe("calculateDocumentTotals", () => {
 
   it("returns all zeros for an empty line list", () => {
     expect(calculateDocumentTotals([])).toEqual({ subtotal: 0, vatTotal: 0, grandTotal: 0 });
+  });
+});
+
+describe("deriveUnitPriceFromTotal", () => {
+  it("is the exact inverse of calculateLine for a round-trip with no discount", () => {
+    const { lineTotal } = calculateLine({ unitPrice: 80, quantity: 1, vatRate: 15, discount: 0 });
+    expect(lineTotal).toBe(92);
+    const unitPrice = deriveUnitPriceFromTotal({ lineTotal: 92, quantity: 1, discount: 0, vatRate: 15 });
+    expect(unitPrice).toBe(80);
+  });
+
+  it("accounts for discount and quantity together", () => {
+    // target total 51.75, qty 2, discount 5, vat 15% -> subtotal 45, raw subtotal 50, unit price 25
+    const unitPrice = deriveUnitPriceFromTotal({ lineTotal: 51.75, quantity: 2, discount: 5, vatRate: 15 });
+    expect(unitPrice).toBe(25);
+  });
+
+  it("clamps to zero instead of returning a negative unit price", () => {
+    // a negative target total isn't something a validated caller should ever pass,
+    // but the pure function still shouldn't hand back a negative price for one
+    const unitPrice = deriveUnitPriceFromTotal({ lineTotal: -10, quantity: 1, discount: 0, vatRate: 15 });
+    expect(unitPrice).toBe(0);
+  });
+
+  it("returns zero for a zero or negative quantity rather than dividing by it", () => {
+    expect(deriveUnitPriceFromTotal({ lineTotal: 100, quantity: 0, discount: 0, vatRate: 15 })).toBe(0);
   });
 });

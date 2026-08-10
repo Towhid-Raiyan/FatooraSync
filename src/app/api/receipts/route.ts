@@ -19,6 +19,7 @@ interface RawLine {
   productId?: unknown;
   quantity?: unknown;
   discount?: unknown;
+  unitPrice?: unknown;
 }
 
 export async function POST(request: Request) {
@@ -34,18 +35,34 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Add at least one item" }, { status: 400 });
   }
 
-  const parsedLines: { productId: string; quantity: number; discount: number }[] = [];
+  const parsedLines: {
+    productId: string;
+    quantity: number;
+    discount: number;
+    unitPriceOverride: number | null;
+  }[] = [];
   for (const line of rawLines) {
     const quantity = Number(line.quantity);
     const discount =
       line.discount === undefined || line.discount === "" ? 0 : round2(Number(line.discount));
+    // `unitPrice` is the one exception to "never trust the client for price" (see
+    // the note above the per-line resolution loop below): a cashier can override a
+    // line's price at the point of sale, so an explicit value here is honored
+    // instead of always re-reading the catalog price. `undefined`/`""` means "use
+    // the catalog price" -- that is NOT the same as a `0` override, which is a
+    // valid (if unusual) free-item price.
+    const unitPriceOverride =
+      line.unitPrice === undefined || line.unitPrice === "" ? null : round2(Number(line.unitPrice));
     if (typeof line.productId !== "string" || !Number.isFinite(quantity) || quantity <= 0) {
       return NextResponse.json({ error: "Each item must have a positive quantity" }, { status: 400 });
     }
     if (!Number.isFinite(discount) || discount < 0) {
       return NextResponse.json({ error: "Discount must be zero or more" }, { status: 400 });
     }
-    parsedLines.push({ productId: line.productId, quantity, discount });
+    if (unitPriceOverride !== null && (!Number.isFinite(unitPriceOverride) || unitPriceOverride < 0)) {
+      return NextResponse.json({ error: "Unit price must be zero or more" }, { status: 400 });
+    }
+    parsedLines.push({ productId: line.productId, quantity, discount, unitPriceOverride });
   }
 
   // Customer: a flat { name, vatId, crNumber, phone, address } draft, not a
@@ -82,6 +99,13 @@ export async function POST(request: Request) {
         lineTotal: number;
       }[] = [];
 
+      // Trust boundary: `productName` and `vatRate` are always the server's own fresh
+      // read of the product/settings -- never anything from the request body. `unitPrice`
+      // is the deliberate exception: a cashier is allowed to override a line's price at
+      // the point of sale (e.g. a manual discount negotiated in person), so a
+      // client-supplied value is honored here instead of being discarded. What still
+      // can't happen is the client picking which *product* or *tax rate* applies --
+      // those are always resolved from this fresh, tenant-scoped read.
       for (const line of parsedLines) {
         const product = await txn.product.findFirst({
           where: { id: line.productId, tenantId, isActive: true },
@@ -89,7 +113,7 @@ export async function POST(request: Request) {
         if (!product) {
           throw new ReceiptError("One or more items are no longer available", 400);
         }
-        const unitPrice = Number(product.unitPrice);
+        const unitPrice = line.unitPriceOverride ?? Number(product.unitPrice);
         const rawSubtotal = round2(unitPrice * line.quantity);
         if (line.discount > rawSubtotal) {
           throw new ReceiptError("Discount cannot exceed the item's subtotal", 400);

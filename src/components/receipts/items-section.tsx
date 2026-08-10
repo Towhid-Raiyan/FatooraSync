@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { UNIT_LABELS } from "@/components/products/product-form-dialog";
@@ -14,6 +16,7 @@ export interface ReceiptLine {
   productId: string;
   sku: string | null;
   productName: string;
+  productNameAr: string | null;
   unit: string;
   quantity: string;
   unitPrice: string;
@@ -29,7 +32,9 @@ interface ItemsSectionProps {
   onAddLine: (product: SerializedProduct) => void;
   onRemoveLine: (key: string) => void;
   onQuantityChange: (key: string, quantity: string) => void;
+  onUnitPriceChange: (key: string, unitPrice: string) => void;
   onDiscountChange: (key: string, discount: string) => void;
+  onTotalChange: (key: string, total: string) => void;
   onOpenQuickCreate: () => void;
 }
 
@@ -40,10 +45,20 @@ export function ItemsSection({
   onAddLine,
   onRemoveLine,
   onQuantityChange,
+  onUnitPriceChange,
   onDiscountChange,
+  onTotalChange,
   onOpenQuickCreate,
 }: ItemsSectionProps) {
   const [search, setSearch] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Editing Total is a reverse calculation (it back-solves Unit Price), so the
+  // displayed total is normally the computed `lineTotal` -- except while a cell is
+  // actively focused, when it shows exactly what was typed so far. Committing
+  // (blur) is what triggers the actual recalculation; recomputing on every
+  // keystroke would fight the cursor as `lineTotal` snaps back mid-edit.
+  const [totalDrafts, setTotalDrafts] = useState<Record<string, string>>({});
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -62,113 +77,176 @@ export function ItemsSection({
     setSearch("");
   }
 
+  function commitTotalDraft(key: string) {
+    const draft = totalDrafts[key];
+    if (draft !== undefined) {
+      onTotalChange(key, draft);
+    }
+    setTotalDrafts((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
+
   return (
     <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
       <CardHeader>
         <CardTitle className="text-heading">Items</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="relative">
-          <Input
-            placeholder="Scan barcode or search by SKU / name"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            autoFocus
-          />
-          {search.trim() && (
-            <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-border-subtle bg-bg-card shadow-[0_4px_16px_rgba(16,44,30,0.12)]">
-              {filtered.map((product) => (
-                <button
-                  key={product.id}
-                  type="button"
-                  onClick={() => handleSelect(product)}
-                  className="block w-full px-3 py-2 text-left text-sm hover:bg-bg-app"
-                >
-                  <span className="font-mono text-xs text-muted-fg">{product.sku}</span>{" "}
-                  <span className="text-heading">{product.nameEn}</span>{" "}
-                  <span className="text-muted-fg">— {product.unitPrice}</span>
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => {
-                  onOpenQuickCreate();
-                  setSearch("");
-                }}
-                className="block w-full border-t border-border-subtle px-3 py-2 text-left text-sm font-medium text-primary hover:bg-bg-app"
-              >
-                + New Product
-              </button>
-            </div>
-          )}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Input
+              ref={searchInputRef}
+              placeholder="Scan barcode or search by SKU / name"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              autoFocus
+            />
+            {search.trim() && (
+              <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-border-subtle bg-bg-card shadow-[0_4px_16px_rgba(16,44,30,0.12)]">
+                {filtered.map((product) => (
+                  <button
+                    key={product.id}
+                    type="button"
+                    onClick={() => handleSelect(product)}
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-bg-app"
+                  >
+                    <span className="font-mono text-xs text-muted-fg">{product.sku}</span>{" "}
+                    <span className="text-heading">{product.nameEn}</span>{" "}
+                    <span className="text-muted-fg">— {product.unitPrice}</span>
+                  </button>
+                ))}
+                {filtered.length === 0 && (
+                  <div className="px-3 py-2 text-sm text-muted-fg">No matches</div>
+                )}
+              </div>
+            )}
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={onOpenQuickCreate} className="shrink-0">
+            + Add Product
+          </Button>
         </div>
 
         {lines.length > 0 && (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>#</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Product</TableHead>
-                <TableHead>Unit</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="text-right">Unit Price</TableHead>
-                <TableHead className="text-right">Discount</TableHead>
-                <TableHead>VAT</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {lines.map((line, index) => {
-                const exceedsStock = Number(line.quantity) > Number(line.stockAtAdd);
-                const rawSubtotal = Number(line.unitPrice) * Number(line.quantity);
-                const discountExceedsSubtotal = Number(line.discount) > rawSubtotal;
-                return (
-                  <TableRow key={line.key}>
-                    <TableCell>{index + 1}</TableCell>
-                    <TableCell className="font-mono text-xs">{line.sku ?? "—"}</TableCell>
-                    <TableCell>
-                      {line.productName}
-                      {exceedsStock && <div className="text-xs text-amber-600">exceeds stock</div>}
-                    </TableCell>
-                    <TableCell>{UNIT_LABELS[line.unit] ?? line.unit}</TableCell>
-                    <TableCell className="text-right">
-                      <Input
-                        type="number"
-                        step="0.001"
-                        min="0.001"
-                        value={line.quantity}
-                        onChange={(e) => onQuantityChange(line.key, e.target.value)}
-                        className="w-20 text-right"
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">{line.unitPrice}</TableCell>
-                    <TableCell className="text-right">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={line.discount}
-                        onChange={(e) => onDiscountChange(line.key, e.target.value)}
-                        className="w-20 text-right"
-                      />
-                      {discountExceedsSubtotal && (
-                        <div className="text-xs text-red-600">exceeds item subtotal</div>
-                      )}
-                    </TableCell>
-                    <TableCell>{line.vatRate === null ? "Default" : `${line.vatRate}%`}</TableCell>
-                    <TableCell className="text-right">{lineTotals[index].lineTotal.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button type="button" variant="outline" size="sm" onClick={() => onRemoveLine(line.key)}>
-                        Delete
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          <div className="max-h-[420px] overflow-y-auto rounded-lg border border-border-subtle">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>#</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead>Unit</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="text-right">Unit Price</TableHead>
+                  <TableHead className="text-right">Discount</TableHead>
+                  <TableHead className="text-right">VAT</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lines.map((line, index) => {
+                  const exceedsStock = Number(line.quantity) > Number(line.stockAtAdd);
+                  const rawSubtotal = Number(line.unitPrice) * Number(line.quantity);
+                  const discountExceedsSubtotal = Number(line.discount) > rawSubtotal;
+                  const { lineVat, lineTotal } = lineTotals[index];
+                  return (
+                    <TableRow key={line.key}>
+                      <TableCell className="text-muted-fg">{index + 1}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="font-mono">
+                          {line.sku ?? "—"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium text-heading">{line.productName}</div>
+                        {line.productNameAr && (
+                          <div className="text-xs text-emerald-600 dark:text-emerald-400">{line.productNameAr}</div>
+                        )}
+                        {exceedsStock && <div className="text-xs text-amber-600">exceeds stock</div>}
+                      </TableCell>
+                      <TableCell className="text-muted-fg">{UNIT_LABELS[line.unit] ?? line.unit}</TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          step="0.001"
+                          min="0.001"
+                          value={line.quantity}
+                          onChange={(e) => onQuantityChange(line.key, e.target.value)}
+                          className="w-20 text-right"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={line.unitPrice}
+                          onChange={(e) => onUnitPriceChange(line.key, e.target.value)}
+                          className="w-24 text-right"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={line.discount}
+                          onChange={(e) => onDiscountChange(line.key, e.target.value)}
+                          className="w-20 text-right"
+                        />
+                        {discountExceedsSubtotal && (
+                          <div className="text-xs text-red-600">exceeds item subtotal</div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-fg">{lineVat.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={totalDrafts[line.key] ?? lineTotal.toFixed(2)}
+                          onFocus={() =>
+                            setTotalDrafts((prev) => ({ ...prev, [line.key]: lineTotal.toFixed(2) }))
+                          }
+                          onChange={(e) =>
+                            setTotalDrafts((prev) => ({ ...prev, [line.key]: e.target.value }))
+                          }
+                          onBlur={() => commitTotalDraft(line.key)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") e.currentTarget.blur();
+                          }}
+                          className="w-24 text-right font-semibold text-heading"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            aria-label="Confirm line, focus search"
+                            onClick={() => searchInputRef.current?.focus()}
+                            className="rounded-md p-1 text-emerald-600 hover:bg-emerald-600/10"
+                          >
+                            <Check className="size-4" />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Remove item"
+                            onClick={() => onRemoveLine(line.key)}
+                            className="rounded-md p-1 text-red-600 hover:bg-red-600/10"
+                          >
+                            <X className="size-4" />
+                          </button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </CardContent>
     </Card>

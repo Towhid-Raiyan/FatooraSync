@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import type { SerializedProduct } from "@/components/products/products-client";
-import { calculateLine, calculateDocumentTotals } from "@/lib/receipts/calculate-totals";
+import { calculateLine, calculateDocumentTotals, deriveUnitPriceFromTotal } from "@/lib/receipts/calculate-totals";
 import { CustomerSection, type CustomerDraft } from "./customer-section";
 import { ItemsSection, type ReceiptLine } from "./items-section";
 
@@ -59,6 +59,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
         productId: product.id,
         sku: product.sku,
         productName: product.nameEn,
+        productNameAr: product.nameAr,
         unit: product.unit,
         quantity: "1",
         unitPrice: product.unitPrice,
@@ -73,6 +74,38 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
     setProducts((prev) => [...prev, product]);
     addLine(product);
     setQuickCreateOpen(false);
+  }
+
+  // The cashier can override a line's Unit Price directly -- a manual price at the
+  // point of sale (see the trust-boundary note in route.ts). This is a plain
+  // forward-direction edit, same as quantity/discount.
+  function handleUnitPriceChange(key: string, unitPrice: string) {
+    setLines((prev) => prev.map((line) => (line.key === key ? { ...line, unitPrice } : line)));
+  }
+
+  // Editing Total is the reverse direction: back-solve the Unit Price that would
+  // produce the typed total, holding quantity/discount/VAT fixed, using the same
+  // pure function the totals math itself is built on. An unparsable or negative
+  // total is simply ignored -- the line keeps its last valid price rather than
+  // being corrupted by a stray edit.
+  function handleTotalChange(key: string, rawTotal: string) {
+    const newTotal = Number(rawTotal);
+    if (!Number.isFinite(newTotal) || newTotal < 0) return;
+    setLines((prev) =>
+      prev.map((line) => {
+        if (line.key !== key) return line;
+        const quantity = Number(line.quantity);
+        if (!(quantity > 0)) return line;
+        const vatRate = Number(line.vatRate ?? defaultVatRate);
+        const unitPrice = deriveUnitPriceFromTotal({
+          lineTotal: newTotal,
+          quantity,
+          discount: Number(line.discount),
+          vatRate,
+        });
+        return { ...line, unitPrice: unitPrice.toFixed(2) };
+      })
+    );
   }
 
   function resetForm() {
@@ -92,7 +125,12 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
 
     const payload = {
       customer: customerDraft,
-      lines: lines.map((line) => ({ productId: line.productId, quantity: line.quantity, discount: line.discount })),
+      lines: lines.map((line) => ({
+        productId: line.productId,
+        quantity: line.quantity,
+        discount: line.discount,
+        unitPrice: line.unitPrice,
+      })),
       notes,
     };
 
@@ -146,78 +184,75 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
   }
 
   return (
-    <div className="grid grid-cols-3 gap-4">
-      <div className="col-span-2 flex flex-col gap-4">
-        <CustomerSection customers={customers} draft={customerDraft} onDraftChange={setCustomerDraft} />
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
+      <CustomerSection customers={customers} draft={customerDraft} onDraftChange={setCustomerDraft} />
 
-        <ItemsSection
-          products={products}
-          lines={lines}
-          lineTotals={lineTotals}
-          onAddLine={addLine}
-          onRemoveLine={(key) => setLines((prev) => prev.filter((l) => l.key !== key))}
-          onQuantityChange={(key, quantity) =>
-            setLines((prev) => prev.map((l) => (l.key === key ? { ...l, quantity } : l)))
-          }
-          onDiscountChange={(key, discount) =>
-            setLines((prev) => prev.map((l) => (l.key === key ? { ...l, discount } : l)))
-          }
-          onOpenQuickCreate={() => setQuickCreateOpen(true)}
-        />
+      <Card className="flex flex-col border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
+        <CardHeader>
+          <CardTitle className="text-heading">Notes</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-1 flex-col">
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="w-full flex-1 rounded-lg border border-input bg-transparent p-2.5 text-sm"
+          />
+        </CardContent>
+      </Card>
 
-        <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
-          <CardHeader>
-            <CardTitle className="text-heading">Notes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full rounded-lg border border-input bg-transparent p-2.5 text-sm"
-              rows={3}
-            />
-          </CardContent>
-        </Card>
-      </div>
+      <ItemsSection
+        products={products}
+        lines={lines}
+        lineTotals={lineTotals}
+        onAddLine={addLine}
+        onRemoveLine={(key) => setLines((prev) => prev.filter((l) => l.key !== key))}
+        onQuantityChange={(key, quantity) =>
+          setLines((prev) => prev.map((l) => (l.key === key ? { ...l, quantity } : l)))
+        }
+        onUnitPriceChange={handleUnitPriceChange}
+        onDiscountChange={(key, discount) =>
+          setLines((prev) => prev.map((l) => (l.key === key ? { ...l, discount } : l)))
+        }
+        onTotalChange={handleTotalChange}
+        onOpenQuickCreate={() => setQuickCreateOpen(true)}
+      />
 
-      <div className="col-span-1">
-        <Card className="sticky top-4 border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
-          <CardHeader>
-            <CardTitle className="text-heading">Totals</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {error && (
-              <p role="alert" className="text-xs text-red-600">
-                {error}
-              </p>
-            )}
-            <div className="flex justify-between text-sm text-body">
-              <span>Subtotal</span>
-              <span>{documentTotals.subtotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-sm text-body">
-              <span>Total VAT</span>
-              <span>{documentTotals.vatTotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-lg font-bold text-heading">
-              <span>Grand Total</span>
-              <span>{documentTotals.grandTotal.toFixed(2)}</span>
-            </div>
-            <Button
-              type="button"
-              variant="primary"
-              className="w-full"
-              disabled={saving}
-              onClick={() => handleSave(true)}
-            >
-              {saving ? "Saving…" : "Save & Print"}
-            </Button>
-            <Button type="button" variant="outline" className="w-full" disabled={saving} onClick={() => handleSave(false)}>
-              Save
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="sticky top-4 self-start border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
+        <CardHeader>
+          <CardTitle className="text-heading">Totals</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {error && (
+            <p role="alert" className="text-xs text-red-600">
+              {error}
+            </p>
+          )}
+          <div className="flex justify-between text-sm text-body">
+            <span>Subtotal</span>
+            <span>{documentTotals.subtotal.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-sm text-body">
+            <span>Total VAT</span>
+            <span>{documentTotals.vatTotal.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-lg font-bold text-heading">
+            <span>Grand Total</span>
+            <span>{documentTotals.grandTotal.toFixed(2)}</span>
+          </div>
+          <Button
+            type="button"
+            variant="primary"
+            className="w-full"
+            disabled={saving}
+            onClick={() => handleSave(true)}
+          >
+            {saving ? "Saving…" : "Save & Print"}
+          </Button>
+          <Button type="button" variant="outline" className="w-full" disabled={saving} onClick={() => handleSave(false)}>
+            Save
+          </Button>
+        </CardContent>
+      </Card>
 
       <ProductFormDialog
         open={quickCreateOpen}

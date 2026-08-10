@@ -40,3 +40,22 @@ export function calculateDocumentTotals(lines: LineTotals[]): DocumentTotals {
   const grandTotal = round2(subtotal + vatTotal);
   return { subtotal, vatTotal, grandTotal };
 }
+
+export interface UnitPriceFromTotalInput {
+  lineTotal: number;
+  quantity: number;
+  discount: number;
+  vatRate: number;
+}
+
+// Inverse of calculateLine: given a target lineTotal (the cashier typed a total
+// directly instead of a unit price), back-solve for the unit price that would
+// produce it, holding quantity/discount/vatRate fixed. Clamped to zero -- a
+// target total low enough to imply a negative unit price is not representable,
+// so it's floored rather than propagated as a negative price.
+export function deriveUnitPriceFromTotal(input: UnitPriceFromTotalInput): number {
+  const lineSubtotal = input.lineTotal / (1 + input.vatRate / 100);
+  const rawSubtotal = lineSubtotal + input.discount;
+  const unitPrice = input.quantity > 0 ? rawSubtotal / input.quantity : 0;
+  return round2(Math.max(0, unitPrice));
+}
