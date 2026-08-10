@@ -645,9 +645,6 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
         {!hasAnyRealCustomer ? (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <p className="text-sm text-muted-fg">No customers yet — add your first one</p>
-            <Button variant="primary" onClick={() => setDialogState({ open: true, customer: null })}>
-              + Add Customer
-            </Button>
           </div>
         ) : (
           <Table>
@@ -707,6 +704,8 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
 ```
 
 Note on the empty state: it replaces the *entire* table area, including the Walk-in Customer row — a fresh tenant with zero real customers sees only the "No customers yet" message, not a table with just the system row in it. This matches the design spec's "table area is replaced with a centered message."
+
+Note on the empty state's action button: the design spec's frontend section describes the empty state as showing its own "+ Add Customer" button alongside the message. That reads naturally in isolation, but the toolbar's "+ Add Customer" button is never hidden (it isn't conditioned on `hasAnyRealCustomer`), so following the spec literally puts two identical primary buttons on screen at once — directly contradicting this plan's own Global Constraint that a page's primary action lives in exactly one place, never duplicated. The toolbar button already covers the empty-state case (it's visible and functional with zero customers), so the empty state renders the message only, no second button. This plan's Global Constraint governs over the spec's literal empty-state wording here — an unambiguous resolution, not a design trade-off to leave open.
 
 - [ ] **Step 3: Create the dialog component**
 
