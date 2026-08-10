@@ -86,7 +86,10 @@ export function ItemsSection({
               ))}
               <button
                 type="button"
-                onClick={onOpenQuickCreate}
+                onClick={() => {
+                  onOpenQuickCreate();
+                  setSearch("");
+                }}
                 className="block w-full border-t border-border-subtle px-3 py-2 text-left text-sm font-medium text-primary hover:bg-bg-app"
               >
                 + New Product
