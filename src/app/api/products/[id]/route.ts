@@ -34,7 +34,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   if (body.unitPrice !== undefined) {
     const unitPrice = Number(body.unitPrice);
-    if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+    if (body.unitPrice === "" || !Number.isFinite(unitPrice) || unitPrice < 0) {
       return NextResponse.json({ error: "Unit price is required and must be zero or more" }, { status: 400 });
     }
     data.unitPrice = unitPrice;
@@ -42,7 +42,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   if (body.quantity !== undefined) {
     const quantity = Number(body.quantity);
-    if (!Number.isFinite(quantity) || quantity < 0) {
+    if (body.quantity === "" || !Number.isFinite(quantity) || quantity < 0) {
       return NextResponse.json({ error: "Quantity must be zero or more" }, { status: 400 });
     }
     data.quantity = quantity;
@@ -63,8 +63,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (body.unit !== undefined) {
     data.unit = VALID_UNITS.includes(body.unit) ? body.unit : "PIECE";
   }
-  if (body.sku !== undefined) data.sku = body.sku || null;
-  if (body.barcode !== undefined) data.barcode = body.barcode || null;
+  if (body.sku !== undefined) data.sku = typeof body.sku === "string" ? body.sku.trim() || null : null;
+  if (body.barcode !== undefined) data.barcode = typeof body.barcode === "string" ? body.barcode.trim() || null : null;
   if (body.isActive !== undefined) data.isActive = Boolean(body.isActive);
 
   const conflict = await withTenant(tenantId, (tx) =>

@@ -7,6 +7,8 @@ import { findUniquenessConflict } from "./check-uniqueness";
 
 const VALID_UNITS: Unit[] = ["PIECE", "KG", "BOX", "CARTON", "LITER"];
 
+// Not called by this branch's own UI (page.tsx fetches directly via withTenant) — reserved
+// for the future Sales Receipt screen's product picker, per the design spec.
 export async function GET() {
   const session = await auth();
   if (!session?.user?.tenantId) {
@@ -32,7 +34,7 @@ export async function POST(request: Request) {
   }
 
   const unitPrice = Number(body.unitPrice);
-  if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+  if (body.unitPrice === "" || !Number.isFinite(unitPrice) || unitPrice < 0) {
     return NextResponse.json({ error: "Unit price is required and must be zero or more" }, { status: 400 });
   }
 
@@ -53,8 +55,8 @@ export async function POST(request: Request) {
   }
 
   const unit: Unit = VALID_UNITS.includes(body.unit) ? body.unit : "PIECE";
-  const sku = body.sku || null;
-  const barcode = body.barcode || null;
+  const sku = typeof body.sku === "string" ? body.sku.trim() || null : null;
+  const barcode = typeof body.barcode === "string" ? body.barcode.trim() || null : null;
 
   const conflict = await withTenant(tenantId, (tx) => findUniquenessConflict(tx, { sku, barcode }));
   if (conflict) {
