@@ -105,17 +105,40 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
 
       if (!response.ok) {
         setError(body.error ?? "Something went wrong");
+        setSaving(false);
         return;
       }
 
+      if (addingNewCustomer) {
+        setCustomers((prev) => [
+          ...prev,
+          {
+            id: body.customerId,
+            tenantId: "", // not used by any UI in this list -- fine to leave blank client-side
+            name: newCustomerDraft.name,
+            vatId: newCustomerDraft.vatId || null,
+            crNumber: newCustomerDraft.crNumber || null,
+            phone: newCustomerDraft.phone || null,
+            address: newCustomerDraft.address || null,
+            isWalkIn: false,
+            isActive: true,
+            createdAt: new Date(),
+          },
+        ]);
+      }
+
       if (printAfter) {
+        // Deliberately leave `saving` true through the navigation so the buttons stay
+        // disabled until this component unmounts -- clearing it in a `finally` here
+        // would re-enable Save & Print for the several seconds router.push takes to
+        // actually navigate, letting a second click mint a second immutable receipt.
         router.push(`/receipts/${body.id}/print`);
       } else {
         resetForm();
+        setSaving(false);
       }
     } catch {
       setError("Something went wrong");
-    } finally {
       setSaving(false);
     }
   }
