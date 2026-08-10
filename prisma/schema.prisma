@@ -22,16 +22,18 @@ enum Unit {
 }
 
 model Tenant {
-  id                   String   @id @default(uuid())
-  legalName            String
-  tradeNameEn          String
-  tradeNameAr          String?
-  vatNumber            String
-  crNumber             String?
-  address              String?
-  defaultLocale        String   @default("ar")
-  createdAt            DateTime @default(now())
-  nextProductSkuNumber Int      @default(1)
+  id                     String   @id @default(uuid())
+  legalName              String
+  tradeNameEn            String
+  tradeNameAr            String?
+  vatNumber              String
+  crNumber               String?
+  address                String?
+  defaultLocale          String   @default("ar")
+  createdAt              DateTime @default(now())
+  nextProductSkuNumber   Int      @default(1)
+  nextSalesReceiptNumber Int      @default(1)
+  lastSalesReceiptHash   String?
 
   users         User[]
   settings      Settings?
