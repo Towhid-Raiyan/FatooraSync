@@ -18,18 +18,21 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
     open: false,
     customer: null,
   });
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return customers.filter((c) => {
-      if (!showInactive && !c.isActive) return false;
-      if (!query) return true;
-      return (
-        c.name.toLowerCase().includes(query) ||
-        (c.vatId ?? "").toLowerCase().includes(query) ||
-        (c.phone ?? "").toLowerCase().includes(query)
-      );
-    });
+    return customers
+      .filter((c) => {
+        if (!showInactive && !c.isActive) return false;
+        if (!query) return true;
+        return (
+          c.name.toLowerCase().includes(query) ||
+          (c.vatId ?? "").toLowerCase().includes(query) ||
+          (c.phone ?? "").toLowerCase().includes(query)
+        );
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [customers, search, showInactive]);
 
   const hasAnyRealCustomer = customers.some((c) => !c.isWalkIn);
@@ -43,13 +46,21 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
   }
 
   async function toggleActive(customer: Customer) {
-    const response = await fetch(`/api/customers/${customer.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ isActive: !customer.isActive }),
-    });
-    if (response.ok) {
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/customers/${customer.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive: !customer.isActive }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        setActionError(body.error ?? "Something went wrong");
+        return;
+      }
       const updated = await response.json();
       setCustomers((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+    } catch {
+      setActionError("Something went wrong");
     }
   }
 
@@ -72,6 +83,12 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
           + Add Customer
         </Button>
       </div>
+
+      {actionError && (
+        <p role="alert" className="text-xs text-red-600">
+          {actionError}
+        </p>
+      )}
 
       <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
         {!hasAnyRealCustomer ? (
