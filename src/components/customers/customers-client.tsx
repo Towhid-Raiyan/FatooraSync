@@ -77,9 +77,6 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
         {!hasAnyRealCustomer ? (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <p className="text-sm text-muted-fg">No customers yet — add your first one</p>
-            <Button variant="primary" onClick={() => setDialogState({ open: true, customer: null })}>
-              + Add Customer
-            </Button>
           </div>
         ) : (
           <Table>
