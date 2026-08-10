@@ -30,7 +30,6 @@ export const UNIT_LABELS: Record<string, string> = Object.fromEntries(
 const EMPTY_FORM = {
   nameEn: "",
   nameAr: "",
-  sku: "",
   barcode: "",
   unit: "PIECE",
   unitPrice: "",
@@ -53,7 +52,6 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
           ? {
               nameEn: product.nameEn,
               nameAr: product.nameAr ?? "",
-              sku: product.sku ?? "",
               barcode: product.barcode ?? "",
               unit: product.unit,
               unitPrice: product.unitPrice,
@@ -78,7 +76,6 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
     const payload = {
       nameEn: form.nameEn,
       nameAr: form.nameAr,
-      sku: form.sku,
       barcode: form.barcode,
       unit: form.unit,
       unitPrice: form.unitPrice,
@@ -140,23 +137,15 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="product-sku" className={LABEL_CLASS}>
-                SKU
-              </Label>
-              <Input id="product-sku" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
-            </div>
-            <div>
-              <Label htmlFor="product-barcode" className={LABEL_CLASS}>
-                Barcode
-              </Label>
-              <Input
-                id="product-barcode"
-                value={form.barcode}
-                onChange={(e) => setForm({ ...form, barcode: e.target.value })}
-              />
-            </div>
+          <div>
+            <Label htmlFor="product-barcode" className={LABEL_CLASS}>
+              Barcode
+            </Label>
+            <Input
+              id="product-barcode"
+              value={form.barcode}
+              onChange={(e) => setForm({ ...form, barcode: e.target.value })}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
