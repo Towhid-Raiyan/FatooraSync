@@ -7,7 +7,7 @@ import { PATCH } from "./route";
 let tenantId: string;
 let otherTenantId: string;
 let productId: string;
-let productWithSkuId: string;
+let productWithSku: { id: string; sku: string | null };
 let otherTenantProductId: string;
 let mockSession: { user: { tenantId: string } } | null = null;
 
@@ -32,12 +32,14 @@ describe("/api/products/[id]", () => {
     );
     productId = product.id;
 
-    const productWithSku = await withTenant(tenantId, (tx) =>
+    // Created with a direct DB write (not through the route) so this test can assert
+    // that a PATCH can never move it away from its originally-assigned sku.
+    const withSku = await withTenant(tenantId, (tx) =>
       tx.product.create({
         data: { nameEn: "Product With Sku", unitPrice: 5, sku: "SKU-EXIST", barcode: "2222222222" } as Prisma.ProductUncheckedCreateInput,
       })
     );
-    productWithSkuId = productWithSku.id;
+    productWithSku = { id: withSku.id, sku: withSku.sku };
 
     const otherTenant = await prisma.tenant.create({
       data: { legalName: "Other Product Patch Co", tradeNameEn: "Other Product Patch Shop", vatNumber: "300000000000099" },
@@ -121,13 +123,6 @@ describe("/api/products/[id]", () => {
     expect(body.vatRate).toBeNull();
   });
 
-  it("returns 409 when updating sku to one already used in the same tenant", async () => {
-    const response = await PATCH(patchRequest({ sku: "SKU-EXIST" }), { params: Promise.resolve({ id: productId }) });
-    expect(response.status).toBe(409);
-    const body = await response.json();
-    expect(body.error).toContain("SKU");
-  });
-
   it("returns 409 when updating barcode to one already used in the same tenant", async () => {
     const response = await PATCH(patchRequest({ barcode: "2222222222" }), { params: Promise.resolve({ id: productId }) });
     expect(response.status).toBe(409);
@@ -135,11 +130,14 @@ describe("/api/products/[id]", () => {
     expect(body.error).toContain("barcode");
   });
 
-  it("allows updating a product's own sku to its current value without a false conflict", async () => {
-    const response = await PATCH(patchRequest({ sku: "SKU-EXIST" }), {
-      params: Promise.resolve({ id: productWithSkuId }),
+  it("ignores a sku field in the request body -- sku is never editable", async () => {
+    const response = await PATCH(patchRequest({ sku: "SKU-ATTEMPTED-CHANGE" }), {
+      params: Promise.resolve({ id: productWithSku.id }),
     });
     expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.sku).toBe(productWithSku.sku);
+    expect(body.sku).not.toBe("SKU-ATTEMPTED-CHANGE");
   });
 
   it("returns 401 when unauthenticated", async () => {

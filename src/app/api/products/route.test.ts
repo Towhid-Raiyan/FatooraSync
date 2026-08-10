@@ -37,17 +37,32 @@ describe("/api/products", () => {
     await prisma.$disconnect();
   });
 
-  it("POST creates a product with valid data", async () => {
+  it("POST creates a product with a system-generated SKU, ignoring any sku sent in the body", async () => {
     const request = new Request("http://localhost/api/products", {
       method: "POST",
-      body: JSON.stringify({ nameEn: "Rice 5kg", sku: "SKU-001", barcode: "1111111111", unitPrice: "24.50", quantity: "10" }),
+      body: JSON.stringify({ nameEn: "Rice 5kg", sku: "CLIENT-SUPPLIED", barcode: "1111111111", unitPrice: "24.50", quantity: "10" }),
     });
     const response = await POST(request);
     expect(response.status).toBe(201);
     const body = await response.json();
     expect(body.nameEn).toBe("Rice 5kg");
-    expect(body.sku).toBe("SKU-001");
+    expect(body.sku).toMatch(/^SKU-\d{6}$/);
+    expect(body.sku).not.toBe("CLIENT-SUPPLIED");
     expect(body.unit).toBe("PIECE");
+  });
+
+  it("POST assigns sequential SKUs, one after another, within a tenant", async () => {
+    const first = await POST(
+      new Request("http://localhost/api/products", { method: "POST", body: JSON.stringify({ nameEn: "Sequence One", unitPrice: "1" }) })
+    );
+    const second = await POST(
+      new Request("http://localhost/api/products", { method: "POST", body: JSON.stringify({ nameEn: "Sequence Two", unitPrice: "1" }) })
+    );
+    const firstBody = await first.json();
+    const secondBody = await second.json();
+    const firstNumber = Number(firstBody.sku.split("-")[1]);
+    const secondNumber = Number(secondBody.sku.split("-")[1]);
+    expect(secondNumber).toBe(firstNumber + 1);
   });
 
   it("GET returns only this tenant's products, never another tenant's", async () => {
@@ -115,17 +130,6 @@ describe("/api/products", () => {
     expect(Number(body.vatRate)).toBe(0);
   });
 
-  it("POST returns 409 for a SKU already used within the same tenant", async () => {
-    const request = new Request("http://localhost/api/products", {
-      method: "POST",
-      body: JSON.stringify({ nameEn: "Duplicate Sku", unitPrice: "10", sku: "SKU-001" }),
-    });
-    const response = await POST(request);
-    expect(response.status).toBe(409);
-    const body = await response.json();
-    expect(body.error).toContain("SKU");
-  });
-
   it("POST returns 409 for a barcode already used within the same tenant", async () => {
     const request = new Request("http://localhost/api/products", {
       method: "POST",
@@ -137,26 +141,29 @@ describe("/api/products", () => {
     expect(body.error).toContain("barcode");
   });
 
-  it("POST allows the same SKU and barcode across two different tenants", async () => {
+  it("POST allows the same barcode across two different tenants, and independent SKU counters", async () => {
     mockSession = { user: { tenantId: otherTenantId } };
     try {
       const request = new Request("http://localhost/api/products", {
         method: "POST",
-        body: JSON.stringify({ nameEn: "Cross Tenant Same Codes", unitPrice: "10", sku: "SKU-001", barcode: "1111111111" }),
+        body: JSON.stringify({ nameEn: "Cross Tenant Same Barcode", unitPrice: "10", barcode: "1111111111" }),
       });
       const response = await POST(request);
       expect(response.status).toBe(201);
+      const body = await response.json();
+      // otherTenantId's own counter, independent of tenantId's -- no cross-tenant SKU collision possible.
+      expect(body.sku).toMatch(/^SKU-\d{6}$/);
     } finally {
       mockSession = { user: { tenantId } };
     }
   });
 
-  it("POST allows multiple products with no SKU and no barcode", async () => {
+  it("POST allows multiple products with no barcode", async () => {
     const first = await POST(
-      new Request("http://localhost/api/products", { method: "POST", body: JSON.stringify({ nameEn: "No Codes One", unitPrice: "1" }) })
+      new Request("http://localhost/api/products", { method: "POST", body: JSON.stringify({ nameEn: "No Barcode One", unitPrice: "1" }) })
     );
     const second = await POST(
-      new Request("http://localhost/api/products", { method: "POST", body: JSON.stringify({ nameEn: "No Codes Two", unitPrice: "1" }) })
+      new Request("http://localhost/api/products", { method: "POST", body: JSON.stringify({ nameEn: "No Barcode Two", unitPrice: "1" }) })
     );
     expect(first.status).toBe(201);
     expect(second.status).toBe(201);
