@@ -9,7 +9,6 @@ let otherTenantId: string;
 let customerId: string;
 let walkInId: string;
 let otherTenantCustomerId: string;
-let customerWithVatId: string;
 let customerWithoutVatId: string;
 let mockSession: { user: { tenantId: string } } | null = null;
 
@@ -39,10 +38,9 @@ describe("/api/customers/[id]", () => {
     );
     walkInId = walkIn.id;
 
-    const custWithVat = await withTenant(tenantId, (tx) =>
+    await withTenant(tenantId, (tx) =>
       tx.customer.create({ data: { name: "Customer With VAT", vatId: "300000000000088" } as Prisma.CustomerUncheckedCreateInput })
     );
-    customerWithVatId = custWithVat.id;
 
     const custWithoutVat = await withTenant(tenantId, (tx) =>
       tx.customer.create({ data: { name: "Customer Without VAT" } as Prisma.CustomerUncheckedCreateInput })
