@@ -3,6 +3,8 @@ import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth/config";
 import { withTenant } from "@/lib/db/tenant-context";
 
+// Not called by this branch's own UI (page.tsx fetches directly via withTenant) — reserved
+// for the future Sales Receipt screen's customer picker, per the design spec.
 export async function GET() {
   const session = await auth();
   if (!session?.user?.tenantId) {
