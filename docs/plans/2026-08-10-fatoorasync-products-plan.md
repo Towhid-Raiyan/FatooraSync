@@ -379,7 +379,7 @@ describe("/api/products", () => {
 - [ ] **Step 4: Run the tests**
 
 Run: `npm test -- products/route.test.ts`
-Expected: all 14 tests pass.
+Expected: all 13 tests pass.
 
 - [ ] **Step 5: Commit**
 
@@ -657,7 +657,7 @@ describe("/api/products/[id]", () => {
 - [ ] **Step 3: Run the tests**
 
 Run: `npm test -- products`
-Expected: all tests in both `products/route.test.ts` and `products/[id]/route.test.ts` pass (14 + 13 = 27 total).
+Expected: all tests in both `products/route.test.ts` and `products/[id]/route.test.ts` pass (13 + 13 = 26 total).
 
 - [ ] **Step 4: Commit**
 
