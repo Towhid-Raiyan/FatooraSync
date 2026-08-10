@@ -122,6 +122,8 @@ export function ItemsSection({
             <TableBody>
               {lines.map((line, index) => {
                 const exceedsStock = Number(line.quantity) > Number(line.stockAtAdd);
+                const rawSubtotal = Number(line.unitPrice) * Number(line.quantity);
+                const discountExceedsSubtotal = Number(line.discount) > rawSubtotal;
                 return (
                   <TableRow key={line.key}>
                     <TableCell>{index + 1}</TableCell>
@@ -151,6 +153,9 @@ export function ItemsSection({
                         onChange={(e) => onDiscountChange(line.key, e.target.value)}
                         className="w-20 text-right"
                       />
+                      {discountExceedsSubtotal && (
+                        <div className="text-xs text-red-600">exceeds item subtotal</div>
+                      )}
                     </TableCell>
                     <TableCell>{line.vatRate === null ? "Default" : `${line.vatRate}%`}</TableCell>
                     <TableCell className="text-right">{lineTotals[index].lineTotal.toFixed(2)}</TableCell>

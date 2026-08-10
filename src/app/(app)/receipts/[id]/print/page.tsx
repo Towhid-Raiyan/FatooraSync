@@ -26,6 +26,7 @@ export default async function ReceiptPrintPage({ params }: { params: Promise<{ i
 
   const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
   const qrImageDataUrl = document.qrCode ? await QRCode.toDataURL(document.qrCode) : null;
+  const hasDiscount = document.lines.some((line) => Number(line.discount) > 0);
 
   return (
     <div className="mx-auto max-w-[420px] bg-white p-6 text-sm text-black print:p-0" dir="rtl">
@@ -58,6 +59,7 @@ export default async function ReceiptPrintPage({ params }: { params: Promise<{ i
             <th className="py-1">المنتج / Item</th>
             <th className="py-1 text-right">Qty</th>
             <th className="py-1 text-right">Price</th>
+            {hasDiscount && <th className="py-1 text-right">Discount</th>}
             <th className="py-1 text-right">VAT</th>
             <th className="py-1 text-right">Total</th>
           </tr>
@@ -68,6 +70,7 @@ export default async function ReceiptPrintPage({ params }: { params: Promise<{ i
               <td className="py-1">{line.productName}</td>
               <td className="py-1 text-right">{line.quantity.toString()}</td>
               <td className="py-1 text-right">{money(line.unitPrice)}</td>
+              {hasDiscount && <td className="py-1 text-right">{money(line.discount)}</td>}
               <td className="py-1 text-right">{money(line.lineVat)}</td>
               <td className="py-1 text-right">{money(line.lineTotal)}</td>
             </tr>

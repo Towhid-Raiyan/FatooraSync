@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import { withTenant } from "@/lib/db/tenant-context";
+import { GENESIS_HASH } from "@/lib/zatca/hash-chain";
 import { POST } from "./route";
 
 let tenantId: string;
@@ -73,7 +74,9 @@ describe("/api/receipts", () => {
     );
     expect(response.status).toBe(201);
     const body = await response.json();
-    expect(body.number).toBeGreaterThan(0);
+    // First save against a freshly created tenant in beforeAll -- deterministically number 1.
+    expect(body.number).toBe(1);
+    expect(body.previousInvoiceHash).toBe(GENESIS_HASH);
     expect(body.subtotal).toBe("40");
     expect(body.vatTotal).toBe("6");
     expect(body.grandTotal).toBe("46");
@@ -108,6 +111,11 @@ describe("/api/receipts", () => {
     const body = await response.json();
     const customer = await withTenant(tenantId, (tx) => tx.customer.findUnique({ where: { id: body.customerId } }));
     expect(customer?.isWalkIn).toBe(true);
+
+    const byVatId = await withTenant(tenantId, (tx) =>
+      tx.customer.findFirst({ where: { vatId: "399999999900003" } })
+    );
+    expect(byVatId).toBeNull();
   });
 
   it("uses the product's own VAT override instead of the tenant default", { timeout: 30000 }, async () => {
@@ -187,6 +195,51 @@ describe("/api/receipts", () => {
       tx.customer.findUnique({ where: { id: firstBody.customerId } })
     );
     expect(customer?.name).toBe("Reused Co");
+  });
+
+  it("never matches a customer with the same VAT ID under a different tenant", { timeout: 30000 }, async () => {
+    await withTenant(otherTenantId, (tx) =>
+      tx.customer.create({
+        data: { name: "Other Tenant's Customer", vatId: "300000000000224" } as Prisma.CustomerUncheckedCreateInput,
+      })
+    );
+
+    const response = await POST(
+      postRequest({
+        customer: { name: "Same VAT, This Tenant", vatId: "300000000000224" },
+        lines: [{ productId, quantity: "1" }],
+      })
+    );
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    const customer = await withTenant(tenantId, (tx) => tx.customer.findUnique({ where: { id: body.customerId } }));
+    expect(customer?.tenantId).toBe(tenantId);
+    expect(customer?.name).toBe("Same VAT, This Tenant");
+  });
+
+  it("reactivates a deactivated customer matched by VAT ID instead of failing on the unique constraint", { timeout: 30000 }, async () => {
+    const deactivated = await withTenant(tenantId, (tx) =>
+      tx.customer.create({
+        data: {
+          name: "Deactivated Co",
+          vatId: "300000000000231",
+          isActive: false,
+        } as Prisma.CustomerUncheckedCreateInput,
+      })
+    );
+
+    const response = await POST(
+      postRequest({
+        customer: { name: "Deactivated Co", vatId: "300000000000231" },
+        lines: [{ productId, quantity: "1" }],
+      })
+    );
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.customerId).toBe(deactivated.id);
+
+    const reactivated = await withTenant(tenantId, (tx) => tx.customer.findUnique({ where: { id: deactivated.id } }));
+    expect(reactivated?.isActive).toBe(true);
   });
 
   it("applies a flat discount before VAT and reflects it in the saved line and totals", { timeout: 30000 }, async () => {

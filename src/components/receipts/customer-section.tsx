@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type KeyboardEvent } from "react";
 import type { Customer } from "@prisma/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,7 +39,11 @@ export function CustomerSection({ customers, draft, onDraftChange }: CustomerSec
   const nameMatches = useMemo(() => {
     const query = draft.name.trim().toLowerCase();
     if (!query) return [];
-    return customers.filter((c) => !c.isWalkIn && c.name.toLowerCase().includes(query)).slice(0, 8);
+    // Only customers with a VAT ID on file are suggested here: a receipt can only
+    // ever attach to a *non-walk-in* customer via the find-or-create-by-VAT-ID
+    // resolution (see route.ts), so surfacing a VAT-ID-less record would let the
+    // cashier "pick" a customer whose receipt then silently falls back to Walk-in.
+    return customers.filter((c) => !c.isWalkIn && c.vatId && c.name.toLowerCase().includes(query)).slice(0, 8);
   }, [customers, draft.name]);
 
   const vatMatches = useMemo(() => {
@@ -52,6 +56,16 @@ export function CustomerSection({ customers, draft, onDraftChange }: CustomerSec
     onDraftChange(fillFromCustomer(customer));
     setNameSuggestionsOpen(false);
     setVatSuggestionsOpen(false);
+  }
+
+  function handleSuggestionKeyDown(e: KeyboardEvent<HTMLInputElement>, matches: Customer[]) {
+    if (e.key === "Escape") {
+      setNameSuggestionsOpen(false);
+      setVatSuggestionsOpen(false);
+    } else if (e.key === "Enter" && matches.length > 0) {
+      e.preventDefault();
+      selectSuggestion(matches[0]);
+    }
   }
 
   return (
@@ -68,6 +82,7 @@ export function CustomerSection({ customers, draft, onDraftChange }: CustomerSec
               onChange={(e) => onDraftChange({ ...draft, name: e.target.value })}
               onFocus={() => setNameSuggestionsOpen(true)}
               onBlur={() => setTimeout(() => setNameSuggestionsOpen(false), 150)}
+              onKeyDown={(e) => handleSuggestionKeyDown(e, nameMatches)}
               autoComplete="off"
             />
             {nameSuggestionsOpen && nameMatches.length > 0 && (
@@ -93,6 +108,7 @@ export function CustomerSection({ customers, draft, onDraftChange }: CustomerSec
               onChange={(e) => onDraftChange({ ...draft, vatId: e.target.value })}
               onFocus={() => setVatSuggestionsOpen(true)}
               onBlur={() => setTimeout(() => setVatSuggestionsOpen(false), 150)}
+              onKeyDown={(e) => handleSuggestionKeyDown(e, vatMatches)}
               autoComplete="off"
             />
             {vatSuggestionsOpen && vatMatches.length > 0 && (

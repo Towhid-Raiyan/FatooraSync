@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/client";
-import { calculateLine, calculateDocumentTotals } from "@/lib/receipts/calculate-totals";
+import { round2, calculateLine, calculateDocumentTotals } from "@/lib/receipts/calculate-totals";
 import { computeInvoiceHash, GENESIS_HASH } from "@/lib/zatca/hash-chain";
 import { buildZatcaQrPayload } from "@/lib/zatca/qr-payload";
 
@@ -37,7 +37,8 @@ export async function POST(request: Request) {
   const parsedLines: { productId: string; quantity: number; discount: number }[] = [];
   for (const line of rawLines) {
     const quantity = Number(line.quantity);
-    const discount = line.discount === undefined || line.discount === "" ? 0 : Number(line.discount);
+    const discount =
+      line.discount === undefined || line.discount === "" ? 0 : round2(Number(line.discount));
     if (typeof line.productId !== "string" || !Number.isFinite(quantity) || quantity <= 0) {
       return NextResponse.json({ error: "Each item must have a positive quantity" }, { status: 400 });
     }
@@ -59,8 +60,8 @@ export async function POST(request: Request) {
   const notes = trimmedNotes || null;
 
   try {
-    // This transaction does ~8-10 sequential round trips (settings read, customer
-    // resolve, one product read per line, two tenant updates, a tenant read, the
+    // This transaction does ~8-10 sequential round trips (settings read, one
+    // product read per line, two tenant updates, the customer resolve, the
     // document create, and one product update per line). Prisma's default
     // interactive-transaction timeout (5000ms) is tight for that even on a warm
     // connection, and Neon's serverless compute can add multi-second latency to the
@@ -68,43 +69,6 @@ export async function POST(request: Request) {
     // already closed" failures without changing any transactional logic.
     const document = await prisma.$transaction(async (txn) => {
       const settings = await txn.settings.findUniqueOrThrow({ where: { tenantId } });
-
-      let customerId: string;
-      if (hasFullCustomer) {
-        // Find-or-create by VAT ID: the cashier may have picked a suggestion (in
-        // which case these fields already exactly match a stored customer) or typed
-        // the VAT ID manually without using the suggestion dropdown. Either way, VAT
-        // ID is the tenant-unique key, so look up first rather than blindly creating
-        // -- this also means any edits to the other fields after a match are silently
-        // ignored in favor of the stored record, which is deliberate: a receipt save
-        // is not a customer-editing flow, and VAT ID/legal name are treated as fixed
-        // facts here, not something a cashier can casually overwrite mid-sale.
-        const existing = await txn.customer.findFirst({ where: { tenantId, vatId: draftVatId } });
-        if (existing) {
-          customerId = existing.id;
-        } else {
-          const created = await txn.customer.create({
-            data: {
-              tenantId,
-              name: draftName,
-              vatId: draftVatId,
-              crNumber: typeof customerDraft.crNumber === "string" ? customerDraft.crNumber.trim() || null : null,
-              phone: typeof customerDraft.phone === "string" ? customerDraft.phone.trim() || null : null,
-              address: typeof customerDraft.address === "string" ? customerDraft.address.trim() || null : null,
-            } as Prisma.CustomerUncheckedCreateInput,
-          });
-          customerId = created.id;
-        }
-      } else {
-        // Name or VAT ID (or both) missing -- per spec, this is never saved to the
-        // Customers table; the receipt falls back to the tenant's walk-in customer
-        // and whatever partial info was typed is simply not persisted anywhere.
-        const walkIn = await txn.customer.findFirst({ where: { tenantId, isWalkIn: true } });
-        if (!walkIn) {
-          throw new ReceiptError("No walk-in customer configured for this tenant", 400);
-        }
-        customerId = walkIn.id;
-      }
 
       const resolvedLines: {
         productId: string;
@@ -126,7 +90,7 @@ export async function POST(request: Request) {
           throw new ReceiptError("One or more items are no longer available", 400);
         }
         const unitPrice = Number(product.unitPrice);
-        const rawSubtotal = unitPrice * line.quantity;
+        const rawSubtotal = round2(unitPrice * line.quantity);
         if (line.discount > rawSubtotal) {
           throw new ReceiptError("Discount cannot exceed the item's subtotal", 400);
         }
@@ -152,6 +116,14 @@ export async function POST(request: Request) {
 
       const { subtotal, vatTotal, grandTotal } = calculateDocumentTotals(resolvedLines);
 
+      // Consuming the next receipt number takes a row lock on this tenant for the
+      // rest of the transaction (see the numbering comment below). Resolving the
+      // customer only *after* that lock -- rather than before, where an earlier
+      // version of this route did it -- means two concurrent saves that both type a
+      // brand-new VAT ID can never both miss the find-or-create lookup and race each
+      // other into `create`: the second save blocks here until the first commits,
+      // so by the time it reaches the customer lookup below, the first save's new
+      // customer row is already visible to it.
       const tenantCounters = await txn.tenant.update({
         where: { id: tenantId },
         data: { nextSalesReceiptNumber: { increment: 1 } },
@@ -159,6 +131,63 @@ export async function POST(request: Request) {
       });
       const number = tenantCounters.nextSalesReceiptNumber - 1;
       const previousInvoiceHash = tenantCounters.lastSalesReceiptHash ?? GENESIS_HASH;
+
+      let customerId: string;
+      if (hasFullCustomer) {
+        // Find-or-create by VAT ID: the cashier may have picked a suggestion (in
+        // which case these fields already exactly match a stored customer) or typed
+        // the VAT ID manually without using the suggestion dropdown. Either way, VAT
+        // ID is the tenant-unique key, so look up first rather than blindly creating
+        // -- this also means any edits to the other fields after a match are silently
+        // ignored in favor of the stored record, which is deliberate: a receipt save
+        // is not a customer-editing flow, and VAT ID/legal name are treated as fixed
+        // facts here, not something a cashier can casually overwrite mid-sale.
+        // Deactivated customers are excluded from the primary match -- their VAT ID
+        // shouldn't silently attach a new receipt to a record nobody can see or edit
+        // anymore. But `vatId` is unique per tenant regardless of `isActive`, so if a
+        // deactivated customer already holds this VAT ID, reactivate that same row
+        // instead of trying to create a second one (which would just fail on the
+        // unique constraint) -- transacting with them again is exactly what
+        // "reactivate" means.
+        const existing = await txn.customer.findFirst({
+          where: { tenantId, vatId: draftVatId, isActive: true },
+        });
+        if (existing) {
+          customerId = existing.id;
+        } else {
+          const inactive = await txn.customer.findFirst({
+            where: { tenantId, vatId: draftVatId, isActive: false },
+          });
+          if (inactive) {
+            const reactivated = await txn.customer.update({
+              where: { id: inactive.id },
+              data: { isActive: true },
+            });
+            customerId = reactivated.id;
+          } else {
+            const created = await txn.customer.create({
+              data: {
+                tenantId,
+                name: draftName,
+                vatId: draftVatId,
+                crNumber: typeof customerDraft.crNumber === "string" ? customerDraft.crNumber.trim() || null : null,
+                phone: typeof customerDraft.phone === "string" ? customerDraft.phone.trim() || null : null,
+                address: typeof customerDraft.address === "string" ? customerDraft.address.trim() || null : null,
+              } as Prisma.CustomerUncheckedCreateInput,
+            });
+            customerId = created.id;
+          }
+        }
+      } else {
+        // Name or VAT ID (or both) missing -- per spec, this is never saved to the
+        // Customers table; the receipt falls back to the tenant's walk-in customer
+        // and whatever partial info was typed is simply not persisted anywhere.
+        const walkIn = await txn.customer.findFirst({ where: { tenantId, isWalkIn: true } });
+        if (!walkIn) {
+          throw new ReceiptError("No walk-in customer configured for this tenant", 400);
+        }
+        customerId = walkIn.id;
+      }
 
       const uuid = randomUUID();
       const createdAt = new Date();
