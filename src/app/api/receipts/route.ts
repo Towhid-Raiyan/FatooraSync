@@ -344,7 +344,7 @@ export async function GET(request: Request) {
   const startOfDay = parseDateOrNull(url.searchParams.get("dateFrom"));
   const endOfDay = parseDateOrNull(url.searchParams.get("dateTo"));
   if (endOfDay) {
-    endOfDay.setHours(23, 59, 59, 999);
+    endOfDay.setUTCHours(23, 59, 59, 999);
   }
 
   // `tenantId` is deliberately absent from this `where` -- withTenant() injects it
