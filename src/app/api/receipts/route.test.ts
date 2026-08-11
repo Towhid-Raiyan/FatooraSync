@@ -525,11 +525,15 @@ describe("/api/receipts", () => {
 
     it("returns an empty page (not a 500) for an absurdly large page number that would overflow skip", { timeout: 30000 }, async () => {
       // An unclamped page number flows into `skip = (page - 1) * PAGE_SIZE`,
-      // which Prisma rejects outside its safe integer range -- this must clamp
-      // to the same "out-of-range page" behavior as a merely-too-large page.
+      // which Prisma rejects outside its safe integer range (a 64-bit signed
+      // int, ~9.2e18) -- this must clamp to the same "out-of-range page"
+      // behavior as a merely-too-large page. The page value here (1e18) is
+      // chosen so that (page - 1) * PAGE_SIZE genuinely exceeds that 64-bit
+      // limit pre-fix; a smaller value like 999999999999 does not actually
+      // overflow `skip` and would let this test pass even without the clamp.
       mockSession = { user: { tenantId: historyTenantId } };
       try {
-        const response = await GET(historyRequest("?page=999999999999"));
+        const response = await GET(historyRequest("?page=1000000000000000000"));
         expect(response.status).toBe(200);
         const body = await response.json();
         expect(body.receipts).toEqual([]);
