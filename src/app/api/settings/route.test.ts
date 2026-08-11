@@ -36,7 +36,7 @@ describe("/api/settings", () => {
   it("PATCH updates the tenant's settings", async () => {
     const request = new Request("http://localhost/api/settings", {
       method: "PATCH",
-      body: JSON.stringify({ defaultVatRate: "10", language: "en" }),
+      body: JSON.stringify({ defaultVatRate: "10", language: "en", printFormat: "THERMAL", phone: "" }),
     });
     const response = await PATCH(request);
     expect(response.status).toBe(200);
@@ -92,6 +92,48 @@ describe("/api/settings", () => {
     const request = new Request("http://localhost/api/settings", {
       method: "PATCH",
       body: JSON.stringify({ defaultVatRate: "10", language: "fr" }),
+    });
+    const response = await PATCH(request);
+    expect(response.status).toBe(400);
+  });
+
+  it("GET returns the default printFormat and a null phone for a fresh tenant", async () => {
+    const response = await GET();
+    const body = await response.json();
+    expect(body.printFormat).toBe("THERMAL");
+    expect(body.phone).toBeNull();
+  });
+
+  it("PATCH updates printFormat and phone", async () => {
+    const request = new Request("http://localhost/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ defaultVatRate: "15", language: "ar", printFormat: "A4", phone: "+966501234567" }),
+    });
+    const response = await PATCH(request);
+    expect(response.status).toBe(200);
+
+    const afterSettings = await withTenant(tenantId, (tx) => tx.settings.findUniqueOrThrow({ where: { tenantId } }));
+    expect(afterSettings.printFormat).toBe("A4");
+    const afterTenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
+    expect(afterTenant.phone).toBe("+966501234567");
+  });
+
+  it("PATCH clears the phone to null when an empty string is submitted", async () => {
+    const request = new Request("http://localhost/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ defaultVatRate: "15", language: "ar", printFormat: "THERMAL", phone: "" }),
+    });
+    const response = await PATCH(request);
+    expect(response.status).toBe(200);
+
+    const afterTenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
+    expect(afterTenant.phone).toBeNull();
+  });
+
+  it("PATCH returns 400 for an invalid printFormat", async () => {
+    const request = new Request("http://localhost/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ defaultVatRate: "15", language: "ar", printFormat: "ROLL" }),
     });
     const response = await PATCH(request);
     expect(response.status).toBe(400);

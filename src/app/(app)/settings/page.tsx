@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export default function SettingsPage() {
   const [defaultVatRate, setDefaultVatRate] = useState("15");
   const [language, setLanguage] = useState("ar");
+  const [printFormat, setPrintFormat] = useState("THERMAL");
+  const [phone, setPhone] = useState("");
 
   useEffect(() => {
     fetch("/api/settings")
@@ -16,13 +18,15 @@ export default function SettingsPage() {
       .then((data) => {
         setDefaultVatRate(data.defaultVatRate);
         setLanguage(data.language);
+        setPrintFormat(data.printFormat);
+        setPhone(data.phone ?? "");
       });
   }, []);
 
   async function handleSave() {
     await fetch("/api/settings", {
       method: "PATCH",
-      body: JSON.stringify({ defaultVatRate, language }),
+      body: JSON.stringify({ defaultVatRate, language, printFormat, phone }),
     });
   }
 
@@ -51,6 +55,31 @@ export default function SettingsPage() {
           >
             <option value="ar">Arabic</option>
             <option value="en">English</option>
+          </select>
+        </div>
+
+        <div>
+          <Label htmlFor="phone" className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wider text-muted-fg">
+            Business Phone
+          </Label>
+          <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+966 5X XXX XXXX" />
+        </div>
+
+        <div>
+          <Label
+            htmlFor="printFormat"
+            className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wider text-muted-fg"
+          >
+            Print Format
+          </Label>
+          <select
+            id="printFormat"
+            value={printFormat}
+            onChange={(e) => setPrintFormat(e.target.value)}
+            className="w-full rounded-lg border border-input h-8 px-3 text-sm bg-background"
+          >
+            <option value="THERMAL">Thermal (receipt roll)</option>
+            <option value="A4">A4 (full page)</option>
           </select>
         </div>
 
