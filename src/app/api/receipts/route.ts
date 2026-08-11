@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db/client";
 import { round2, calculateLine, calculateDocumentTotals } from "@/lib/receipts/calculate-totals";
 import { computeInvoiceHash, GENESIS_HASH } from "@/lib/zatca/hash-chain";
 import { buildZatcaQrPayload } from "@/lib/zatca/qr-payload";
+import { withTenant } from "@/lib/db/tenant-context";
 
 class ReceiptError extends Error {
   status: number;
@@ -318,4 +319,84 @@ export async function POST(request: Request) {
     }
     throw err;
   }
+}
+
+const PAGE_SIZE = 10;
+
+function parseDateOrNull(value: string | null): Date | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export async function GET(request: Request) {
+  const session = await auth();
+  if (!session?.user?.tenantId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const tenantId = session.user.tenantId;
+
+  const url = new URL(request.url);
+  const pageParam = Number(url.searchParams.get("page"));
+  const page = Number.isFinite(pageParam) && pageParam >= 1 ? Math.floor(pageParam) : 1;
+
+  const search = url.searchParams.get("search")?.trim() || "";
+  const startOfDay = parseDateOrNull(url.searchParams.get("dateFrom"));
+  const endOfDay = parseDateOrNull(url.searchParams.get("dateTo"));
+  if (endOfDay) {
+    endOfDay.setHours(23, 59, 59, 999);
+  }
+
+  // `tenantId` is deliberately absent from this `where` -- withTenant() injects it
+  // on every query it runs, and a caller-supplied value here would just be
+  // redundant with (and silently overridden by) that injection. See the
+  // Global Constraints note in this plan and tenant-context.ts's own comment.
+  const where: Prisma.DocumentWhereInput = {
+    type: "SALES_RECEIPT",
+  };
+  if (startOfDay || endOfDay) {
+    where.createdAt = {
+      ...(startOfDay ? { gte: startOfDay } : {}),
+      ...(endOfDay ? { lte: endOfDay } : {}),
+    };
+  }
+  if (search) {
+    const strippedHash = search.startsWith("#") ? search.slice(1) : search;
+    const parsedNumber = /^\d+$/.test(strippedHash) ? Number(strippedHash) : null;
+    where.OR = [
+      ...(parsedNumber !== null ? [{ number: parsedNumber }] : []),
+      { customer: { name: { contains: search, mode: "insensitive" } } },
+      { customer: { vatId: { contains: search, mode: "insensitive" } } },
+    ];
+  }
+
+  const [total, documents] = await withTenant(tenantId, (txn) =>
+    Promise.all([
+      txn.document.count({ where }),
+      txn.document.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * PAGE_SIZE,
+        take: PAGE_SIZE,
+        select: {
+          id: true,
+          number: true,
+          grandTotal: true,
+          createdAt: true,
+          customer: { select: { name: true, vatId: true } },
+        },
+      }),
+    ])
+  );
+
+  const receipts = documents.map((doc) => ({
+    id: doc.id,
+    number: doc.number,
+    customerName: doc.customer.name,
+    customerVatId: doc.customer.vatId,
+    createdAt: doc.createdAt.toISOString(),
+    grandTotal: doc.grandTotal.toString(),
+  }));
+
+  return NextResponse.json({ receipts, total, page, pageSize: PAGE_SIZE });
 }

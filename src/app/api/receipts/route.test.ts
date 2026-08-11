@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import { withTenant } from "@/lib/db/tenant-context";
 import { GENESIS_HASH } from "@/lib/zatca/hash-chain";
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
 let tenantId: string;
 let otherTenantId: string;
@@ -421,5 +421,192 @@ describe("/api/receipts", () => {
     } finally {
       mockSession = { user: { tenantId } };
     }
+  });
+
+  describe("GET /api/receipts", () => {
+    let historyTenantId: string;
+    let historyProductId: string;
+    const createdReceiptIds: string[] = [];
+
+    beforeAll(async () => {
+      const tenant = await prisma.tenant.create({
+        data: { legalName: "History Test Co", tradeNameEn: "History Test Shop", vatNumber: "300000000000440" },
+      });
+      historyTenantId = tenant.id;
+      await prisma.settings.create({ data: { tenantId: historyTenantId, defaultVatRate: 15 } });
+      await withTenant(historyTenantId, (tx) =>
+        tx.customer.create({ data: { name: "Walk-in Customer", isWalkIn: true } as Prisma.CustomerUncheckedCreateInput })
+      );
+      await withTenant(historyTenantId, (tx) =>
+        tx.customer.create({
+          data: { name: "History Customer", vatId: "300000000000457" } as Prisma.CustomerUncheckedCreateInput,
+        })
+      );
+      const product = await withTenant(historyTenantId, (tx) =>
+        tx.product.create({
+          data: { nameEn: "History Product", unitPrice: 10, quantity: 1000 } as Prisma.ProductUncheckedCreateInput,
+        })
+      );
+      historyProductId = product.id;
+
+      mockSession = { user: { tenantId: historyTenantId } };
+      // 15 receipts for historyCustomerId, backdated one day apart, oldest first
+      for (let i = 0; i < 15; i++) {
+        const res = await POST(
+          postRequest({
+            customer: { name: "History Customer", vatId: "300000000000457" },
+            lines: [{ productId: historyProductId, quantity: "1" }],
+          })
+        );
+        const body = await res.json();
+        createdReceiptIds.push(body.id);
+        const backdated = new Date(Date.now() - (15 - i) * 24 * 60 * 60 * 1000);
+        await prisma.document.update({ where: { id: body.id }, data: { createdAt: backdated } });
+      }
+      mockSession = { user: { tenantId } };
+    }, 120000);
+
+    afterAll(async () => {
+      await prisma.documentLine.deleteMany({ where: { tenantId: historyTenantId } });
+      await prisma.document.deleteMany({ where: { tenantId: historyTenantId } });
+      await prisma.customer.deleteMany({ where: { tenantId: historyTenantId } });
+      await prisma.product.deleteMany({ where: { tenantId: historyTenantId } });
+      await prisma.settings.deleteMany({ where: { tenantId: historyTenantId } });
+      await prisma.tenant.delete({ where: { id: historyTenantId } });
+    });
+
+    function historyRequest(query: string) {
+      return new Request(`http://localhost/api/receipts${query}`);
+    }
+
+    it("returns the first page (10 rows) newest-first, with the true total", { timeout: 30000 }, async () => {
+      mockSession = { user: { tenantId: historyTenantId } };
+      try {
+        const response = await GET(historyRequest(""));
+        expect(response.status).toBe(200);
+        const body = await response.json();
+        expect(body.receipts).toHaveLength(10);
+        expect(body.total).toBe(15);
+        expect(body.page).toBe(1);
+        expect(body.pageSize).toBe(10);
+        // newest-first: the last-created receipt (index 14, most recently backdated) leads
+        expect(body.receipts[0].id).toBe(createdReceiptIds[14]);
+        expect(body.receipts[9].id).toBe(createdReceiptIds[5]);
+      } finally {
+        mockSession = { user: { tenantId } };
+      }
+    });
+
+    it("returns the second page with the remaining rows", { timeout: 30000 }, async () => {
+      mockSession = { user: { tenantId: historyTenantId } };
+      try {
+        const response = await GET(historyRequest("?page=2"));
+        const body = await response.json();
+        expect(body.receipts).toHaveLength(5);
+        expect(body.total).toBe(15);
+        expect(body.receipts[4].id).toBe(createdReceiptIds[0]);
+      } finally {
+        mockSession = { user: { tenantId } };
+      }
+    });
+
+    it("returns an empty page (not an error) for a page number past the end", { timeout: 30000 }, async () => {
+      mockSession = { user: { tenantId: historyTenantId } };
+      try {
+        const response = await GET(historyRequest("?page=99"));
+        expect(response.status).toBe(200);
+        const body = await response.json();
+        expect(body.receipts).toEqual([]);
+        expect(body.total).toBe(15);
+      } finally {
+        mockSession = { user: { tenantId } };
+      }
+    });
+
+    it("searches by exact receipt number", { timeout: 30000 }, async () => {
+      mockSession = { user: { tenantId: historyTenantId } };
+      try {
+        const first = await GET(historyRequest(""));
+        const firstBody = await first.json();
+        const targetNumber = firstBody.receipts[0].number;
+        const response = await GET(historyRequest(`?search=${targetNumber}`));
+        const body = await response.json();
+        expect(body.receipts.every((r: { number: number }) => r.number === targetNumber)).toBe(true);
+      } finally {
+        mockSession = { user: { tenantId } };
+      }
+    });
+
+    it("searches by customer name substring, case-insensitively", { timeout: 30000 }, async () => {
+      mockSession = { user: { tenantId: historyTenantId } };
+      try {
+        const response = await GET(historyRequest("?search=history cust"));
+        const body = await response.json();
+        expect(body.total).toBe(15);
+        expect(body.receipts.every((r: { customerName: string }) => r.customerName === "History Customer")).toBe(true);
+      } finally {
+        mockSession = { user: { tenantId } };
+      }
+    });
+
+    it("searches by VAT ID substring", { timeout: 30000 }, async () => {
+      mockSession = { user: { tenantId: historyTenantId } };
+      try {
+        const response = await GET(historyRequest("?search=000457"));
+        const body = await response.json();
+        expect(body.total).toBe(15);
+      } finally {
+        mockSession = { user: { tenantId } };
+      }
+    });
+
+    it("returns an empty result for a search matching neither a number nor any customer", { timeout: 30000 }, async () => {
+      mockSession = { user: { tenantId: historyTenantId } };
+      try {
+        const response = await GET(historyRequest("?search=zzz-no-match-zzz"));
+        const body = await response.json();
+        expect(body.total).toBe(0);
+        expect(body.receipts).toEqual([]);
+      } finally {
+        mockSession = { user: { tenantId } };
+      }
+    });
+
+    it("filters by date range inclusively, excluding just outside either end", { timeout: 30000 }, async () => {
+      mockSession = { user: { tenantId: historyTenantId } };
+      try {
+        // receipt index 10 was backdated to (today - 5 days); index 9 to (today - 6 days)
+        const targetDate = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        const response = await GET(historyRequest(`?dateFrom=${targetDate}&dateTo=${targetDate}`));
+        const body = await response.json();
+        expect(body.total).toBe(1);
+        expect(body.receipts[0].id).toBe(createdReceiptIds[10]);
+      } finally {
+        mockSession = { user: { tenantId } };
+      }
+    });
+
+    it("never returns another tenant's receipts, even when a search term matches their customer", { timeout: 30000 }, async () => {
+      // tenantId's own beforeAll created a "Fresh Customer" earlier in this file;
+      // searching for it while scoped to historyTenantId must find nothing
+      mockSession = { user: { tenantId: historyTenantId } };
+      try {
+        const response = await GET(historyRequest("?search=Fresh Customer"));
+        const body = await response.json();
+        expect(body.total).toBe(0);
+      } finally {
+        mockSession = { user: { tenantId } };
+      }
+    });
+
+    it("returns 401 when unauthenticated", { timeout: 30000 }, async () => {
+      mockSession = null;
+      try {
+        const response = await GET(historyRequest(""));
+        expect(response.status).toBe(401);
+      } finally {
+        mockSession = { user: { tenantId } };
+      }
+    });
   });
 });
