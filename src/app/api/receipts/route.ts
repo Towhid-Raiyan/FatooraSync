@@ -219,9 +219,20 @@ export async function POST(request: Request) {
         // Name or VAT ID (or both) missing -- per spec, this is never saved to the
         // Customers table; the receipt falls back to the tenant's walk-in customer
         // and whatever partial info was typed is simply not persisted anywhere.
-        const walkIn = await txn.customer.findFirst({ where: { tenantId, isWalkIn: true } });
+        // Every tenant is *supposed* to get a Walk-in Customer row at onboarding
+        // (seed-tenant.ts), but a receipt save shouldn't hard-fail for a tenant that
+        // ended up without one for any reason -- lazily creating it here, after the
+        // row lock above, is simpler and more robust than trying to guarantee every
+        // tenant-provisioning path seeds it correctly. The row lock already makes
+        // this safe under concurrency for the same reason the VAT-ID find-or-create
+        // above is: a second save for this tenant blocks at the lock until the
+        // first commits, so it will always find the walk-in customer this branch
+        // just created rather than racing to create a second one.
+        let walkIn = await txn.customer.findFirst({ where: { tenantId, isWalkIn: true } });
         if (!walkIn) {
-          throw new ReceiptError("No walk-in customer configured for this tenant", 400);
+          walkIn = await txn.customer.create({
+            data: { tenantId, name: "Walk-in Customer", isWalkIn: true } as Prisma.CustomerUncheckedCreateInput,
+          });
         }
         customerId = walkIn.id;
       }

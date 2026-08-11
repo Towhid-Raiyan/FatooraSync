@@ -315,6 +315,38 @@ describe("/api/receipts", () => {
     expect(reactivated?.isActive).toBe(true);
   });
 
+  it("lazily creates the walk-in customer for a tenant that doesn't have one yet, rather than failing the save", { timeout: 30000 }, async () => {
+    // `otherTenantId` was deliberately never given a walk-in customer in beforeAll
+    // -- this reproduces a tenant that, for whatever reason, ended up without one
+    // (e.g. a provisioning path that didn't call seed-tenant.ts), which used to
+    // hard-fail every no-customer-info save for that tenant.
+    const before = await withTenant(otherTenantId, (tx) =>
+      tx.customer.findFirst({ where: { isWalkIn: true } })
+    );
+    expect(before).toBeNull();
+
+    mockSession = { user: { tenantId: otherTenantId } };
+    try {
+      const response = await POST(
+        postRequest({
+          customer: { name: "", vatId: "" },
+          lines: [{ productId: otherTenantProductId, quantity: "1" }],
+        })
+      );
+      expect(response.status).toBe(201);
+      const body = await response.json();
+
+      const walkIn = await withTenant(otherTenantId, (tx) =>
+        tx.customer.findFirst({ where: { isWalkIn: true } })
+      );
+      expect(walkIn).not.toBeNull();
+      expect(walkIn?.name).toBe("Walk-in Customer");
+      expect(body.customerId).toBe(walkIn?.id);
+    } finally {
+      mockSession = { user: { tenantId } };
+    }
+  });
+
   it("applies a flat discount before VAT and reflects it in the saved line and totals", { timeout: 30000 }, async () => {
     const response = await POST(
       postRequest({
