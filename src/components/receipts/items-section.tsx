@@ -96,7 +96,7 @@ export function ItemsSection({
   }
 
   return (
-    <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
+    <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:18.5px]">
       <CardHeader>
         <CardTitle className="text-heading">Items</CardTitle>
       </CardHeader>
@@ -136,7 +136,14 @@ export function ItemsSection({
         </div>
 
         {lines.length > 0 && (
-          <div className="max-h-[420px] overflow-y-auto rounded-lg border border-border-subtle">
+          // `overflow-y-auto` bounds the card's height (the "increase Items height"
+          // request just below); horizontal scroll is the Table component's own
+          // built-in behavior (its internal wrapper is `overflow-x-auto`) for when
+          // the row's columns don't all fit -- but a horizontally-scrolled Actions
+          // column would be exactly the "can't see the action buttons" complaint
+          // this is fixing, so that one column is pinned (`sticky right-0`) below
+          // instead of scrolling with the rest of the row.
+          <div className="max-h-[425px] overflow-y-auto rounded-lg border border-border-subtle">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -149,7 +156,9 @@ export function ItemsSection({
                   <TableHead className="text-right">Discount</TableHead>
                   <TableHead className="text-right">VAT</TableHead>
                   <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="sticky right-0 bg-bg-card text-right shadow-[-4px_0_6px_-4px_rgba(16,44,30,0.12)]">
+                    Actions
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -181,7 +190,7 @@ export function ItemsSection({
                           min="0.001"
                           value={line.quantity}
                           onChange={(e) => onQuantityChange(line.key, e.target.value)}
-                          className="w-20 text-right"
+                          className="w-16 text-right"
                         />
                       </TableCell>
                       <TableCell className="text-right">
@@ -191,7 +200,7 @@ export function ItemsSection({
                           min="0"
                           value={line.unitPrice}
                           onChange={(e) => onUnitPriceChange(line.key, e.target.value)}
-                          className="w-24 text-right"
+                          className="w-20 text-right"
                         />
                       </TableCell>
                       <TableCell className="text-right">
@@ -201,7 +210,7 @@ export function ItemsSection({
                           min="0"
                           value={line.discount}
                           onChange={(e) => onDiscountChange(line.key, e.target.value)}
-                          className="w-20 text-right"
+                          className="w-16 text-right"
                         />
                         {discountExceedsSubtotal && (
                           <div className="text-xs text-red-600">exceeds item subtotal</div>
@@ -224,10 +233,10 @@ export function ItemsSection({
                           onKeyDown={(e) => {
                             if (e.key === "Enter") e.currentTarget.blur();
                           }}
-                          className="w-24 text-right font-semibold text-heading"
+                          className="w-20 text-right font-semibold text-heading"
                         />
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="sticky right-0 bg-bg-card text-right shadow-[-4px_0_6px_-4px_rgba(16,44,30,0.12)]">
                         <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"

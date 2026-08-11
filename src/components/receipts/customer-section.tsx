@@ -69,7 +69,7 @@ export function CustomerSection({ customers, draft, onDraftChange }: CustomerSec
   }
 
   return (
-    <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
+    <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:13.5px]">
       <CardHeader>
         <CardTitle className="text-heading">Customer</CardTitle>
       </CardHeader>

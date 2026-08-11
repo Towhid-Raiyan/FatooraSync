@@ -89,6 +89,14 @@ export async function POST(request: Request) {
     // connection, and Neon's serverless compute can add multi-second latency to the
     // first query after it's been idle. A longer timeout avoids spurious "Transaction
     // already closed" failures without changing any transactional logic.
+    //
+    // `maxWait` is a separate, easy-to-miss setting: it bounds how long Prisma will
+    // wait to acquire a pooled connection *before* the transaction even starts, and
+    // defaults to only 2000ms. Neon's serverless compute can take longer than that
+    // to wake from idle, which surfaced as a P2028 "Unable to start a transaction in
+    // the given time" on essentially every save after a few minutes of inactivity --
+    // not a data problem, a too-short wait for a cold database. Raised to match the
+    // same order of magnitude as `timeout` below.
     const document = await prisma.$transaction(async (txn) => {
       const settings = await txn.settings.findUniqueOrThrow({ where: { tenantId } });
 
@@ -283,7 +291,7 @@ export async function POST(request: Request) {
       });
 
       return created;
-    }, { timeout: 15000 });
+    }, { timeout: 15000, maxWait: 15000 });
 
     return NextResponse.json(document, { status: 201 });
   } catch (err) {

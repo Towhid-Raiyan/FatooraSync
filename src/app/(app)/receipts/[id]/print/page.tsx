@@ -29,7 +29,7 @@ export default async function ReceiptPrintPage({ params }: { params: Promise<{ i
   const hasDiscount = document.lines.some((line) => Number(line.discount) > 0);
 
   return (
-    <div className="mx-auto max-w-[420px] bg-white p-6 text-sm text-black print:p-0" dir="rtl">
+    <div className="mx-auto max-w-[420px] bg-white p-6 text-sm text-black print:p-0" dir="ltr">
       <div className="mb-4 text-center">
         <div className="text-lg font-bold">{tenant.tradeNameAr ?? tenant.tradeNameEn}</div>
         <div className="text-base">{tenant.tradeNameEn}</div>

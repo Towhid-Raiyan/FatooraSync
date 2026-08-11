@@ -190,10 +190,17 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
+    // The 2fr/1fr split shifted 10px from the right column to the left: Items has
+    // the most columns to fit (see the horizontal-scroll note in ItemsSection) and
+    // Customer benefits from the same extra room, while Notes/Totals don't need it.
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[calc(66.6667%+10px)_calc(33.3333%-10px)]">
       <CustomerSection customers={customers} draft={customerDraft} onDraftChange={setCustomerDraft} />
 
-      <Card className="flex flex-col border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
+      {/* --card-spacing trimmed ~5px shorter than the default 16px -- paired with
+          ItemsSection/Totals below being nudged ~5px taller, so the top row reads
+          slightly more compact and the row with the actual work (Items) reads
+          slightly more spacious. */}
+      <Card className="flex flex-col border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:13.5px]">
         <CardHeader>
           <CardTitle className="text-heading">Notes</CardTitle>
         </CardHeader>
@@ -224,7 +231,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
         onOpenQuickCreate={() => setQuickCreateOpen(true)}
       />
 
-      <Card className="sticky top-4 self-start border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
+      <Card className="sticky top-4 self-start border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:18.5px]">
         <CardHeader>
           <CardTitle className="text-heading">Totals</CardTitle>
         </CardHeader>
