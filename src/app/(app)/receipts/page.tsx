@@ -1,8 +1,7 @@
 import { auth } from "@/lib/auth/config";
 import { withTenant } from "@/lib/db/tenant-context";
 import { ReceiptHistoryClient } from "@/components/receipts/receipt-history-client";
-
-const PAGE_SIZE = 10;
+import { PAGE_SIZE } from "@/lib/receipts/constants";
 
 export default async function ReceiptHistoryPage() {
   const session = await auth();

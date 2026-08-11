@@ -100,6 +100,8 @@ return new NextResponse(buffer, {
 
 **This will be verified directly during implementation**, generating an actual PDF with real Arabic content and inspecting it, before this cycle is considered done — not assumed to work because the font is "the same one." If Arabic shaping turns out not to render acceptably with react-pdf even with the right font registered, that's a finding to bring back for a decision (e.g., simplifying the Arabic content in the PDF specifically), not something to silently work around.
 
+**Known limitation confirmed during Task 2's manual verification:** the visual/printed output is correct — Arabic shapes, joins, and renders right-to-left exactly as expected. However, copy-pasting Arabic text out of the generated PDF (e.g. into a text editor) can drop or reorder some characters. This is a documented `@react-pdf/renderer` limitation in its text layer (how it encodes the text-selection/extraction layer underneath the rendered glyphs), not a rendering defect, and it doesn't affect what appears on screen or in print.
+
 ## 8. Frontend: the history page
 
 `src/app/(app)/receipts/page.tsx` — a thin Server Component that reads the tenant and default page load (page 1, no filters) the same way `products/page.tsx` and `customers/page.tsx` do, then hands off to a Client Component, `ReceiptHistoryClient`, which owns all pagination/search/date-filter state and re-fetches from `GET /api/receipts` on every change (matching the "Option B" mockup's behavior: a brief loading state on every filter change or page navigation, not an instant client-side re-filter).

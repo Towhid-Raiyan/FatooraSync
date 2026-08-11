@@ -7,6 +7,7 @@ import { round2, calculateLine, calculateDocumentTotals } from "@/lib/receipts/c
 import { computeInvoiceHash, GENESIS_HASH } from "@/lib/zatca/hash-chain";
 import { buildZatcaQrPayload } from "@/lib/zatca/qr-payload";
 import { withTenant } from "@/lib/db/tenant-context";
+import { PAGE_SIZE } from "@/lib/receipts/constants";
 
 class ReceiptError extends Error {
   status: number;
@@ -321,8 +322,6 @@ export async function POST(request: Request) {
   }
 }
 
-const PAGE_SIZE = 10;
-
 function parseDateOrNull(value: string | null): Date | null {
   if (!value) return null;
   const date = new Date(value);
@@ -338,7 +337,13 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const pageParam = Number(url.searchParams.get("page"));
-  const page = Number.isFinite(pageParam) && pageParam >= 1 ? Math.floor(pageParam) : 1;
+  // Upper-bounded as well as lower-bounded: an absurdly large page number (e.g.
+  // a manually edited query string) would otherwise flow straight into
+  // `skip = (page - 1) * PAGE_SIZE` below, producing a value outside what
+  // Prisma's `skip` can accept and surfacing as a 500 instead of the documented
+  // "out-of-range page returns an empty page" behavior.
+  const page =
+    Number.isFinite(pageParam) && pageParam >= 1 ? Math.min(Math.floor(pageParam), 1_000_000) : 1;
 
   const search = url.searchParams.get("search")?.trim() || "";
   const startOfDay = parseDateOrNull(url.searchParams.get("dateFrom"));
@@ -362,7 +367,15 @@ export async function GET(request: Request) {
   }
   if (search) {
     const strippedHash = search.startsWith("#") ? search.slice(1) : search;
-    const parsedNumber = /^\d+$/.test(strippedHash) ? Number(strippedHash) : null;
+    // `Document.number` is Postgres INT4 (max 2,147,483,647). A Saudi VAT ID is
+    // always 15 digits, so it passes this digit-only regex too -- without the
+    // upper-bound check, an out-of-range value gets handed to Prisma as an exact
+    // `number` match and Prisma throws ("Unable to fit integer value into an
+    // INT4"), surfacing as a 500. Falling through to `null` here instead lets
+    // the search fall back to the `contains` (name/vatId) branches below, which
+    // is the correct behavior for a VAT ID search anyway.
+    const parsed = /^\d+$/.test(strippedHash) ? Number(strippedHash) : null;
+    const parsedNumber = parsed !== null && parsed <= 2147483647 ? parsed : null;
     where.OR = [
       ...(parsedNumber !== null ? [{ number: parsedNumber }] : []),
       { customer: { name: { contains: search, mode: "insensitive" } } },

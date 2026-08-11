@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { PAGE_SIZE } from "@/lib/receipts/constants";
 
 interface ReceiptRow {
   id: string;
@@ -23,7 +24,7 @@ interface ReceiptsResponse {
   pageSize: number;
 }
 
-const EMPTY: ReceiptsResponse = { receipts: [], total: 0, page: 1, pageSize: 10 };
+const EMPTY: ReceiptsResponse = { receipts: [], total: 0, page: 1, pageSize: PAGE_SIZE };
 
 export function ReceiptHistoryClient({ initial }: { initial: ReceiptsResponse }) {
   const [data, setData] = useState<ReceiptsResponse>(initial);

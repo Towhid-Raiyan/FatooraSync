@@ -523,6 +523,22 @@ describe("/api/receipts", () => {
       }
     });
 
+    it("returns an empty page (not a 500) for an absurdly large page number that would overflow skip", { timeout: 30000 }, async () => {
+      // An unclamped page number flows into `skip = (page - 1) * PAGE_SIZE`,
+      // which Prisma rejects outside its safe integer range -- this must clamp
+      // to the same "out-of-range page" behavior as a merely-too-large page.
+      mockSession = { user: { tenantId: historyTenantId } };
+      try {
+        const response = await GET(historyRequest("?page=999999999999"));
+        expect(response.status).toBe(200);
+        const body = await response.json();
+        expect(body.receipts).toEqual([]);
+        expect(body.total).toBe(15);
+      } finally {
+        mockSession = { user: { tenantId } };
+      }
+    });
+
     it("searches by exact receipt number", { timeout: 30000 }, async () => {
       mockSession = { user: { tenantId: historyTenantId } };
       try {
@@ -555,6 +571,28 @@ describe("/api/receipts", () => {
         const response = await GET(historyRequest("?search=000457"));
         const body = await response.json();
         expect(body.total).toBe(15);
+      } finally {
+        mockSession = { user: { tenantId } };
+      }
+    });
+
+    it("searches by a full 15-digit VAT ID without a 500 from the INT4 overflow on Document.number", { timeout: 30000 }, async () => {
+      // A full Saudi VAT ID is always 15 digits, which is also all-digits and
+      // therefore matches the same regex used to detect a receipt-number search.
+      // 300000000000457 exceeds Postgres INT4's max (2,147,483,647), so an
+      // unclamped parse would be handed to Prisma as an exact `number` filter and
+      // throw -- this must fall through to the vatId `contains` match instead.
+      mockSession = { user: { tenantId: historyTenantId } };
+      try {
+        const response = await GET(historyRequest("?search=300000000000457"));
+        expect(response.status).toBe(200);
+        const body = await response.json();
+        expect(body.total).toBe(15);
+        expect(body.receipts).toHaveLength(10);
+        expect(
+          body.receipts.every((r: { customerVatId: string }) => r.customerVatId === "300000000000457")
+        ).toBe(true);
+        expect(body.receipts.every((r: { grandTotal: string }) => r.grandTotal === "11.5")).toBe(true);
       } finally {
         mockSession = { user: { tenantId } };
       }
