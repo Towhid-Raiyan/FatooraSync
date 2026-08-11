@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/client";
 import { withTenant } from "@/lib/db/tenant-context";
 import { ReceiptPdfDocument } from "@/lib/receipts/receipt-pdf";
+import { ReceiptPdfA4Document } from "@/lib/receipts/receipt-pdf-a4";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -14,11 +15,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const tenantId = session.user.tenantId;
   const { id } = await params;
 
-  const document = await withTenant(tenantId, (tx) =>
-    tx.document.findFirst({
-      where: { id, type: "SALES_RECEIPT" },
-      include: { lines: true, customer: true },
-    })
+  const [document, settings] = await withTenant(tenantId, (tx) =>
+    Promise.all([
+      tx.document.findFirst({
+        where: { id, type: "SALES_RECEIPT" },
+        include: { lines: true, customer: true },
+      }),
+      tx.settings.findUniqueOrThrow({ where: { tenantId } }),
+    ])
   );
   if (!document) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -28,7 +32,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const qrImageDataUrl = document.qrCode ? await QRCode.toDataURL(document.qrCode) : null;
 
   const buffer = await renderToBuffer(
-    <ReceiptPdfDocument tenant={tenant} document={document} qrImageDataUrl={qrImageDataUrl} />
+    settings.printFormat === "A4" ? (
+      <ReceiptPdfA4Document tenant={tenant} document={document} qrImageDataUrl={qrImageDataUrl} />
+    ) : (
+      <ReceiptPdfDocument tenant={tenant} document={document} qrImageDataUrl={qrImageDataUrl} />
+    )
   );
 
   return new NextResponse(new Uint8Array(buffer), {

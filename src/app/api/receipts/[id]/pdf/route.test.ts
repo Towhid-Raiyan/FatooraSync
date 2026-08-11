@@ -42,6 +42,10 @@ describe("GET /api/receipts/[id]/pdf", () => {
       data: { legalName: "PDF Other Co", tradeNameEn: "PDF Other Shop", vatNumber: "300000000000495" },
     });
     otherTenantId = otherTenant.id;
+    // The route now looks up Settings for the requesting tenant (to pick the print
+    // format), so every tenant it queries against needs a Settings row -- same as in
+    // production, where onboarding always creates one alongside the tenant.
+    await prisma.settings.create({ data: { tenantId: otherTenantId, defaultVatRate: 15 } });
   }, 30000);
 
   afterAll(async () => {
@@ -96,5 +100,27 @@ describe("GET /api/receipts/[id]/pdf", () => {
     } finally {
       mockSession = { user: { tenantId } };
     }
+  });
+
+  it("returns a non-empty A4 PDF when the tenant's printFormat is A4", { timeout: 30000 }, async () => {
+    await prisma.settings.update({ where: { tenantId }, data: { printFormat: "A4" } });
+    try {
+      const response = await GET(pdfRequest(), { params: Promise.resolve({ id: receiptId }) });
+      expect(response.status).toBe(200);
+      const buffer = await response.arrayBuffer();
+      expect(buffer.byteLength).toBeGreaterThan(0);
+      const magic = new TextDecoder().decode(new Uint8Array(buffer).slice(0, 4));
+      expect(magic).toBe("%PDF");
+    } finally {
+      await prisma.settings.update({ where: { tenantId }, data: { printFormat: "THERMAL" } });
+    }
+  });
+
+  it("still returns the thermal PDF when printFormat is THERMAL (regression guard)", { timeout: 30000 }, async () => {
+    const response = await GET(pdfRequest(), { params: Promise.resolve({ id: receiptId }) });
+    expect(response.status).toBe(200);
+    const buffer = await response.arrayBuffer();
+    const magic = new TextDecoder().decode(new Uint8Array(buffer).slice(0, 4));
+    expect(magic).toBe("%PDF");
   });
 });
