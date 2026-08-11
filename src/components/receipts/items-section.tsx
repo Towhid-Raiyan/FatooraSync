@@ -168,7 +168,7 @@ export function ItemsSection({
                   const discountExceedsSubtotal = Number(line.discount) > rawSubtotal;
                   const { lineVat, lineTotal } = lineTotals[index];
                   return (
-                    <TableRow key={line.key}>
+                    <TableRow key={line.key} className="group">
                       <TableCell className="text-muted-fg">{index + 1}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="font-mono">
@@ -190,7 +190,7 @@ export function ItemsSection({
                           min="0.001"
                           value={line.quantity}
                           onChange={(e) => onQuantityChange(line.key, e.target.value)}
-                          className="w-16 text-right"
+                          className="w-20 text-right"
                         />
                       </TableCell>
                       <TableCell className="text-right">
@@ -200,7 +200,7 @@ export function ItemsSection({
                           min="0"
                           value={line.unitPrice}
                           onChange={(e) => onUnitPriceChange(line.key, e.target.value)}
-                          className="w-20 text-right"
+                          className="w-24 text-right"
                         />
                       </TableCell>
                       <TableCell className="text-right">
@@ -210,7 +210,7 @@ export function ItemsSection({
                           min="0"
                           value={line.discount}
                           onChange={(e) => onDiscountChange(line.key, e.target.value)}
-                          className="w-16 text-right"
+                          className="w-20 text-right"
                         />
                         {discountExceedsSubtotal && (
                           <div className="text-xs text-red-600">exceeds item subtotal</div>
@@ -233,10 +233,10 @@ export function ItemsSection({
                           onKeyDown={(e) => {
                             if (e.key === "Enter") e.currentTarget.blur();
                           }}
-                          className="w-20 text-right font-semibold text-heading"
+                          className="w-24 text-right font-semibold text-heading"
                         />
                       </TableCell>
-                      <TableCell className="sticky right-0 bg-bg-card text-right shadow-[-4px_0_6px_-4px_rgba(16,44,30,0.12)]">
+                      <TableCell className="sticky right-0 bg-bg-card text-right shadow-[-4px_0_6px_-4px_rgba(16,44,30,0.12)] group-hover:bg-muted/50">
                         <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"

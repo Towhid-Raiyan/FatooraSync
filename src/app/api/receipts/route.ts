@@ -95,8 +95,12 @@ export async function POST(request: Request) {
     // defaults to only 2000ms. Neon's serverless compute can take longer than that
     // to wake from idle, which surfaced as a P2028 "Unable to start a transaction in
     // the given time" on essentially every save after a few minutes of inactivity --
-    // not a data problem, a too-short wait for a cold database. Raised to match the
-    // same order of magnitude as `timeout` below.
+    // not a data problem, a too-short wait for a cold database. Deliberately kept
+    // well short of `timeout` below, not raised to match it: the two wait
+    // sequentially (worst case is maxWait + timeout before a save fails outright),
+    // and a cold-start reconnect is normally well under a couple of seconds even
+    // when it's slow, so 5s covers that with headroom without leaving a cashier
+    // staring at a spinner for 30s on a genuinely stuck request.
     const document = await prisma.$transaction(async (txn) => {
       const settings = await txn.settings.findUniqueOrThrow({ where: { tenantId } });
 
@@ -302,7 +306,7 @@ export async function POST(request: Request) {
       });
 
       return created;
-    }, { timeout: 15000, maxWait: 15000 });
+    }, { timeout: 15000, maxWait: 5000 });
 
     return NextResponse.json(document, { status: 201 });
   } catch (err) {

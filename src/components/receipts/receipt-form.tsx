@@ -193,7 +193,17 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
     // The 2fr/1fr split shifted 10px from the right column to the left: Items has
     // the most columns to fit (see the horizontal-scroll note in ItemsSection) and
     // Customer benefits from the same extra room, while Notes/Totals don't need it.
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[calc(66.6667%+10px)_calc(33.3333%-10px)]">
+    // Left column is a percentage rather than `fr` so it can carry a fixed +10px
+    // offset -- but unlike `fr`, percentage tracks don't subtract `gap` before
+    // resolving, so naively pairing it with a second percentage track (summing to
+    // 100%) overflows the container by exactly the gap width. Keeping the right
+    // column as a plain `1fr` sidesteps that: `fr` tracks are gap-aware by
+    // definition, so it automatically absorbs whatever space remains after the
+    // left column and the gap, landing it 10px narrower than the original 1fr
+    // share with no overflow. The -0.6667px on the left column corrects for the
+    // 16px gap (gap-4) itself, so the two columns land at exactly base+10px /
+    // base-10px relative to the original 2fr/1fr split, not base+10px / 100%-that.
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[calc(66.6667%-0.6667px)_1fr]">
       <CustomerSection customers={customers} draft={customerDraft} onDraftChange={setCustomerDraft} />
 
       {/* --card-spacing trimmed ~5px shorter than the default 16px -- paired with
