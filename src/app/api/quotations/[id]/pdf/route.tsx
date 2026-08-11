@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/client";
 import { withTenant } from "@/lib/db/tenant-context";
 import { QuotationPdfDocument } from "@/lib/quotations/quotation-pdf";
+import { QuotationPdfA4Document } from "@/lib/quotations/quotation-pdf-a4";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -13,11 +14,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const tenantId = session.user.tenantId;
   const { id } = await params;
 
-  const document = await withTenant(tenantId, (tx) =>
-    tx.document.findFirst({
-      where: { id, type: "QUOTATION" },
-      include: { lines: true, customer: true },
-    })
+  const [document, settings] = await withTenant(tenantId, (tx) =>
+    Promise.all([
+      tx.document.findFirst({
+        where: { id, type: "QUOTATION" },
+        include: { lines: true, customer: true },
+      }),
+      tx.settings.findUniqueOrThrow({ where: { tenantId } }),
+    ])
   );
   if (!document) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -25,7 +29,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
 
-  const buffer = await renderToBuffer(<QuotationPdfDocument tenant={tenant} document={document} />);
+  const buffer = await renderToBuffer(
+    settings.printFormat === "A4" ? (
+      <QuotationPdfA4Document tenant={tenant} document={document} />
+    ) : (
+      <QuotationPdfDocument tenant={tenant} document={document} />
+    )
+  );
 
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
