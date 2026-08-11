@@ -33,6 +33,7 @@ model Tenant {
   createdAt              DateTime @default(now())
   nextProductSkuNumber   Int      @default(1)
   nextSalesReceiptNumber Int      @default(1)
+  nextQuotationNumber    Int      @default(1)
   lastSalesReceiptHash   String?
 
   users         User[]
