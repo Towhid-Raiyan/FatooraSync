@@ -6,36 +6,36 @@ describe("paginateA4Items", () => {
     expect(paginateA4Items(0)).toEqual([0]);
   });
 
-  it("fits everything on one page at the single-page max (14)", () => {
-    expect(paginateA4Items(14)).toEqual([14]);
+  it("fits everything on one page at the single-page max (12)", () => {
+    expect(paginateA4Items(12)).toEqual([12]);
   });
 
   it("goes multi-page one item over the single-page max, with an empty second page for totals", () => {
-    expect(paginateA4Items(15)).toEqual([15, 0]);
+    expect(paginateA4Items(13)).toEqual([13, 0]);
   });
 
-  it("fills page 1 up to its multi-page max (20) with nothing left over", () => {
-    expect(paginateA4Items(20)).toEqual([20, 0]);
+  it("fills page 1 up to its multi-page max (17) with nothing left over", () => {
+    expect(paginateA4Items(17)).toEqual([17, 0]);
   });
 
   it("spills one item onto page 2 just past the first-page max", () => {
-    expect(paginateA4Items(21)).toEqual([20, 1]);
+    expect(paginateA4Items(18)).toEqual([17, 1]);
   });
 
-  it("fits exactly two pages at the first+last page capacity boundary (20 + 16 = 36)", () => {
-    expect(paginateA4Items(36)).toEqual([20, 16]);
+  it("fits exactly two pages at the first+last page capacity boundary (17 + 15 = 32)", () => {
+    expect(paginateA4Items(32)).toEqual([17, 15]);
   });
 
   it("needs a third page one item past the two-page capacity boundary", () => {
-    expect(paginateA4Items(37)).toEqual([20, 17, 0]);
+    expect(paginateA4Items(33)).toEqual([17, 16, 0]);
   });
 
   it("splits a large order across a first, middle, and last page", () => {
-    expect(paginateA4Items(60)).toEqual([20, 26, 14]);
+    expect(paginateA4Items(52)).toEqual([17, 20, 15]);
   });
 
   it("every page's item count sums back to the original item count", () => {
-    for (const count of [1, 13, 14, 15, 20, 21, 35, 36, 37, 60, 100]) {
+    for (const count of [1, 12, 13, 17, 18, 31, 32, 33, 52, 60, 100]) {
       const pages = paginateA4Items(count);
       expect(pages.reduce((a, b) => a + b, 0)).toBe(count);
     }

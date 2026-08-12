@@ -5,10 +5,10 @@
 // from real row-height/margin math against A4 dimensions -- verify against an actual
 // rendered page (browser + PDF) before treating them as final; if real rendering shows
 // they're off, they're a one-line constant change here, not a layout rewrite.
-export const SINGLE_PAGE_MAX_ITEMS = 14;  // page 1 also carries Billed To + QR/note/totals/footer
-export const FIRST_PAGE_MAX_ITEMS = 20;   // multi-page mode: page 1 has Billed To but NOT QR/note/totals
-export const MIDDLE_PAGE_MAX_ITEMS = 26;  // no Billed To, no QR/note/totals -- just header + items
-export const LAST_PAGE_MAX_ITEMS = 16;    // no Billed To, but DOES carry QR/note/totals/footer
+export const SINGLE_PAGE_MAX_ITEMS = 12;  // page 1 also carries Billed To + QR/note/totals/footer
+export const FIRST_PAGE_MAX_ITEMS = 17;   // multi-page mode: page 1 has Billed To but NOT QR/note/totals
+export const MIDDLE_PAGE_MAX_ITEMS = 20;  // no Billed To, no QR/note/totals -- just header + items
+export const LAST_PAGE_MAX_ITEMS = 15;    // no Billed To, but DOES carry QR/note/totals/footer
 
 /**
  * Returns an ordered list of item-counts, one entry per page. A page can end up with
