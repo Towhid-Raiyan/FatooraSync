@@ -70,8 +70,8 @@ export function QuotationPrintA4({ tenant, document }: { tenant: Tenant; documen
           .flex.h-screen { display: block !important; height: auto !important; }
           .overflow-hidden.bg-bg-app { overflow: visible !important; }
           main { padding: 0 !important; overflow: visible !important; }
-          .a4-page { break-after: page; box-shadow: none !important; margin-bottom: 0 !important; }
-          .a4-page:last-child { break-after: auto; }
+          .a4-page { box-shadow: none !important; margin-bottom: 0 !important; }
+          .a4-page + .a4-page { break-before: page; }
         }
       `}</style>
     </div>
