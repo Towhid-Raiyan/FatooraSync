@@ -7,7 +7,7 @@ import {
   A4BusinessHeader,
   A4BilledTo,
   A4ItemsTable,
-  A4Totals,
+  A4TotalsRow,
   A4Footer,
   type A4Document,
 } from "@/lib/print-format/a4-pdf-parts";
@@ -39,7 +39,7 @@ export function QuotationPdfA4Document({ tenant, document }: QuotationPdfA4Props
             <A4ItemsTable lines={pageLines} startIndex={startIndex} hasDiscount={hasDiscount} />
             {isLastPage && (
               <>
-                <A4Totals document={document} />
+                <A4TotalsRow document={document} />
                 {document.notes && (
                   <View style={a4PdfStyles.note}>
                     <Text>Note: {truncateNote(document.notes)}</Text>

@@ -1,63 +1,70 @@
-import { View, Text, StyleSheet } from "@react-pdf/renderer";
+import { View, Text, Image, StyleSheet } from "@react-pdf/renderer";
 import type { Customer, DocumentLine, Tenant, Document as PrismaDocument } from "@prisma/client";
 import "./a4-fonts";
 
+// Layout note: totals/QR/note/footer used to be `position: absolute` anchored to
+// the bottom of the page. That caused two real problems -- a short document (2-3
+// items) left a huge visual gap between the item table and the totals block "way
+// below" it, and because the page container's real height could exceed its
+// nominal A4 size, the bottom-anchored blocks sometimes landed past the true
+// printable area and spilled onto a second physical page. Everything below the
+// item table is normal document flow now: it renders immediately after the last
+// item row, wherever that is, so a short document reads compactly and nothing
+// can silently overflow onto a page it doesn't belong on.
 export const a4PdfStyles = StyleSheet.create({
-  page: { fontFamily: "Inter", fontSize: 9, color: "#1a1a1a", padding: 32, backgroundColor: "#f7f5f0" },
+  page: { fontFamily: "IBM Plex Sans Arabic", fontSize: 10, color: "#1a1a1a", padding: 32, backgroundColor: "#f7f5f0" },
   headerRow: { flexDirection: "row", justifyContent: "space-between" },
-  bizNameAr: { fontSize: 13, fontWeight: "bold" },
-  bizNameEn: { fontSize: 11, fontWeight: "bold" },
-  bizLine: { fontSize: 8, color: "#555555", marginTop: 2 },
+  bizNameAr: { fontSize: 15, fontWeight: "bold" },
+  bizNameEn: { fontSize: 13, fontWeight: "bold" },
+  bizLine: { fontSize: 10, color: "#555555", marginTop: 2 },
   docTitle: { fontFamily: "Prata", fontSize: 28, textAlign: "right" },
-  meta: { fontSize: 8, color: "#555555", textAlign: "right", marginTop: 4 },
+  meta: { fontSize: 10, color: "#555555", textAlign: "right", marginTop: 4 },
   hr: { borderBottomWidth: 1, borderColor: "#d8d4c8", marginVertical: 12 },
-  billedLabel: { fontSize: 9, fontWeight: "bold", marginBottom: 6 },
+  billedLabel: { fontSize: 11, fontWeight: "bold", marginBottom: 6 },
   billedGrid: { flexDirection: "row", flexWrap: "wrap" },
-  billedCell: { width: "50%", fontSize: 8, marginBottom: 4 },
-  billedCellFull: { width: "100%", fontSize: 8, marginBottom: 4 },
-  billedLbl: { color: "#888888" },
-  table: { marginTop: 8 },
+  billedCell: { width: "50%", fontSize: 10, marginBottom: 5 },
+  billedCellFull: { width: "100%", fontSize: 10, marginBottom: 5 },
+  billedLbl: { fontSize: 9, color: "#888888" },
+  table: { marginTop: 10 },
   tableHeaderRow: {
     flexDirection: "row",
     borderBottomWidth: 1,
     borderColor: "#1a1a1a",
-    paddingBottom: 4,
-    marginBottom: 4,
+    paddingBottom: 5,
+    marginBottom: 5,
   },
-  tableRow: { flexDirection: "row", borderBottomWidth: 0.5, borderColor: "#e8e5db", paddingVertical: 4 },
-  colNum: { width: "6%", fontSize: 8 },
-  colItem: { width: "34%", fontSize: 8 },
-  colQty: { width: "12%", fontSize: 8, textAlign: "right" },
-  colPrice: { width: "14%", fontSize: 8, textAlign: "right" },
-  colVat: { width: "12%", fontSize: 8, textAlign: "right" },
-  colTotal: { width: "16%", fontSize: 8, textAlign: "right" },
-  colDiscount: { width: "12%", fontSize: 8, textAlign: "right" },
-  headerCell: { fontSize: 7, fontWeight: "bold", textTransform: "uppercase", color: "#777777" },
-  totalsBlock: { position: "absolute", bottom: 90, right: 32, width: 180 },
-  totalsRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 3, fontSize: 9 },
+  tableRow: { flexDirection: "row", borderBottomWidth: 0.5, borderColor: "#e8e5db", paddingVertical: 5 },
+  colNum: { width: "6%", fontSize: 10 },
+  colItem: { width: "34%", fontSize: 10 },
+  colQty: { width: "12%", fontSize: 10, textAlign: "right" },
+  colPrice: { width: "14%", fontSize: 10, textAlign: "right" },
+  colVat: { width: "12%", fontSize: 10, textAlign: "right" },
+  colTotal: { width: "16%", fontSize: 10, textAlign: "right" },
+  colDiscount: { width: "12%", fontSize: 10, textAlign: "right" },
+  headerCell: { fontSize: 8.5, fontWeight: "bold", textTransform: "uppercase", color: "#777777" },
+  bottomSection: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 18 },
+  qr: { width: 64, height: 64 },
+  totalsBlock: { width: 190 },
+  totalsRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4, fontSize: 10 },
   grandTotalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 4,
-    paddingTop: 4,
+    marginTop: 5,
+    paddingTop: 5,
     borderTopWidth: 1,
     borderColor: "#1a1a1a",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "bold",
   },
-  qr: { position: "absolute", bottom: 90, left: 32, width: 64, height: 64 },
   note: {
-    position: "absolute",
-    bottom: 40,
-    left: 32,
-    right: 32,
+    marginTop: 14,
     backgroundColor: "#eae7dd",
     padding: 8,
     borderRadius: 3,
-    fontSize: 7.5,
+    fontSize: 10,
     lineHeight: 1.4,
   },
-  footer: { position: "absolute", bottom: 16, left: 0, right: 0, textAlign: "center", fontSize: 6.5, color: "#aaaaaa" },
+  footer: { marginTop: 18, textAlign: "center", fontSize: 8.5, color: "#aaaaaa" },
 });
 
 export function money(value: { toString(): string }): string {
@@ -171,20 +178,38 @@ export function A4ItemsTable({
   );
 }
 
-export function A4Totals({ document }: { document: A4Document }) {
+// Combines the QR code (receipt only -- `qrImageDataUrl` is omitted entirely for
+// quotations, which never have one) and the totals block into one row, right
+// after the item table in normal flow. `justify-content: space-between` still
+// pushes totals to the right even when there's no QR to anchor the left side.
+export function A4TotalsRow({
+  document,
+  qrImageDataUrl,
+}: {
+  document: A4Document;
+  qrImageDataUrl?: string | null;
+}) {
   return (
-    <View style={a4PdfStyles.totalsBlock}>
-      <View style={a4PdfStyles.totalsRow}>
-        <Text>Subtotal</Text>
-        <Text>{money(document.subtotal)} SAR</Text>
-      </View>
-      <View style={a4PdfStyles.totalsRow}>
-        <Text>Total VAT</Text>
-        <Text>{money(document.vatTotal)} SAR</Text>
-      </View>
-      <View style={a4PdfStyles.grandTotalRow}>
-        <Text>Total Payable</Text>
-        <Text>{money(document.grandTotal)} SAR</Text>
+    <View style={a4PdfStyles.bottomSection}>
+      {qrImageDataUrl ? (
+        // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf's Image, not an HTML img element
+        <Image src={qrImageDataUrl} style={a4PdfStyles.qr} />
+      ) : (
+        <View />
+      )}
+      <View style={a4PdfStyles.totalsBlock}>
+        <View style={a4PdfStyles.totalsRow}>
+          <Text>Subtotal</Text>
+          <Text>{money(document.subtotal)} SAR</Text>
+        </View>
+        <View style={a4PdfStyles.totalsRow}>
+          <Text>Total VAT</Text>
+          <Text>{money(document.vatTotal)} SAR</Text>
+        </View>
+        <View style={a4PdfStyles.grandTotalRow}>
+          <Text>Total Payable</Text>
+          <Text>{money(document.grandTotal)} SAR</Text>
+        </View>
       </View>
     </View>
   );
