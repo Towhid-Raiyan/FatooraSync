@@ -168,7 +168,12 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[calc(66.6667%-0.6667px)_1fr]">
+    // Items has the most columns to fit (SKU, Product, Unit, Qty, Unit Price,
+    // Discount, VAT, Total, Actions -- see items-section.tsx) and Customer
+    // benefits from the same extra room, while Notes/Totals only need enough
+    // width for a textarea and a few money lines. `fr` tracks are gap-aware by
+    // definition, so a plain 3fr/1fr split needs no manual gap correction.
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[4fr_1fr]">
       <CustomerSection customers={customers} draft={customerDraft} onDraftChange={setCustomerDraft} />
 
       <Card className="flex flex-col border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:13.5px]">

@@ -139,10 +139,15 @@ export function ItemsSection({
           // `overflow-y-auto` bounds the card's height (the "increase Items height"
           // request just below); horizontal scroll is the Table component's own
           // built-in behavior (its internal wrapper is `overflow-x-auto`) for when
-          // the row's columns don't all fit -- but a horizontally-scrolled Actions
-          // column would be exactly the "can't see the action buttons" complaint
-          // this is fixing, so that one column is pinned (`sticky right-0`) below
-          // instead of scrolling with the rest of the row.
+          // the row's columns don't all fit. Actions used to be `sticky right-0` to
+          // stay visible during that scroll, but `position: sticky` overlaps
+          // whatever's underneath it unconditionally -- even when the table isn't
+          // actually scrolled, it still floated on top of the tail end of the Total
+          // column, hiding it. The column widths below (plus the wider Items/
+          // Customer split in receipt-form.tsx/quotation-form.tsx) are sized so the
+          // table fits without needing horizontal scroll for realistic data, which
+          // makes the sticky behavior both unnecessary and actively harmful -- a
+          // plain in-flow column has no such overlap risk.
           <div className="max-h-[425px] overflow-y-auto rounded-lg border border-border-subtle">
             <Table>
               <TableHeader>
@@ -152,11 +157,11 @@ export function ItemsSection({
                   <TableHead>Product</TableHead>
                   <TableHead>Unit</TableHead>
                   <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Unit Price</TableHead>
-                  <TableHead className="text-right">Discount</TableHead>
+                  <TableHead className="text-right">Price</TableHead>
+                  <TableHead className="text-right">Disc.</TableHead>
                   <TableHead className="text-right">VAT</TableHead>
                   <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="sticky right-0 bg-bg-card text-right shadow-[-4px_0_6px_-4px_rgba(16,44,30,0.12)]">
+                  <TableHead className="bg-bg-card text-right">
                     Actions
                   </TableHead>
                 </TableRow>
@@ -190,7 +195,7 @@ export function ItemsSection({
                           min="0.001"
                           value={line.quantity}
                           onChange={(e) => onQuantityChange(line.key, e.target.value)}
-                          className="w-20 text-right"
+                          className="w-16 text-right"
                         />
                       </TableCell>
                       <TableCell className="text-right">
@@ -210,7 +215,7 @@ export function ItemsSection({
                           min="0"
                           value={line.discount}
                           onChange={(e) => onDiscountChange(line.key, e.target.value)}
-                          className="w-20 text-right"
+                          className="w-16 text-right"
                         />
                         {discountExceedsSubtotal && (
                           <div className="text-xs text-red-600">exceeds item subtotal</div>
@@ -236,7 +241,7 @@ export function ItemsSection({
                           className="w-24 text-right font-semibold text-heading"
                         />
                       </TableCell>
-                      <TableCell className="sticky right-0 bg-bg-card text-right shadow-[-4px_0_6px_-4px_rgba(16,44,30,0.12)] group-hover:bg-muted/50">
+                      <TableCell className="text-right group-hover:bg-muted/50">
                         <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"
