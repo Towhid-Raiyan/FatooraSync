@@ -250,7 +250,7 @@ export function ItemsSection({
                         <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"
-                            aria-label="Confirm line, focus search"
+                            aria-label={dict.a11y.confirmLine}
                             onClick={() => searchInputRef.current?.focus()}
                             className="rounded-md p-1 text-emerald-600 hover:bg-emerald-600/10"
                           >
@@ -258,7 +258,7 @@ export function ItemsSection({
                           </button>
                           <button
                             type="button"
-                            aria-label="Remove item"
+                            aria-label={dict.a11y.removeItem}
                             onClick={() => onRemoveLine(line.key)}
                             className="rounded-md p-1 text-red-600 hover:bg-red-600/10"
                           >

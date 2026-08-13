@@ -148,4 +148,11 @@ export const ar: Dictionary = {
   printChrome: {
     print: "طباعة",
   },
+  a11y: {
+    language: "اللغة",
+    comingSoon: "قريباً",
+    confirmLine: "تأكيد الصنف، التركيز على البحث",
+    removeItem: "إزالة الصنف",
+    close: "إغلاق",
+  },
 };

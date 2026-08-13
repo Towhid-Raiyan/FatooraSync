@@ -146,4 +146,11 @@ export interface Dictionary {
   printChrome: {
     print: string;
   };
+  a11y: {
+    language: string;
+    comingSoon: string;
+    confirmLine: string;
+    removeItem: string;
+    close: string;
+  };
 }

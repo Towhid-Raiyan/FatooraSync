@@ -148,4 +148,11 @@ export const en: Dictionary = {
   printChrome: {
     print: "Print",
   },
+  a11y: {
+    language: "Language",
+    comingSoon: "Coming soon",
+    confirmLine: "Confirm line, focus search",
+    removeItem: "Remove item",
+    close: "Close",
+  },
 };

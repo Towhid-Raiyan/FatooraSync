@@ -26,7 +26,7 @@ export function Sidebar({ tenantName }: { tenantName: string }) {
               <div
                 key={item.labelKey}
                 className="cursor-not-allowed border-s-[3px] border-transparent px-5 py-2.5 text-sm text-white/35"
-                title="Coming soon"
+                title={dict.a11y.comingSoon}
               >
                 {label}
               </div>

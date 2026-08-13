@@ -82,6 +82,9 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
     setQuickCreateOpen(false);
   }
 
+  // The cashier can override a line's Unit Price directly -- a manual price at the
+  // point of sale (see the trust-boundary note in route.ts). This is a plain
+  // forward-direction edit, same as quantity/discount.
   function handleUnitPriceChange(key: string, unitPrice: string) {
     setLines((prev) => prev.map((line) => (line.key === key ? { ...line, unitPrice } : line)));
   }
@@ -158,7 +161,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
             ...prev,
             {
               id: body.customerId,
-              tenantId: "",
+              tenantId: "", // not used by any UI in this list -- fine to leave blank client-side
               name: trimmedName,
               vatId: trimmedVatId,
               crNumber: customerDraft.crNumber.trim() || null,
