@@ -30,7 +30,7 @@ export function ReceiptPrintA4({
   let cursor = 0;
 
   return (
-    <div className={inter.className}>
+    <div className={`${inter.className} font-sans`} dir="ltr">
       {pageItemCounts.map((count, pageIndex) => {
         const isFirstPage = pageIndex === 0;
         const isLastPage = pageIndex === pageItemCounts.length - 1;

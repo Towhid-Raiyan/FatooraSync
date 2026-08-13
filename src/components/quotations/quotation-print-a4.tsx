@@ -22,7 +22,7 @@ export function QuotationPrintA4({ tenant, document }: { tenant: Tenant; documen
   let cursor = 0;
 
   return (
-    <div className={inter.className}>
+    <div className={`${inter.className} font-sans`} dir="ltr">
       {pageItemCounts.map((count, pageIndex) => {
         const isFirstPage = pageIndex === 0;
         const isLastPage = pageIndex === pageItemCounts.length - 1;
