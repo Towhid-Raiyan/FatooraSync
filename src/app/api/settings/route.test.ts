@@ -30,7 +30,7 @@ describe("/api/settings", () => {
     const response = await GET();
     const body = await response.json();
     expect(body.defaultVatRate).toBe("15");
-    expect(body.language).toBe("ar");
+    expect(body.language).toBe("en");
   });
 
   it("PATCH updates the tenant's settings", async () => {
