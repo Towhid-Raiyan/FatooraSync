@@ -131,7 +131,10 @@ each labeled in its own language: `English` / `العربية`.
 
 No functional/API change. The Language field's label gets a short caption
 clarifying it now means "default for new visitors," since a personal nav
-choice overrides it per-browser.
+choice overrides it per-browser. Separately, a Prisma migration changes
+`Settings.language`'s column default from `"ar"` to `"en"` (decision 8) —
+this only affects rows created after the migration; it does not touch any
+existing tenant's already-stored value, including the demo tenant's.
 
 ### Translation coverage (this pass)
 
