@@ -55,7 +55,7 @@ model Settings {
   tenantId       String      @unique
   tenant         Tenant      @relation(fields: [tenantId], references: [id])
   defaultVatRate Decimal     @default(15.00) @db.Decimal(5, 2)
-  language       String      @default("en")
+  language       String      @default("ar")
   printFormat    PrintFormat @default(THERMAL)
 }
 

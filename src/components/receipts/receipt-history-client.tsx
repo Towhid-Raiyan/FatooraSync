@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { PAGE_SIZE } from "@/lib/receipts/constants";
+import { useLocale } from "@/lib/i18n/language-provider";
 
 interface ReceiptRow {
   id: string;
@@ -27,6 +28,7 @@ interface ReceiptsResponse {
 const EMPTY: ReceiptsResponse = { receipts: [], total: 0, page: 1, pageSize: PAGE_SIZE };
 
 export function ReceiptHistoryClient({ initial }: { initial: ReceiptsResponse }) {
+  const { dict } = useLocale();
   const [data, setData] = useState<ReceiptsResponse>(initial);
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -47,14 +49,14 @@ export function ReceiptHistoryClient({ initial }: { initial: ReceiptsResponse })
       if (dateTo) params.set("dateTo", dateTo);
       const response = await fetch(`/api/receipts?${params.toString()}`);
       if (!response.ok) {
-        setError("Something went wrong loading receipts");
+        setError(dict.receiptHistory.loadError);
         setData(EMPTY);
         return;
       }
       const body: ReceiptsResponse = await response.json();
       setData(body);
     } catch {
-      setError("Something went wrong loading receipts");
+      setError(dict.receiptHistory.loadError);
       setData(EMPTY);
     } finally {
       setLoading(false);
@@ -93,13 +95,13 @@ export function ReceiptHistoryClient({ initial }: { initial: ReceiptsResponse })
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
         <Input
-          placeholder="Receipt #, customer name, or VAT ID"
+          placeholder={dict.receiptHistory.searchPlaceholder}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-72"
         />
         <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-40" />
-        <span className="text-sm text-muted-fg">to</span>
+        <span className="text-sm text-muted-fg">{dict.common.to}</span>
         <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-40" />
       </div>
 
@@ -113,25 +115,25 @@ export function ReceiptHistoryClient({ initial }: { initial: ReceiptsResponse })
         {data.total === 0 && !loading ? (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <p className="text-sm text-muted-fg">
-              {search || dateFrom || dateTo ? "No matching receipts" : "No receipts yet — create your first one"}
+              {search || dateFrom || dateTo ? dict.receiptHistory.noMatching : dict.receiptHistory.noneYet}
             </p>
           </div>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Receipt #</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{dict.receiptHistory.number}</TableHead>
+                <TableHead>{dict.receiptHistory.customer}</TableHead>
+                <TableHead>{dict.receiptHistory.date}</TableHead>
+                <TableHead className="text-right">{dict.receiptHistory.total}</TableHead>
+                <TableHead className="text-right">{dict.common.actions}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-fg">
-                    Loading…
+                    {dict.common.loading}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -149,10 +151,10 @@ export function ReceiptHistoryClient({ initial }: { initial: ReceiptsResponse })
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button variant="outline" size="sm" asChild>
-                          <Link href={`/receipts/${r.id}/print`}>View</Link>
+                          <Link href={`/receipts/${r.id}/print`}>{dict.common.view}</Link>
                         </Button>
                         <Button variant="outline" size="sm" asChild>
-                          <a href={`/api/receipts/${r.id}/pdf`}>Download</a>
+                          <a href={`/api/receipts/${r.id}/pdf`}>{dict.common.download}</a>
                         </Button>
                       </div>
                     </TableCell>
@@ -166,23 +168,19 @@ export function ReceiptHistoryClient({ initial }: { initial: ReceiptsResponse })
 
       {data.total > 0 && (
         <div className="flex items-center justify-between text-sm text-muted-fg">
-          <span>
-            {data.total} total match{data.total === 1 ? "" : "es"}
-          </span>
+          <span>{dict.common.totalMatches(data.total)}</span>
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm" disabled={page <= 1 || loading} onClick={() => goToPage(page - 1)}>
-              ← Previous
+              {dict.common.previous}
             </Button>
-            <span>
-              Page {page} of {totalPages}
-            </span>
+            <span>{dict.common.pageOf(page, totalPages)}</span>
             <Button
               variant="outline"
               size="sm"
               disabled={page >= totalPages || loading}
               onClick={() => goToPage(page + 1)}
             >
-              Next →
+              {dict.common.next}
             </Button>
           </div>
         </div>
