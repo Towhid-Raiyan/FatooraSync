@@ -8,9 +8,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { useLocale } from "@/lib/i18n/language-provider";
 import { CustomerFormDialog } from "./customer-form-dialog";
 
 export function CustomersClient({ initialCustomers }: { initialCustomers: Customer[] }) {
+  const { dict } = useLocale();
   const [customers, setCustomers] = useState(initialCustomers);
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
@@ -54,13 +56,13 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
-        setActionError(body.error ?? "Something went wrong");
+        setActionError(body.error ?? dict.common.somethingWentWrong);
         return;
       }
       const updated = await response.json();
       setCustomers((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
     } catch {
-      setActionError("Something went wrong");
+      setActionError(dict.common.somethingWentWrong);
     }
   }
 
@@ -69,18 +71,18 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Input
-            placeholder="Search by name, VAT ID, or phone"
+            placeholder={dict.customers.searchPlaceholder}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-72"
           />
           <label className="flex items-center gap-2 text-sm text-body">
             <Checkbox checked={showInactive} onCheckedChange={(checked) => setShowInactive(checked === true)} />
-            Show inactive
+            {dict.common.showInactive}
           </label>
         </div>
         <Button variant="primary" onClick={() => setDialogState({ open: true, customer: null })}>
-          + Add Customer
+          + {dict.customers.dialogTitleAdd}
         </Button>
       </div>
 
@@ -93,18 +95,18 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
       <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
         {!hasAnyRealCustomer ? (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
-            <p className="text-sm text-muted-fg">No customers yet — add your first one</p>
+            <p className="text-sm text-muted-fg">{dict.customers.noCustomersYet}</p>
           </div>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>VAT ID</TableHead>
-                <TableHead>CR Number</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Address</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{dict.customers.name}</TableHead>
+                <TableHead>{dict.customers.vatId}</TableHead>
+                <TableHead>{dict.customers.crNumber}</TableHead>
+                <TableHead>{dict.customers.phone}</TableHead>
+                <TableHead>{dict.customers.address}</TableHead>
+                <TableHead className="text-right">{dict.common.actions}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -114,7 +116,7 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
                     {customer.name}
                     {customer.isWalkIn && (
                       <Badge variant="secondary" className="ms-2">
-                        System
+                        {dict.customers.systemBadge}
                       </Badge>
                     )}
                   </TableCell>
@@ -126,10 +128,10 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
                     {!customer.isWalkIn && (
                       <div className="flex justify-end gap-2">
                         <Button variant="outline" size="sm" onClick={() => setDialogState({ open: true, customer })}>
-                          Edit
+                          {dict.common.edit}
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => toggleActive(customer)}>
-                          {customer.isActive ? "Deactivate" : "Reactivate"}
+                          {customer.isActive ? dict.common.deactivate : dict.common.reactivate}
                         </Button>
                       </div>
                     )}

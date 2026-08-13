@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useLocale } from "@/lib/i18n/language-provider";
 
 interface CustomerFormDialogProps {
   open: boolean;
@@ -18,6 +19,7 @@ const EMPTY_FORM = { name: "", vatId: "", crNumber: "", phone: "", address: "" }
 const LABEL_CLASS = "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wider text-muted-fg";
 
 export function CustomerFormDialog({ open, customer, onOpenChange, onSaved }: CustomerFormDialogProps) {
+  const { dict } = useLocale();
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -53,12 +55,12 @@ export function CustomerFormDialog({ open, customer, onOpenChange, onSaved }: Cu
       const body = await response.json();
 
       if (!response.ok) {
-        setError(body.error ?? "Something went wrong");
+        setError(body.error ?? dict.common.somethingWentWrong);
         return;
       }
       onSaved(body);
     } catch {
-      setError("Something went wrong");
+      setError(dict.common.somethingWentWrong);
     } finally {
       setSaving(false);
     }
@@ -68,7 +70,7 @@ export function CustomerFormDialog({ open, customer, onOpenChange, onSaved }: Cu
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{customer ? "Edit Customer" : "Add Customer"}</DialogTitle>
+          <DialogTitle>{customer ? dict.customers.dialogTitleEdit : dict.customers.dialogTitleAdd}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -80,7 +82,7 @@ export function CustomerFormDialog({ open, customer, onOpenChange, onSaved }: Cu
 
           <div>
             <Label htmlFor="customer-name" className={LABEL_CLASS}>
-              Name
+              {dict.customers.name}
             </Label>
             <Input
               id="customer-name"
@@ -92,14 +94,14 @@ export function CustomerFormDialog({ open, customer, onOpenChange, onSaved }: Cu
 
           <div>
             <Label htmlFor="customer-vat" className={LABEL_CLASS}>
-              VAT ID
+              {dict.customers.vatId}
             </Label>
             <Input id="customer-vat" value={form.vatId} onChange={(e) => setForm({ ...form, vatId: e.target.value })} />
           </div>
 
           <div>
             <Label htmlFor="customer-cr" className={LABEL_CLASS}>
-              CR Number
+              {dict.customers.crNumber}
             </Label>
             <Input
               id="customer-cr"
@@ -110,14 +112,14 @@ export function CustomerFormDialog({ open, customer, onOpenChange, onSaved }: Cu
 
           <div>
             <Label htmlFor="customer-phone" className={LABEL_CLASS}>
-              Phone
+              {dict.customers.phone}
             </Label>
             <Input id="customer-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           </div>
 
           <div>
             <Label htmlFor="customer-address" className={LABEL_CLASS}>
-              Address
+              {dict.customers.address}
             </Label>
             <Input
               id="customer-address"
@@ -128,7 +130,7 @@ export function CustomerFormDialog({ open, customer, onOpenChange, onSaved }: Cu
 
           <DialogFooter>
             <Button type="submit" variant="primary" disabled={saving}>
-              {saving ? "Saving…" : "Save"}
+              {saving ? dict.common.savingEllipsis : dict.common.save}
             </Button>
           </DialogFooter>
         </form>
