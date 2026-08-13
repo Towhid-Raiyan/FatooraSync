@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useLocale } from "@/lib/i18n/language-provider";
 import { NAV_ITEMS } from "./nav-items";
 
 export function Sidebar({ tenantName }: { tenantName: string }) {
   const pathname = usePathname();
+  const { dict } = useLocale();
 
   return (
     <aside className="flex w-[220px] shrink-0 flex-col bg-gradient-to-b from-primary-mid to-primary-dark py-5 text-white">
@@ -17,22 +19,23 @@ export function Sidebar({ tenantName }: { tenantName: string }) {
       <nav className="flex flex-col">
         {NAV_ITEMS.map((item) => {
           const isActive = item.href !== null && pathname === item.href;
+          const label = dict.nav[item.labelKey];
 
           if (item.href === null) {
             return (
               <div
-                key={item.label}
+                key={item.labelKey}
                 className="cursor-not-allowed border-s-[3px] border-transparent px-5 py-2.5 text-sm text-white/35"
                 title="Coming soon"
               >
-                {item.label}
+                {label}
               </div>
             );
           }
 
           return (
             <Link
-              key={item.label}
+              key={item.labelKey}
               href={item.href}
               className={`border-s-[3px] px-5 py-2.5 text-sm transition-colors ${
                 isActive
@@ -40,7 +43,7 @@ export function Sidebar({ tenantName }: { tenantName: string }) {
                   : "border-transparent text-white/75 hover:bg-white/5 hover:text-white"
               }`}
             >
-              {item.label}
+              {label}
             </Link>
           );
         })}
