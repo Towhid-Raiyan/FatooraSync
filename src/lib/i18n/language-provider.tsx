@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LOCALE_COOKIE, type Locale } from "./locale";
+import { LOCALE_COOKIE, type Locale } from "./locale-shared";
 import { getDictionary } from "./get-dictionary";
 import type { Dictionary } from "./dictionaries/dictionary.types";
 
