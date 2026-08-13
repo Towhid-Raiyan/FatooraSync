@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, IBM_Plex_Sans_Arabic } from "next/font/google";
+import { resolveLocale } from "@/lib/i18n/locale";
+import { LanguageProvider } from "@/lib/i18n/language-provider";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -19,15 +21,22 @@ export const metadata: Metadata = {
   description: "Cloud POS and business management for Saudi SMEs",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await resolveLocale();
+  const dir = locale === "ar" ? "rtl" : "ltr";
+
   return (
-    <html lang="en">
-      <body className={`${plusJakartaSans.variable} ${ibmPlexSansArabic.variable} font-sans antialiased`}>
-        {children}
+    <html lang={locale} dir={dir}>
+      <body
+        className={`${plusJakartaSans.variable} ${ibmPlexSansArabic.variable} ${
+          locale === "ar" ? "font-arabic" : "font-sans"
+        } antialiased`}
+      >
+        <LanguageProvider initialLocale={locale}>{children}</LanguageProvider>
       </body>
     </html>
   );
