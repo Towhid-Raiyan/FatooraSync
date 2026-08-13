@@ -6,8 +6,10 @@ import { DesertScene } from "@/components/desert-scene";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useLocale } from "@/lib/i18n/language-provider";
 
 export default function LoginPage() {
+  const { dict } = useLocale();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +18,7 @@ export default function LoginPage() {
     e.preventDefault();
     const result = await signIn("credentials", { email, password, redirect: false });
     if (result?.error) {
-      setError("Invalid email or password");
+      setError(dict.login.invalidCredentials);
       return;
     }
     window.location.href = "/";
@@ -35,12 +37,12 @@ export default function LoginPage() {
         onSubmit={handleSubmit}
         className="relative z-10 w-full max-w-[340px] rounded-2xl border border-border-subtle bg-white/90 p-8 shadow-[0_1px_2px_rgba(16,44,30,0.04),0_14px_34px_rgba(16,44,30,0.1),0_4px_10px_rgba(16,44,30,0.06)] backdrop-blur-md"
       >
-        <h1 className="text-center text-[19px] font-extrabold text-heading">Welcome back</h1>
-        <p className="mb-6 text-center text-xs text-muted-fg">Sign in to your business account</p>
+        <h1 className="text-center text-[19px] font-extrabold text-heading">{dict.login.title}</h1>
+        <p className="mb-6 text-center text-xs text-muted-fg">{dict.login.subtitle}</p>
 
         <div className="mb-4">
           <Label htmlFor="email" className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wider text-muted-fg">
-            Email
+            {dict.login.email}
           </Label>
           <Input
             id="email"
@@ -48,13 +50,13 @@ export default function LoginPage() {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="owner@yourbusiness.com"
+            placeholder={dict.login.emailPlaceholder}
           />
         </div>
 
         <div className="mb-4">
           <Label htmlFor="password" className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wider text-muted-fg">
-            Password
+            {dict.login.password}
           </Label>
           <Input
             id="password"
@@ -73,12 +75,12 @@ export default function LoginPage() {
         )}
 
         <Button type="submit" variant="primary" className="w-full">
-          Sign In
+          {dict.login.signIn}
         </Button>
 
         <p className="mt-5 flex items-center justify-center gap-1.5 text-[11px] text-muted-fg">
           <span className="h-1 w-1 rounded-full bg-accent-mint" />
-          Powered by FatooraSync
+          {dict.common.poweredBy}
         </p>
       </form>
     </div>

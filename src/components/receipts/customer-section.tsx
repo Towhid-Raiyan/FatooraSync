@@ -92,7 +92,7 @@ export function CustomerSection({ customers, draft, onDraftChange }: CustomerSec
                     key={customer.id}
                     type="button"
                     onMouseDown={() => selectSuggestion(customer)}
-                    className="block w-full px-3 py-2 text-left text-sm hover:bg-bg-app"
+                    className="block w-full px-3 py-2 text-start text-sm hover:bg-bg-app"
                   >
                     <span className="text-heading">{customer.name}</span>
                     {customer.vatId && <span className="text-muted-fg"> — {customer.vatId}</span>}
@@ -118,7 +118,7 @@ export function CustomerSection({ customers, draft, onDraftChange }: CustomerSec
                     key={customer.id}
                     type="button"
                     onMouseDown={() => selectSuggestion(customer)}
-                    className="block w-full px-3 py-2 text-left text-sm hover:bg-bg-app"
+                    className="block w-full px-3 py-2 text-start text-sm hover:bg-bg-app"
                   >
                     <span className="text-heading">{customer.vatId}</span>
                     <span className="text-muted-fg"> — {customer.name}</span>
