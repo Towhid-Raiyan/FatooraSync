@@ -41,6 +41,10 @@ export function CustomerSection({ customers, draft, onDraftChange }: CustomerSec
   const nameMatches = useMemo(() => {
     const query = draft.name.trim().toLowerCase();
     if (!query) return [];
+    // Only customers with a VAT ID on file are suggested here: a receipt can only
+    // ever attach to a *non-walk-in* customer via the find-or-create-by-VAT-ID
+    // resolution (see route.ts), so surfacing a VAT-ID-less record would let the
+    // cashier "pick" a customer whose receipt then silently falls back to Walk-in.
     return customers.filter((c) => !c.isWalkIn && c.vatId && c.name.toLowerCase().includes(query)).slice(0, 8);
   }, [customers, draft.name]);
 

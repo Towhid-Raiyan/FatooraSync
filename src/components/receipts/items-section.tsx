@@ -29,7 +29,7 @@ export interface ReceiptLine {
 interface ItemsSectionProps {
   products: SerializedProduct[];
   lines: ReceiptLine[];
-  lineTotals: LineTotals[];
+  lineTotals: LineTotals[]; // same length/order as `lines` -- the resolved-VAT truth, computed once in ReceiptForm
   onAddLine: (product: SerializedProduct) => void;
   onRemoveLine: (key: string) => void;
   onQuantityChange: (key: string, quantity: string) => void;
@@ -56,6 +56,11 @@ export function ItemsSection({
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Editing Total is a reverse calculation (it back-solves Unit Price), so the
+  // displayed total is normally the computed `lineTotal` -- except while a cell is
+  // actively focused, when it shows exactly what was typed so far. Committing
+  // (blur) is what triggers the actual recalculation; recomputing on every
+  // keystroke would fight the cursor as `lineTotal` snaps back mid-edit.
   const [totalDrafts, setTotalDrafts] = useState<Record<string, string>>({});
 
   const filtered = useMemo(() => {
@@ -75,6 +80,12 @@ export function ItemsSection({
     setSearch("");
   }
 
+  // Only commits if the draft actually differs from what the field was seeded
+  // with on focus. Without this check, simply tabbing through a Total cell with
+  // no edit still round-trips through the back-calculation -- and because
+  // `deriveUnitPriceFromTotal` inverts continuous-math while `calculateLine`
+  // rounds at several points, a no-op focus/blur could silently nudge the unit
+  // price by a cent on fractional quantities.
   function commitTotalDraft(key: string, seededValue: string) {
     const draft = totalDrafts[key];
     if (draft !== undefined && draft !== seededValue) {
@@ -128,6 +139,18 @@ export function ItemsSection({
         </div>
 
         {lines.length > 0 && (
+          // `overflow-y-auto` bounds the card's height (the "increase Items height"
+          // request just below); horizontal scroll is the Table component's own
+          // built-in behavior (its internal wrapper is `overflow-x-auto`) for when
+          // the row's columns don't all fit. Actions used to be `sticky right-0` to
+          // stay visible during that scroll, but `position: sticky` overlaps
+          // whatever's underneath it unconditionally -- even when the table isn't
+          // actually scrolled, it still floated on top of the tail end of the Total
+          // column, hiding it. The column widths below (plus the wider Items/
+          // Customer split in receipt-form.tsx/quotation-form.tsx) are sized so the
+          // table fits without needing horizontal scroll for realistic data, which
+          // makes the sticky behavior both unnecessary and actively harmful -- a
+          // plain in-flow column has no such overlap risk.
           <div className="max-h-[425px] overflow-y-auto rounded-lg border border-border-subtle">
             <Table>
               <TableHeader>

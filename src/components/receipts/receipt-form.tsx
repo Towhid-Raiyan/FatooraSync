@@ -35,6 +35,14 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Resolves each line's VAT the same way the server does (Task 2): the product's
+  // own override if it has one, otherwise the tenant's real default -- never a
+  // hardcoded 0%, which would silently understate every default-VAT line's total
+  // on screen relative to what actually gets saved. `unitPrice` is rounded to 2dp
+  // here too, matching the server's own `round2` on the same field (route.ts) --
+  // a manually-typed sub-cent price (e.g. "2.345") would otherwise feed an
+  // unrounded value into `calculateLine` on screen but a rounded one on save,
+  // producing two different totals for the same typed input.
   const lineTotals = useMemo(
     () =>
       lines.map((line) =>
@@ -78,6 +86,13 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
     setLines((prev) => prev.map((line) => (line.key === key ? { ...line, unitPrice } : line)));
   }
 
+  // Editing Total is the reverse direction: back-solve the Unit Price that would
+  // produce the typed total, holding quantity/discount/VAT fixed, using the same
+  // pure function the totals math itself is built on. A genuinely unparsable or
+  // negative total is ignored -- the line keeps its last valid price rather than
+  // being corrupted by a stray edit. A cleared field parses as `0`, same as
+  // Unit Price, and is honored as an explicit zero rather than being ignored --
+  // it's indistinguishable from deliberately typing "0".
   function handleTotalChange(key: string, rawTotal: string) {
     const newTotal = Number(rawTotal);
     if (!Number.isFinite(newTotal) || newTotal < 0) return;
@@ -158,6 +173,10 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
       }
 
       if (printAfter) {
+        // Deliberately leave `saving` true through the navigation so the buttons stay
+        // disabled until this component unmounts -- clearing it in a `finally` here
+        // would re-enable Save & Print for the several seconds router.push takes to
+        // actually navigate, letting a second click mint a second immutable receipt.
         router.push(`/receipts/${body.id}/print`);
       } else {
         resetForm();
