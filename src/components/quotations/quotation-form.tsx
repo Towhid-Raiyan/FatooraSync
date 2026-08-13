@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import type { SerializedProduct } from "@/components/products/products-client";
 import { round2, calculateLine, calculateDocumentTotals, deriveUnitPriceFromTotal } from "@/lib/receipts/calculate-totals";
+import { useLocale } from "@/lib/i18n/language-provider";
 import { CustomerSection, type CustomerDraft } from "@/components/receipts/customer-section";
 import { ItemsSection, type ReceiptLine } from "@/components/receipts/items-section";
 
@@ -21,6 +22,7 @@ interface QuotationFormProps {
 
 export function QuotationForm({ initialCustomers, initialProducts, defaultVatRate }: QuotationFormProps) {
   const router = useRouter();
+  const { dict } = useLocale();
   const [customers, setCustomers] = useState(initialCustomers);
   const [products, setProducts] = useState(initialProducts);
 
@@ -105,7 +107,7 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
 
   async function handleSave(printAfter: boolean) {
     if (lines.length === 0) {
-      setError("Add at least one item");
+      setError(dict.documentForm.totals.addAtLeastOneItem);
       return;
     }
     setSaving(true);
@@ -127,7 +129,7 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
       const body = await response.json();
 
       if (!response.ok) {
-        setError(body.error ?? "Something went wrong");
+        setError(body.error ?? dict.common.somethingWentWrong);
         setSaving(false);
         return;
       }
@@ -162,23 +164,18 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
         setSaving(false);
       }
     } catch {
-      setError("Something went wrong");
+      setError(dict.common.somethingWentWrong);
       setSaving(false);
     }
   }
 
   return (
-    // Items has the most columns to fit (SKU, Product, Unit, Qty, Unit Price,
-    // Discount, VAT, Total, Actions -- see items-section.tsx) and Customer
-    // benefits from the same extra room, while Notes/Totals only need enough
-    // width for a textarea and a few money lines. `fr` tracks are gap-aware by
-    // definition, so a plain 3fr/1fr split needs no manual gap correction.
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[4fr_1fr]">
       <CustomerSection customers={customers} draft={customerDraft} onDraftChange={setCustomerDraft} />
 
       <Card className="flex flex-col border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:13.5px]">
         <CardHeader>
-          <CardTitle className="text-heading">Notes</CardTitle>
+          <CardTitle className="text-heading">{dict.documentForm.notesTitle}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-1 flex-col">
           <textarea
@@ -209,7 +206,7 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
 
       <Card className="sticky top-4 self-start border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:18.5px]">
         <CardHeader>
-          <CardTitle className="text-heading">Totals</CardTitle>
+          <CardTitle className="text-heading">{dict.documentForm.totals.title}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {error && (
@@ -218,15 +215,15 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
             </p>
           )}
           <div className="flex justify-between text-sm text-body">
-            <span>Subtotal</span>
+            <span>{dict.documentForm.totals.subtotal}</span>
             <span>{documentTotals.subtotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-sm text-body">
-            <span>Total VAT</span>
+            <span>{dict.documentForm.totals.totalVat}</span>
             <span>{documentTotals.vatTotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-lg font-bold text-heading">
-            <span>Grand Total</span>
+            <span>{dict.documentForm.totals.grandTotal}</span>
             <span>{documentTotals.grandTotal.toFixed(2)}</span>
           </div>
           <Button
@@ -236,10 +233,10 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
             disabled={saving}
             onClick={() => handleSave(true)}
           >
-            {saving ? "Saving…" : "Save & Print"}
+            {saving ? dict.common.savingEllipsis : dict.documentForm.totals.savePrint}
           </Button>
           <Button type="button" variant="outline" className="w-full" disabled={saving} onClick={() => handleSave(false)}>
-            Save
+            {dict.common.save}
           </Button>
         </CardContent>
       </Card>

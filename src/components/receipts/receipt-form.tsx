@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import type { SerializedProduct } from "@/components/products/products-client";
 import { round2, calculateLine, calculateDocumentTotals, deriveUnitPriceFromTotal } from "@/lib/receipts/calculate-totals";
+import { useLocale } from "@/lib/i18n/language-provider";
 import { CustomerSection, type CustomerDraft } from "./customer-section";
 import { ItemsSection, type ReceiptLine } from "./items-section";
 
@@ -21,6 +22,7 @@ interface ReceiptFormProps {
 
 export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate }: ReceiptFormProps) {
   const router = useRouter();
+  const { dict } = useLocale();
   const [customers, setCustomers] = useState(initialCustomers);
   const [products, setProducts] = useState(initialProducts);
 
@@ -33,14 +35,6 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Resolves each line's VAT the same way the server does (Task 2): the product's
-  // own override if it has one, otherwise the tenant's real default -- never a
-  // hardcoded 0%, which would silently understate every default-VAT line's total
-  // on screen relative to what actually gets saved. `unitPrice` is rounded to 2dp
-  // here too, matching the server's own `round2` on the same field (route.ts) --
-  // a manually-typed sub-cent price (e.g. "2.345") would otherwise feed an
-  // unrounded value into `calculateLine` on screen but a rounded one on save,
-  // producing two different totals for the same typed input.
   const lineTotals = useMemo(
     () =>
       lines.map((line) =>
@@ -80,20 +74,10 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
     setQuickCreateOpen(false);
   }
 
-  // The cashier can override a line's Unit Price directly -- a manual price at the
-  // point of sale (see the trust-boundary note in route.ts). This is a plain
-  // forward-direction edit, same as quantity/discount.
   function handleUnitPriceChange(key: string, unitPrice: string) {
     setLines((prev) => prev.map((line) => (line.key === key ? { ...line, unitPrice } : line)));
   }
 
-  // Editing Total is the reverse direction: back-solve the Unit Price that would
-  // produce the typed total, holding quantity/discount/VAT fixed, using the same
-  // pure function the totals math itself is built on. A genuinely unparsable or
-  // negative total is ignored -- the line keeps its last valid price rather than
-  // being corrupted by a stray edit. A cleared field parses as `0`, same as
-  // Unit Price, and is honored as an explicit zero rather than being ignored --
-  // it's indistinguishable from deliberately typing "0".
   function handleTotalChange(key: string, rawTotal: string) {
     const newTotal = Number(rawTotal);
     if (!Number.isFinite(newTotal) || newTotal < 0) return;
@@ -123,7 +107,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
 
   async function handleSave(printAfter: boolean) {
     if (lines.length === 0) {
-      setError("Add at least one item");
+      setError(dict.documentForm.totals.addAtLeastOneItem);
       return;
     }
     setSaving(true);
@@ -145,7 +129,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
       const body = await response.json();
 
       if (!response.ok) {
-        setError(body.error ?? "Something went wrong");
+        setError(body.error ?? dict.common.somethingWentWrong);
         setSaving(false);
         return;
       }
@@ -159,7 +143,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
             ...prev,
             {
               id: body.customerId,
-              tenantId: "", // not used by any UI in this list -- fine to leave blank client-side
+              tenantId: "",
               name: trimmedName,
               vatId: trimmedVatId,
               crNumber: customerDraft.crNumber.trim() || null,
@@ -174,37 +158,24 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
       }
 
       if (printAfter) {
-        // Deliberately leave `saving` true through the navigation so the buttons stay
-        // disabled until this component unmounts -- clearing it in a `finally` here
-        // would re-enable Save & Print for the several seconds router.push takes to
-        // actually navigate, letting a second click mint a second immutable receipt.
         router.push(`/receipts/${body.id}/print`);
       } else {
         resetForm();
         setSaving(false);
       }
     } catch {
-      setError("Something went wrong");
+      setError(dict.common.somethingWentWrong);
       setSaving(false);
     }
   }
 
   return (
-    // Items has the most columns to fit (SKU, Product, Unit, Qty, Unit Price,
-    // Discount, VAT, Total, Actions -- see items-section.tsx) and Customer
-    // benefits from the same extra room, while Notes/Totals only need enough
-    // width for a textarea and a few money lines. `fr` tracks are gap-aware by
-    // definition, so a plain 3fr/1fr split needs no manual gap correction.
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[4fr_1fr]">
       <CustomerSection customers={customers} draft={customerDraft} onDraftChange={setCustomerDraft} />
 
-      {/* --card-spacing trimmed ~5px shorter than the default 16px -- paired with
-          ItemsSection/Totals below being nudged ~5px taller, so the top row reads
-          slightly more compact and the row with the actual work (Items) reads
-          slightly more spacious. */}
       <Card className="flex flex-col border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:13.5px]">
         <CardHeader>
-          <CardTitle className="text-heading">Notes</CardTitle>
+          <CardTitle className="text-heading">{dict.documentForm.notesTitle}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-1 flex-col">
           <textarea
@@ -235,7 +206,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
 
       <Card className="sticky top-4 self-start border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:18.5px]">
         <CardHeader>
-          <CardTitle className="text-heading">Totals</CardTitle>
+          <CardTitle className="text-heading">{dict.documentForm.totals.title}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {error && (
@@ -244,15 +215,15 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
             </p>
           )}
           <div className="flex justify-between text-sm text-body">
-            <span>Subtotal</span>
+            <span>{dict.documentForm.totals.subtotal}</span>
             <span>{documentTotals.subtotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-sm text-body">
-            <span>Total VAT</span>
+            <span>{dict.documentForm.totals.totalVat}</span>
             <span>{documentTotals.vatTotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-lg font-bold text-heading">
-            <span>Grand Total</span>
+            <span>{dict.documentForm.totals.grandTotal}</span>
             <span>{documentTotals.grandTotal.toFixed(2)}</span>
           </div>
           <Button
@@ -262,10 +233,10 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
             disabled={saving}
             onClick={() => handleSave(true)}
           >
-            {saving ? "Saving…" : "Save & Print"}
+            {saving ? dict.common.savingEllipsis : dict.documentForm.totals.savePrint}
           </Button>
           <Button type="button" variant="outline" className="w-full" disabled={saving} onClick={() => handleSave(false)}>
-            Save
+            {dict.common.save}
           </Button>
         </CardContent>
       </Card>

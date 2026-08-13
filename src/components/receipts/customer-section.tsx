@@ -5,6 +5,7 @@ import type { Customer } from "@prisma/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLocale } from "@/lib/i18n/language-provider";
 
 export interface CustomerDraft {
   name: string;
@@ -33,16 +34,13 @@ function fillFromCustomer(customer: Customer): CustomerDraft {
 }
 
 export function CustomerSection({ customers, draft, onDraftChange }: CustomerSectionProps) {
+  const { dict } = useLocale();
   const [nameSuggestionsOpen, setNameSuggestionsOpen] = useState(false);
   const [vatSuggestionsOpen, setVatSuggestionsOpen] = useState(false);
 
   const nameMatches = useMemo(() => {
     const query = draft.name.trim().toLowerCase();
     if (!query) return [];
-    // Only customers with a VAT ID on file are suggested here: a receipt can only
-    // ever attach to a *non-walk-in* customer via the find-or-create-by-VAT-ID
-    // resolution (see route.ts), so surfacing a VAT-ID-less record would let the
-    // cashier "pick" a customer whose receipt then silently falls back to Walk-in.
     return customers.filter((c) => !c.isWalkIn && c.vatId && c.name.toLowerCase().includes(query)).slice(0, 8);
   }, [customers, draft.name]);
 
@@ -71,12 +69,12 @@ export function CustomerSection({ customers, draft, onDraftChange }: CustomerSec
   return (
     <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:13.5px]">
       <CardHeader>
-        <CardTitle className="text-heading">Customer</CardTitle>
+        <CardTitle className="text-heading">{dict.documentForm.customerSection.title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div className="relative">
-            <Label className={LABEL_CLASS}>Name</Label>
+            <Label className={LABEL_CLASS}>{dict.documentForm.customerSection.name}</Label>
             <Input
               value={draft.name}
               onChange={(e) => onDraftChange({ ...draft, name: e.target.value })}
@@ -102,7 +100,7 @@ export function CustomerSection({ customers, draft, onDraftChange }: CustomerSec
             )}
           </div>
           <div className="relative">
-            <Label className={LABEL_CLASS}>VAT ID</Label>
+            <Label className={LABEL_CLASS}>{dict.documentForm.customerSection.vatId}</Label>
             <Input
               value={draft.vatId}
               onChange={(e) => onDraftChange({ ...draft, vatId: e.target.value })}
@@ -128,19 +126,19 @@ export function CustomerSection({ customers, draft, onDraftChange }: CustomerSec
             )}
           </div>
           <div>
-            <Label className={LABEL_CLASS}>CR Number</Label>
+            <Label className={LABEL_CLASS}>{dict.documentForm.customerSection.crNumber}</Label>
             <Input
               value={draft.crNumber}
               onChange={(e) => onDraftChange({ ...draft, crNumber: e.target.value })}
             />
           </div>
           <div>
-            <Label className={LABEL_CLASS}>Phone</Label>
+            <Label className={LABEL_CLASS}>{dict.documentForm.customerSection.phone}</Label>
             <Input value={draft.phone} onChange={(e) => onDraftChange({ ...draft, phone: e.target.value })} />
           </div>
         </div>
         <div>
-          <Label className={LABEL_CLASS}>Address</Label>
+          <Label className={LABEL_CLASS}>{dict.documentForm.customerSection.address}</Label>
           <Input value={draft.address} onChange={(e) => onDraftChange({ ...draft, address: e.target.value })} />
         </div>
       </CardContent>

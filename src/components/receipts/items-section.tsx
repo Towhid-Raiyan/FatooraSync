@@ -7,10 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { useLocale } from "@/lib/i18n/language-provider";
 import { getUnitLabels } from "@/components/products/product-form-dialog";
 import type { SerializedProduct } from "@/components/products/products-client";
 import type { LineTotals } from "@/lib/receipts/calculate-totals";
+import { useLocale } from "@/lib/i18n/language-provider";
 
 export interface ReceiptLine {
   key: string;
@@ -29,7 +29,7 @@ export interface ReceiptLine {
 interface ItemsSectionProps {
   products: SerializedProduct[];
   lines: ReceiptLine[];
-  lineTotals: LineTotals[]; // same length/order as `lines` -- the resolved-VAT truth, computed once in ReceiptForm
+  lineTotals: LineTotals[];
   onAddLine: (product: SerializedProduct) => void;
   onRemoveLine: (key: string) => void;
   onQuantityChange: (key: string, quantity: string) => void;
@@ -56,11 +56,6 @@ export function ItemsSection({
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Editing Total is a reverse calculation (it back-solves Unit Price), so the
-  // displayed total is normally the computed `lineTotal` -- except while a cell is
-  // actively focused, when it shows exactly what was typed so far. Committing
-  // (blur) is what triggers the actual recalculation; recomputing on every
-  // keystroke would fight the cursor as `lineTotal` snaps back mid-edit.
   const [totalDrafts, setTotalDrafts] = useState<Record<string, string>>({});
 
   const filtered = useMemo(() => {
@@ -80,12 +75,6 @@ export function ItemsSection({
     setSearch("");
   }
 
-  // Only commits if the draft actually differs from what the field was seeded
-  // with on focus. Without this check, simply tabbing through a Total cell with
-  // no edit still round-trips through the back-calculation -- and because
-  // `deriveUnitPriceFromTotal` inverts continuous-math while `calculateLine`
-  // rounds at several points, a no-op focus/blur could silently nudge the unit
-  // price by a cent on fractional quantities.
   function commitTotalDraft(key: string, seededValue: string) {
     const draft = totalDrafts[key];
     if (draft !== undefined && draft !== seededValue) {
@@ -101,14 +90,14 @@ export function ItemsSection({
   return (
     <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:18.5px]">
       <CardHeader>
-        <CardTitle className="text-heading">Items</CardTitle>
+        <CardTitle className="text-heading">{dict.documentForm.itemsSection.title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Input
               ref={searchInputRef}
-              placeholder="Scan barcode or search by SKU / name"
+              placeholder={dict.documentForm.itemsSection.searchPlaceholder}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               autoFocus
@@ -120,7 +109,7 @@ export function ItemsSection({
                     key={product.id}
                     type="button"
                     onClick={() => handleSelect(product)}
-                    className="block w-full px-3 py-2 text-left text-sm hover:bg-bg-app"
+                    className="block w-full px-3 py-2 text-start text-sm hover:bg-bg-app"
                   >
                     <span className="font-mono text-xs text-muted-fg">{product.sku}</span>{" "}
                     <span className="text-heading">{product.nameEn}</span>{" "}
@@ -128,44 +117,32 @@ export function ItemsSection({
                   </button>
                 ))}
                 {filtered.length === 0 && (
-                  <div className="px-3 py-2 text-sm text-muted-fg">No matches</div>
+                  <div className="px-3 py-2 text-sm text-muted-fg">{dict.documentForm.itemsSection.noMatches}</div>
                 )}
               </div>
             )}
           </div>
           <Button type="button" variant="outline" size="sm" onClick={onOpenQuickCreate} className="shrink-0">
-            + Add Product
+            {dict.common.addProduct}
           </Button>
         </div>
 
         {lines.length > 0 && (
-          // `overflow-y-auto` bounds the card's height (the "increase Items height"
-          // request just below); horizontal scroll is the Table component's own
-          // built-in behavior (its internal wrapper is `overflow-x-auto`) for when
-          // the row's columns don't all fit. Actions used to be `sticky right-0` to
-          // stay visible during that scroll, but `position: sticky` overlaps
-          // whatever's underneath it unconditionally -- even when the table isn't
-          // actually scrolled, it still floated on top of the tail end of the Total
-          // column, hiding it. The column widths below (plus the wider Items/
-          // Customer split in receipt-form.tsx/quotation-form.tsx) are sized so the
-          // table fits without needing horizontal scroll for realistic data, which
-          // makes the sticky behavior both unnecessary and actively harmful -- a
-          // plain in-flow column has no such overlap risk.
           <div className="max-h-[425px] overflow-y-auto rounded-lg border border-border-subtle">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>#</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Unit</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
-                  <TableHead className="text-right">Disc.</TableHead>
-                  <TableHead className="text-right">VAT</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>{dict.documentForm.itemsSection.headers.number}</TableHead>
+                  <TableHead>{dict.documentForm.itemsSection.headers.sku}</TableHead>
+                  <TableHead>{dict.documentForm.itemsSection.headers.product}</TableHead>
+                  <TableHead>{dict.documentForm.itemsSection.headers.unit}</TableHead>
+                  <TableHead className="text-right">{dict.documentForm.itemsSection.headers.qty}</TableHead>
+                  <TableHead className="text-right">{dict.documentForm.itemsSection.headers.price}</TableHead>
+                  <TableHead className="text-right">{dict.documentForm.itemsSection.headers.disc}</TableHead>
+                  <TableHead className="text-right">{dict.documentForm.itemsSection.headers.vat}</TableHead>
+                  <TableHead className="text-right">{dict.documentForm.itemsSection.headers.total}</TableHead>
                   <TableHead className="bg-bg-card text-right">
-                    Actions
+                    {dict.documentForm.itemsSection.headers.actions}
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -188,7 +165,9 @@ export function ItemsSection({
                         {line.productNameAr && (
                           <div className="text-xs text-emerald-600 dark:text-emerald-400">{line.productNameAr}</div>
                         )}
-                        {exceedsStock && <div className="text-xs text-amber-600">exceeds stock</div>}
+                        {exceedsStock && (
+                          <div className="text-xs text-amber-600">{dict.documentForm.itemsSection.exceedsStock}</div>
+                        )}
                       </TableCell>
                       <TableCell className="text-muted-fg">{unitLabels[line.unit] ?? line.unit}</TableCell>
                       <TableCell className="text-right">
@@ -221,7 +200,7 @@ export function ItemsSection({
                           className="w-16 text-right"
                         />
                         {discountExceedsSubtotal && (
-                          <div className="text-xs text-red-600">exceeds item subtotal</div>
+                          <div className="text-xs text-red-600">{dict.documentForm.itemsSection.exceedsSubtotal}</div>
                         )}
                       </TableCell>
                       <TableCell className="text-right text-muted-fg">{lineVat.toFixed(2)}</TableCell>
