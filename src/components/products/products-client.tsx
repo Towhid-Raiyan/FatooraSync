@@ -8,7 +8,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { ProductFormDialog, UNIT_LABELS } from "./product-form-dialog";
+import { useLocale } from "@/lib/i18n/language-provider";
+import { ProductFormDialog, getUnitLabels } from "./product-form-dialog";
 
 export type SerializedProduct = Omit<Product, "unitPrice" | "vatRate" | "quantity"> & {
   unitPrice: string;
@@ -17,6 +18,8 @@ export type SerializedProduct = Omit<Product, "unitPrice" | "vatRate" | "quantit
 };
 
 export function ProductsClient({ initialProducts }: { initialProducts: SerializedProduct[] }) {
+  const { dict } = useLocale();
+  const unitLabels = getUnitLabels(dict);
   const [products, setProducts] = useState(initialProducts);
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
@@ -59,13 +62,13 @@ export function ProductsClient({ initialProducts }: { initialProducts: Serialize
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
-        setActionError(body.error ?? "Something went wrong");
+        setActionError(body.error ?? dict.common.somethingWentWrong);
         return;
       }
       const updated = await response.json();
       setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
     } catch {
-      setActionError("Something went wrong");
+      setActionError(dict.common.somethingWentWrong);
     }
   }
 
@@ -74,18 +77,18 @@ export function ProductsClient({ initialProducts }: { initialProducts: Serialize
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Input
-            placeholder="Search by name, SKU, or barcode"
+            placeholder={dict.products.searchPlaceholder}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-72"
           />
           <label className="flex items-center gap-2 text-sm text-body">
             <Checkbox checked={showInactive} onCheckedChange={(checked) => setShowInactive(checked === true)} />
-            Show inactive
+            {dict.common.showInactive}
           </label>
         </div>
         <Button variant="primary" onClick={() => setDialogState({ open: true, product: null })}>
-          + Add Product
+          {dict.common.addProduct}
         </Button>
       </div>
 
@@ -98,20 +101,20 @@ export function ProductsClient({ initialProducts }: { initialProducts: Serialize
       <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
         {products.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
-            <p className="text-sm text-muted-fg">No products yet — add your first one</p>
+            <p className="text-sm text-muted-fg">{dict.products.noProductsYet}</p>
           </div>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>SKU</TableHead>
-                <TableHead>Barcode</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Unit</TableHead>
-                <TableHead className="text-right">Unit Price</TableHead>
-                <TableHead>VAT</TableHead>
-                <TableHead className="text-right">Quantity</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{dict.products.sku}</TableHead>
+                <TableHead>{dict.products.barcode}</TableHead>
+                <TableHead>{dict.products.name}</TableHead>
+                <TableHead>{dict.products.unit}</TableHead>
+                <TableHead className="text-right">{dict.products.unitPrice}</TableHead>
+                <TableHead>{dict.products.vat}</TableHead>
+                <TableHead className="text-right">{dict.products.quantity}</TableHead>
+                <TableHead className="text-right">{dict.common.actions}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -123,11 +126,11 @@ export function ProductsClient({ initialProducts }: { initialProducts: Serialize
                     {product.nameEn}
                     {product.nameAr && <div className="text-xs text-muted-fg">{product.nameAr}</div>}
                   </TableCell>
-                  <TableCell>{UNIT_LABELS[product.unit] ?? product.unit}</TableCell>
+                  <TableCell>{unitLabels[product.unit] ?? product.unit}</TableCell>
                   <TableCell className="text-right">{product.unitPrice}</TableCell>
                   <TableCell>
                     {product.vatRate === null ? (
-                      <Badge variant="secondary">Default</Badge>
+                      <Badge variant="secondary">{dict.products.defaultBadge}</Badge>
                     ) : (
                       <Badge>{product.vatRate}%</Badge>
                     )}
@@ -136,10 +139,10 @@ export function ProductsClient({ initialProducts }: { initialProducts: Serialize
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button variant="outline" size="sm" onClick={() => setDialogState({ open: true, product })}>
-                        Edit
+                        {dict.common.edit}
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => toggleActive(product)}>
-                        {product.isActive ? "Deactivate" : "Reactivate"}
+                        {product.isActive ? dict.common.deactivate : dict.common.reactivate}
                       </Button>
                     </div>
                   </TableCell>

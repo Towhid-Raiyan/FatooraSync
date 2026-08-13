@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { UNIT_LABELS } from "@/components/products/product-form-dialog";
+import { useLocale } from "@/lib/i18n/language-provider";
+import { getUnitLabels } from "@/components/products/product-form-dialog";
 import type { SerializedProduct } from "@/components/products/products-client";
 import type { LineTotals } from "@/lib/receipts/calculate-totals";
 
@@ -50,6 +51,8 @@ export function ItemsSection({
   onTotalChange,
   onOpenQuickCreate,
 }: ItemsSectionProps) {
+  const { dict } = useLocale();
+  const unitLabels = getUnitLabels(dict);
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -187,7 +190,7 @@ export function ItemsSection({
                         )}
                         {exceedsStock && <div className="text-xs text-amber-600">exceeds stock</div>}
                       </TableCell>
-                      <TableCell className="text-muted-fg">{UNIT_LABELS[line.unit] ?? line.unit}</TableCell>
+                      <TableCell className="text-muted-fg">{unitLabels[line.unit] ?? line.unit}</TableCell>
                       <TableCell className="text-right">
                         <Input
                           type="number"

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useLocale } from "@/lib/i18n/language-provider";
+import type { Dictionary } from "@/lib/i18n/dictionaries/dictionary.types";
 import type { SerializedProduct } from "./products-client";
 
 interface ProductFormDialogProps {
@@ -15,17 +17,19 @@ interface ProductFormDialogProps {
   onSaved: (product: SerializedProduct) => void;
 }
 
-export const UNIT_OPTIONS = [
-  { value: "PIECE", label: "Piece" },
-  { value: "KG", label: "KG" },
-  { value: "BOX", label: "Box" },
-  { value: "CARTON", label: "Carton" },
-  { value: "LITER", label: "Liter" },
-];
+export function getUnitOptions(dict: Dictionary): { value: string; label: string }[] {
+  return [
+    { value: "PIECE", label: dict.products.units.piece },
+    { value: "KG", label: dict.products.units.kg },
+    { value: "BOX", label: dict.products.units.box },
+    { value: "CARTON", label: dict.products.units.carton },
+    { value: "LITER", label: dict.products.units.liter },
+  ];
+}
 
-export const UNIT_LABELS: Record<string, string> = Object.fromEntries(
-  UNIT_OPTIONS.map((opt) => [opt.value, opt.label])
-);
+export function getUnitLabels(dict: Dictionary): Record<string, string> {
+  return Object.fromEntries(getUnitOptions(dict).map((opt) => [opt.value, opt.label]));
+}
 
 const EMPTY_FORM = {
   nameEn: "",
@@ -41,6 +45,8 @@ const EMPTY_FORM = {
 const LABEL_CLASS = "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wider text-muted-fg";
 
 export function ProductFormDialog({ open, product, onOpenChange, onSaved }: ProductFormDialogProps) {
+  const { dict } = useLocale();
+  const unitOptions = getUnitOptions(dict);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -88,12 +94,12 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
       const body = await response.json();
 
       if (!response.ok) {
-        setError(body.error ?? "Something went wrong");
+        setError(body.error ?? dict.common.somethingWentWrong);
         return;
       }
       onSaved(body);
     } catch {
-      setError("Something went wrong");
+      setError(dict.common.somethingWentWrong);
     } finally {
       setSaving(false);
     }
@@ -103,7 +109,7 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{product ? "Edit Product" : "Add Product"}</DialogTitle>
+          <DialogTitle>{product ? dict.products.dialogTitleEdit : dict.products.dialogTitleAdd}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -116,7 +122,7 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="product-name-en" className={LABEL_CLASS}>
-                Name (English)
+                {dict.products.nameEn}
               </Label>
               <Input
                 id="product-name-en"
@@ -127,7 +133,7 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
             </div>
             <div>
               <Label htmlFor="product-name-ar" className={LABEL_CLASS}>
-                Name (Arabic)
+                {dict.products.nameAr}
               </Label>
               <Input
                 id="product-name-ar"
@@ -139,7 +145,7 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
 
           <div>
             <Label htmlFor="product-barcode" className={LABEL_CLASS}>
-              Barcode
+              {dict.products.barcode}
             </Label>
             <Input
               id="product-barcode"
@@ -151,7 +157,7 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="product-unit" className={LABEL_CLASS}>
-                Unit
+                {dict.products.unit}
               </Label>
               <select
                 id="product-unit"
@@ -159,7 +165,7 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
                 onChange={(e) => setForm({ ...form, unit: e.target.value })}
                 className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
               >
-                {UNIT_OPTIONS.map((opt) => (
+                {unitOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
                   </option>
@@ -168,7 +174,7 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
             </div>
             <div>
               <Label htmlFor="product-price" className={LABEL_CLASS}>
-                Unit Price
+                {dict.products.unitPrice}
               </Label>
               <Input
                 id="product-price"
@@ -188,12 +194,12 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
                 checked={form.useDefaultVat}
                 onCheckedChange={(checked) => setForm({ ...form, useDefaultVat: checked === true })}
               />
-              Use default VAT rate
+              {dict.products.useDefaultVat}
             </label>
             {!form.useDefaultVat && (
               <div>
                 <Label htmlFor="product-vat-rate" className={LABEL_CLASS}>
-                  VAT Rate (%)
+                  {dict.products.vatRate}
                 </Label>
                 <Input
                   id="product-vat-rate"
@@ -210,7 +216,7 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
 
           <div>
             <Label htmlFor="product-quantity" className={LABEL_CLASS}>
-              Quantity
+              {dict.products.quantity}
             </Label>
             <Input
               id="product-quantity"
@@ -224,7 +230,7 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
 
           <DialogFooter>
             <Button type="submit" variant="primary" disabled={saving}>
-              {saving ? "Saving…" : "Save"}
+              {saving ? dict.common.savingEllipsis : dict.common.save}
             </Button>
           </DialogFooter>
         </form>
