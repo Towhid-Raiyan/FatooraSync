@@ -42,4 +42,9 @@ describe("isAccessAllowed", () => {
     const now = new Date("2026-01-01T00:00:00Z");
     expect(isAccessAllowed("TRIALING", now, now)).toBe(false);
   });
+
+  it("uses the current time when `now` is not supplied", () => {
+    expect(isAccessAllowed("TRIALING", new Date("2000-01-01"))).toBe(false);
+    expect(isAccessAllowed("TRIALING", new Date("2999-01-01"))).toBe(true);
+  });
 });
