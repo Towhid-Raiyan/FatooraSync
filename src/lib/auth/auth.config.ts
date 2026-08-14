@@ -11,9 +11,10 @@ import type { NextAuthConfig } from "next-auth";
  * in the Node.js-runtime API route handler.
  */
 export const authConfig: NextAuthConfig = {
-  // 24h expiry bounds exposure from the JWT strategy - MVP scope is a
-  // single owner login per tenant, not staff accounts needing revocable
-  // database sessions. Revisit if/when that risk profile changes.
+  // 24h expiry bounds exposure from the JWT strategy. Staff accounts
+  // (Cashiers) now exist, but session revocation on deactivation is an
+  // accepted gap for now: deactivating a Cashier blocks their next login but
+  // doesn't invalidate an already-issued token, so access can persist up to maxAge.
   session: { strategy: "jwt", maxAge: 60 * 60 * 24 },
   providers: [],
   callbacks: {

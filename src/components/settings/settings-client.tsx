@@ -15,6 +15,7 @@ export function SettingsClient() {
   const [printFormat, setPrintFormat] = useState("THERMAL");
   const [phone, setPhone] = useState("");
   const [cashierCanManageCatalog, setCashierCanManageCatalog] = useState(true);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -25,6 +26,7 @@ export function SettingsClient() {
         setPrintFormat(data.printFormat);
         setPhone(data.phone ?? "");
         setCashierCanManageCatalog(data.cashierCanManageCatalog);
+        setLoaded(true);
       });
   }, []);
 
@@ -97,7 +99,7 @@ export function SettingsClient() {
           {dict.settings.cashierCanManageCatalog}
         </label>
 
-        <Button onClick={handleSave} variant="primary">
+        <Button onClick={handleSave} variant="primary" disabled={!loaded}>
           {dict.settings.saveChanges}
         </Button>
       </CardContent>

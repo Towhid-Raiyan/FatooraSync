@@ -149,4 +149,32 @@ describe("/api/products/[id]", () => {
       mockSession = { user: { tenantId, role: "OWNER" } };
     }
   });
+
+  it("PATCH returns 403 for a Cashier when the Owner has turned off cashierCanManageCatalog", async () => {
+    await withTenant(tenantId, (tx) => tx.settings.create({ data: { tenantId, cashierCanManageCatalog: false } }));
+    mockSession = { user: { tenantId, role: "CASHIER" } };
+    try {
+      const response = await PATCH(patchRequest({ nameEn: "Cashier Blocked Update" }), {
+        params: Promise.resolve({ id: productId }),
+      });
+      expect(response.status).toBe(403);
+    } finally {
+      mockSession = { user: { tenantId, role: "OWNER" } };
+      await prisma.settings.deleteMany({ where: { tenantId } });
+    }
+  });
+
+  it("PATCH allows a Cashier when cashierCanManageCatalog is left at its default", async () => {
+    await withTenant(tenantId, (tx) => tx.settings.create({ data: { tenantId } }));
+    mockSession = { user: { tenantId, role: "CASHIER" } };
+    try {
+      const response = await PATCH(patchRequest({ nameEn: "Cashier Blocked Update" }), {
+        params: Promise.resolve({ id: productId }),
+      });
+      expect(response.status).toBe(200);
+    } finally {
+      mockSession = { user: { tenantId, role: "OWNER" } };
+      await prisma.settings.deleteMany({ where: { tenantId } });
+    }
+  });
 });

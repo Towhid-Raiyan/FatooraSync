@@ -26,3 +26,8 @@ Found during a 2026-08-14 review of current practice against industry standard. 
 ## Deployment itself
 
 - [ ] Nothing has been deployed anywhere yet. This whole list assumes a "before deployment" checkpoint — schedule that checkpoint before assuming any item above is done.
+- [ ] Deploying to an environment with existing logged-in sessions: pre-existing JWTs were minted before `role` existed in the session, so an already-logged-in Owner's token has `role: undefined` until it naturally expires (up to 24h) or they re-authenticate — during that window `assertOwnerRole` fail-closes (403/redirects them away from Settings). Rotating `AUTH_SECRET` at deploy time forces a clean re-login for everyone and closes this window immediately; if that's undesirable, this needs a documented step in the deploy runbook instead. Not an issue for this project today since nothing has been deployed anywhere yet, but must be decided before the first real deploy.
+
+## Auth / RBAC
+
+- [ ] Deactivating a Cashier blocks their next login but does not revoke an already-active session — a deactivated Cashier who was already signed in keeps access for up to 24h (the JWT's `maxAge`) until their token expires. Accepted tradeoff for now (a real fix needs a per-request DB check, which this branch deliberately avoids for cost/latency reasons); revisit if this risk profile changes.

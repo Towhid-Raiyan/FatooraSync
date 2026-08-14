@@ -92,8 +92,9 @@ model User {
 // Reserved, not currently used: Task 4's auth is JWT-based (Auth.js rejects
 // database sessions for a Credentials-only provider), so nothing writes to
 // this table today. Kept in the schema for a future manual database-session
-// layer if the risk profile changes (e.g. revocable staff logins rather than
-// a single owner login per tenant).
+// layer, e.g. revocable staff logins - Cashier accounts exist now, and their
+// sessions aren't actually revocable on deactivation (see auth.config.ts),
+// an accepted gap rather than still-hypothetical future work.
 model Session {
   id           String   @id @default(uuid())
   sessionToken String   @unique
