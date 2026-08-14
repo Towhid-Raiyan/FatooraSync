@@ -19,13 +19,15 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     jwt: ({ token, user }) => {
       if (user) {
-        token.tenantId = (user as { tenantId: string }).tenantId;
+        const typedUser = user as { tenantId: string; role: string };
+        token.tenantId = typedUser.tenantId;
+        token.role = typedUser.role;
       }
       return token;
     },
     session: ({ session, token }) => ({
       ...session,
-      user: { ...session.user, tenantId: token.tenantId as string },
+      user: { ...session.user, tenantId: token.tenantId as string, role: token.role as string },
     }),
   },
 };

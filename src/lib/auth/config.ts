@@ -40,8 +40,13 @@ export async function authorize(credentials: { email: string; password: string }
     return null;
   }
 
+  if (!user.isActive) {
+    recordFailedAttempt(rateLimitKey);
+    return null;
+  }
+
   resetAttempts(rateLimitKey);
-  return { id: user.id, email: user.email, tenantId: user.tenantId };
+  return { id: user.id, email: user.email, tenantId: user.tenantId, role: user.role };
 }
 
 // Auth.js rejects "database" session strategy when Credentials is the only

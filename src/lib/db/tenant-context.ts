@@ -1,6 +1,6 @@
 import { prisma } from "./client";
 
-const TENANT_SCOPED_MODELS = new Set(["Customer", "Product", "Document", "DocumentLine", "Settings"]);
+const TENANT_SCOPED_MODELS = new Set(["Customer", "Product", "Document", "DocumentLine", "Settings", "User"]);
 
 /**
  * Application-layer tenant isolation, via a Prisma Client Extension.

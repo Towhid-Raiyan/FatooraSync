@@ -94,4 +94,19 @@ describe("credentials authorize", () => {
     const stillWorks = await authorize({ email, password: "correct-password" });
     expect(stillWorks).not.toBeNull();
   });
+
+  it("returns the user's role alongside tenantId", async () => {
+    const user = await authorize({ email: "owner@example.com", password: "supersecret123" });
+    expect(user?.role).toBe("OWNER");
+  });
+
+  it("returns null for a deactivated user, even with the correct password", async () => {
+    const email = "deactivated-login-test@example.com";
+    await prisma.user.create({
+      data: { tenantId, email, passwordHash: await hashPassword("correct-password"), isActive: false },
+    });
+
+    const result = await authorize({ email, password: "correct-password" });
+    expect(result).toBeNull();
+  });
 });

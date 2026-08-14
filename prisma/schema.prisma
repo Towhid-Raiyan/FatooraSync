@@ -34,6 +34,11 @@ enum BillingStatus {
   SUSPENDED
 }
 
+enum UserRole {
+  OWNER
+  CASHIER
+}
+
 model Tenant {
   id                     String        @id @default(uuid())
   legalName              String
@@ -77,6 +82,8 @@ model User {
   tenant       Tenant   @relation(fields: [tenantId], references: [id])
   email        String   @unique
   passwordHash String
+  role         UserRole @default(OWNER)
+  isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
 
   sessions Session[]

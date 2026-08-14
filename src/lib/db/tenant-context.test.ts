@@ -27,6 +27,7 @@ describe("tenant isolation", () => {
   afterAll(async () => {
     await withTenant(tenantAId, (tx) => tx.customer.deleteMany({ where: { tenantId: tenantAId } }));
     await withTenant(tenantBId, (tx) => tx.customer.deleteMany({ where: { tenantId: tenantBId } }));
+    await prisma.user.deleteMany({ where: { tenantId: { in: [tenantAId, tenantBId] } } });
     await prisma.tenant.deleteMany({ where: { id: { in: [tenantAId, tenantBId] } } });
     await prisma.$disconnect();
   });
@@ -123,5 +124,18 @@ describe("tenant isolation", () => {
       where: { tenantId: { in: [tenantAId, tenantBId] } },
     });
     expect(customers).toHaveLength(2);
+  });
+
+  it("scopes User rows to the active tenant, same as Customer", async () => {
+    await withTenant(tenantAId, (tx) =>
+      tx.user.create({ data: { tenantId: tenantAId, email: "owner-a@tenant-isolation-test.local", passwordHash: "x" } })
+    );
+    await withTenant(tenantBId, (tx) =>
+      tx.user.create({ data: { tenantId: tenantBId, email: "owner-b@tenant-isolation-test.local", passwordHash: "x" } })
+    );
+
+    const usersSeenByA = await withTenant(tenantAId, (tx) => tx.user.findMany());
+    expect(usersSeenByA).toHaveLength(1);
+    expect(usersSeenByA[0].email).toBe("owner-a@tenant-isolation-test.local");
   });
 });
