@@ -6,7 +6,7 @@ import { GET, POST } from "./route";
 
 let tenantId: string;
 let otherTenantId: string;
-let mockSession: { user: { tenantId: string } } | null = null;
+let mockSession: { user: { tenantId: string; role: string } } | null = null;
 
 vi.mock("@/lib/auth/config", () => ({
   auth: async () => mockSession,
@@ -18,7 +18,7 @@ describe("/api/customers", () => {
       data: { legalName: "Customers Test Co", tradeNameEn: "Customers Test Shop", vatNumber: "300000000000013" },
     });
     tenantId = tenant.id;
-    mockSession = { user: { tenantId } };
+    mockSession = { user: { tenantId, role: "OWNER" } };
 
     const otherTenant = await prisma.tenant.create({
       data: { legalName: "Other Co", tradeNameEn: "Other Shop", vatNumber: "300000000000020" },
@@ -72,7 +72,7 @@ describe("/api/customers", () => {
   });
 
   it("POST allows the same VAT ID across two different tenants", async () => {
-    mockSession = { user: { tenantId: otherTenantId } };
+    mockSession = { user: { tenantId: otherTenantId, role: "OWNER" } };
     try {
       const request = new Request("http://localhost/api/customers", {
         method: "POST",
@@ -81,7 +81,7 @@ describe("/api/customers", () => {
       const response = await POST(request);
       expect(response.status).toBe(201);
     } finally {
-      mockSession = { user: { tenantId } };
+      mockSession = { user: { tenantId, role: "OWNER" } };
     }
   });
 
@@ -102,7 +102,7 @@ describe("/api/customers", () => {
       const response = await GET();
       expect(response.status).toBe(401);
     } finally {
-      mockSession = { user: { tenantId } };
+      mockSession = { user: { tenantId, role: "OWNER" } };
     }
   });
 
@@ -116,7 +116,39 @@ describe("/api/customers", () => {
       const response = await POST(request);
       expect(response.status).toBe(401);
     } finally {
-      mockSession = { user: { tenantId } };
+      mockSession = { user: { tenantId, role: "OWNER" } };
+    }
+  });
+
+  it("POST returns 403 for a Cashier when the Owner has turned off cashierCanManageCatalog", async () => {
+    await withTenant(tenantId, (tx) => tx.settings.create({ data: { tenantId, cashierCanManageCatalog: false } }));
+    mockSession = { user: { tenantId, role: "CASHIER" } };
+    try {
+      const request = new Request("http://localhost/api/customers", {
+        method: "POST",
+        body: JSON.stringify({ name: "Cashier Blocked Customer" }),
+      });
+      const response = await POST(request);
+      expect(response.status).toBe(403);
+    } finally {
+      mockSession = { user: { tenantId, role: "OWNER" } };
+      await prisma.settings.deleteMany({ where: { tenantId } });
+    }
+  });
+
+  it("POST allows a Cashier when cashierCanManageCatalog is left at its default", async () => {
+    await withTenant(tenantId, (tx) => tx.settings.create({ data: { tenantId } }));
+    mockSession = { user: { tenantId, role: "CASHIER" } };
+    try {
+      const request = new Request("http://localhost/api/customers", {
+        method: "POST",
+        body: JSON.stringify({ name: "Cashier Allowed Customer" }),
+      });
+      const response = await POST(request);
+      expect(response.status).toBe(201);
+    } finally {
+      mockSession = { user: { tenantId, role: "OWNER" } };
+      await prisma.settings.deleteMany({ where: { tenantId } });
     }
   });
 });

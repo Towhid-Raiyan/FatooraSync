@@ -9,7 +9,7 @@ let otherTenantId: string;
 let productId: string;
 let productWithSku: { id: string; sku: string | null };
 let otherTenantProductId: string;
-let mockSession: { user: { tenantId: string } } | null = null;
+let mockSession: { user: { tenantId: string; role: string } } | null = null;
 
 vi.mock("@/lib/auth/config", () => ({
   auth: async () => mockSession,
@@ -25,7 +25,7 @@ describe("/api/products/[id]", () => {
       data: { legalName: "Product Patch Test Co", tradeNameEn: "Product Patch Shop", vatNumber: "300000000000082" },
     });
     tenantId = tenant.id;
-    mockSession = { user: { tenantId } };
+    mockSession = { user: { tenantId, role: "OWNER" } };
 
     const product = await withTenant(tenantId, (tx) =>
       tx.product.create({ data: { nameEn: "Editable Product", unitPrice: 10 } as Prisma.ProductUncheckedCreateInput })
@@ -146,7 +146,7 @@ describe("/api/products/[id]", () => {
       const response = await PATCH(patchRequest({ nameEn: "Nope" }), { params: Promise.resolve({ id: productId }) });
       expect(response.status).toBe(401);
     } finally {
-      mockSession = { user: { tenantId } };
+      mockSession = { user: { tenantId, role: "OWNER" } };
     }
   });
 });

@@ -6,6 +6,7 @@ import { withTenant } from "@/lib/db/tenant-context";
 import { findBarcodeConflict } from "./check-uniqueness";
 import { generateNextSku } from "./generate-sku";
 import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
+import { assertCanManageCatalog } from "@/lib/rbac/require-catalog-access";
 
 const VALID_UNITS: Unit[] = ["PIECE", "KG", "BOX", "CARTON", "LITER"];
 
@@ -32,6 +33,8 @@ export async function POST(request: Request) {
   const tenantId = session.user.tenantId;
   const blocked = await assertTenantAccess(tenantId);
   if (blocked) return blocked;
+  const catalogBlocked = await assertCanManageCatalog(tenantId, session.user.role);
+  if (catalogBlocked) return catalogBlocked;
   const body = await request.json();
 
   const nameEn = typeof body.nameEn === "string" ? body.nameEn.trim() : "";

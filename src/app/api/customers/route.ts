@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth/config";
 import { withTenant } from "@/lib/db/tenant-context";
 import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
+import { assertCanManageCatalog } from "@/lib/rbac/require-catalog-access";
 
 // Not called by any UI in this codebase (both the Customers and the Sales Receipt
 // pages fetch directly via withTenant instead) -- kept because the design spec
@@ -30,6 +31,8 @@ export async function POST(request: Request) {
   const tenantId = session.user.tenantId;
   const blocked = await assertTenantAccess(tenantId);
   if (blocked) return blocked;
+  const catalogBlocked = await assertCanManageCatalog(tenantId, session.user.role);
+  if (catalogBlocked) return catalogBlocked;
   const body = await request.json();
 
   const name = typeof body.name === "string" ? body.name.trim() : "";

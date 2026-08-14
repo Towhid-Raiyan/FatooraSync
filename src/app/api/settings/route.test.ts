@@ -4,7 +4,7 @@ import { withTenant } from "@/lib/db/tenant-context";
 import { GET, PATCH } from "./route";
 
 let tenantId: string;
-let mockSession: { user: { tenantId: string } } | null = null;
+let mockSession: { user: { tenantId: string; role: string } } | null = null;
 
 vi.mock("@/lib/auth/config", () => ({
   auth: async () => mockSession,
@@ -16,7 +16,7 @@ describe("/api/settings", () => {
       data: { legalName: "Settings Test Co", tradeNameEn: "Settings Test Shop", vatNumber: "300000000000006" },
     });
     tenantId = tenant.id;
-    mockSession = { user: { tenantId } };
+    mockSession = { user: { tenantId, role: "OWNER" } };
     await withTenant(tenantId, (tx) => tx.settings.create({ data: { tenantId } }));
   });
 
@@ -36,7 +36,7 @@ describe("/api/settings", () => {
   it("PATCH updates the tenant's settings", async () => {
     const request = new Request("http://localhost/api/settings", {
       method: "PATCH",
-      body: JSON.stringify({ defaultVatRate: "10", language: "en", printFormat: "THERMAL", phone: "" }),
+      body: JSON.stringify({ defaultVatRate: "10", language: "en", printFormat: "THERMAL", phone: "", cashierCanManageCatalog: true }),
     });
     const response = await PATCH(request);
     expect(response.status).toBe(200);
@@ -52,7 +52,7 @@ describe("/api/settings", () => {
       const response = await GET();
       expect(response.status).toBe(401);
     } finally {
-      mockSession = { user: { tenantId } };
+      mockSession = { user: { tenantId, role: "OWNER" } };
     }
   });
 
@@ -66,7 +66,7 @@ describe("/api/settings", () => {
       const response = await PATCH(request);
       expect(response.status).toBe(401);
     } finally {
-      mockSession = { user: { tenantId } };
+      mockSession = { user: { tenantId, role: "OWNER" } };
     }
   });
 
@@ -107,7 +107,7 @@ describe("/api/settings", () => {
   it("PATCH updates printFormat and phone", async () => {
     const request = new Request("http://localhost/api/settings", {
       method: "PATCH",
-      body: JSON.stringify({ defaultVatRate: "15", language: "ar", printFormat: "A4", phone: "+966501234567" }),
+      body: JSON.stringify({ defaultVatRate: "15", language: "ar", printFormat: "A4", phone: "+966501234567", cashierCanManageCatalog: true }),
     });
     const response = await PATCH(request);
     expect(response.status).toBe(200);
@@ -121,7 +121,7 @@ describe("/api/settings", () => {
   it("PATCH clears the phone to null when an empty string is submitted", async () => {
     const request = new Request("http://localhost/api/settings", {
       method: "PATCH",
-      body: JSON.stringify({ defaultVatRate: "15", language: "ar", printFormat: "THERMAL", phone: "" }),
+      body: JSON.stringify({ defaultVatRate: "15", language: "ar", printFormat: "THERMAL", phone: "", cashierCanManageCatalog: true }),
     });
     const response = await PATCH(request);
     expect(response.status).toBe(200);
@@ -137,5 +137,34 @@ describe("/api/settings", () => {
     });
     const response = await PATCH(request);
     expect(response.status).toBe(400);
+  });
+
+  it("PATCH returns 403 when the caller is a Cashier, not an Owner", async () => {
+    mockSession = { user: { tenantId, role: "CASHIER" } };
+    try {
+      const request = new Request("http://localhost/api/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ defaultVatRate: "10", language: "en", printFormat: "THERMAL", phone: "", cashierCanManageCatalog: true }),
+      });
+      const response = await PATCH(request);
+      expect(response.status).toBe(403);
+    } finally {
+      mockSession = { user: { tenantId, role: "OWNER" } };
+    }
+  });
+
+  it("PATCH persists cashierCanManageCatalog: false", async () => {
+    const request = new Request("http://localhost/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ defaultVatRate: "15", language: "ar", printFormat: "THERMAL", phone: "", cashierCanManageCatalog: false }),
+    });
+    const response = await PATCH(request);
+    expect(response.status).toBe(200);
+
+    const after = await withTenant(tenantId, (tx) => tx.settings.findUniqueOrThrow({ where: { tenantId } }));
+    expect(after.cashierCanManageCatalog).toBe(false);
+
+    // Restore, since later tests in this file assume the default.
+    await withTenant(tenantId, (tx) => tx.settings.update({ where: { tenantId }, data: { cashierCanManageCatalog: true } }));
   });
 });

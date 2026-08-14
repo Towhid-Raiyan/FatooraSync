@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth/config";
 import { withTenant } from "@/lib/db/tenant-context";
 import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
+import { assertCanManageCatalog } from "@/lib/rbac/require-catalog-access";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -12,6 +13,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const tenantId = session.user.tenantId;
   const blocked = await assertTenantAccess(tenantId);
   if (blocked) return blocked;
+  const catalogBlocked = await assertCanManageCatalog(tenantId, session.user.role);
+  if (catalogBlocked) return catalogBlocked;
   const { id } = await params;
   const body = await request.json();
 

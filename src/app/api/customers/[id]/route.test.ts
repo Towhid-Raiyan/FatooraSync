@@ -10,7 +10,7 @@ let customerId: string;
 let walkInId: string;
 let otherTenantCustomerId: string;
 let customerWithoutVatId: string;
-let mockSession: { user: { tenantId: string } } | null = null;
+let mockSession: { user: { tenantId: string; role: string } } | null = null;
 
 vi.mock("@/lib/auth/config", () => ({
   auth: async () => mockSession,
@@ -26,7 +26,7 @@ describe("/api/customers/[id]", () => {
       data: { legalName: "Customer Patch Test Co", tradeNameEn: "Customer Patch Shop", vatNumber: "300000000000044" },
     });
     tenantId = tenant.id;
-    mockSession = { user: { tenantId } };
+    mockSession = { user: { tenantId, role: "OWNER" } };
 
     const customer = await withTenant(tenantId, (tx) =>
       tx.customer.create({ data: { name: "Editable Customer", phone: "0500000000" } as Prisma.CustomerUncheckedCreateInput })
@@ -122,7 +122,7 @@ describe("/api/customers/[id]", () => {
       const response = await PATCH(patchRequest({ name: "Nope" }), { params: Promise.resolve({ id: customerId }) });
       expect(response.status).toBe(401);
     } finally {
-      mockSession = { user: { tenantId } };
+      mockSession = { user: { tenantId, role: "OWNER" } };
     }
   });
 

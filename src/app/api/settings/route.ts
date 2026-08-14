@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/client";
 import { withTenant } from "@/lib/db/tenant-context";
 import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
+import { assertOwnerRole } from "@/lib/rbac/require-owner";
 
 export async function GET() {
   const session = await auth();
@@ -29,6 +30,8 @@ export async function PATCH(request: Request) {
   const tenantId = session.user.tenantId;
   const blocked = await assertTenantAccess(tenantId);
   if (blocked) return blocked;
+  const forbidden = assertOwnerRole(session.user.role);
+  if (forbidden) return forbidden;
   const body = await request.json();
 
   const vatRate = Number(body.defaultVatRate);
@@ -53,10 +56,19 @@ export async function PATCH(request: Request) {
     );
   }
 
+  if (typeof body.cashierCanManageCatalog !== "boolean") {
+    return NextResponse.json({ error: "cashierCanManageCatalog must be a boolean" }, { status: 400 });
+  }
+
   await withTenant(tenantId, (tx) =>
     tx.settings.update({
       where: { tenantId },
-      data: { defaultVatRate: body.defaultVatRate, language: body.language, printFormat: body.printFormat },
+      data: {
+        defaultVatRate: body.defaultVatRate,
+        language: body.language,
+        printFormat: body.printFormat,
+        cashierCanManageCatalog: body.cashierCanManageCatalog,
+      },
     })
   );
 
