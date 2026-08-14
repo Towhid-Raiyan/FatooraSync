@@ -20,7 +20,7 @@ export function BlockedScreen() {
             type="button"
             variant="outline"
             className="w-full"
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={() => signOut({ redirectTo: "/login" })}
           >
             {dict.billing.signOut}
           </Button>
