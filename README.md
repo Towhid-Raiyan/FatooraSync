@@ -26,6 +26,8 @@ Cloud-based, multi-tenant POS and business-management SaaS for Saudi SMEs — gr
 
 Everything in "designed, not yet built" is deliberately deferred, not forgotten — see the spec documents below for the reasoning behind each.
 
+Also deferred: a [pre-deployment hardening checklist](docs/pre-deployment-checklist.md) — branch protection, dependency vulnerabilities, the rate-limiter's in-memory store, and test-database isolation. Not urgent while everything is local-only, but due for a pass before real customers go live.
+
 ## Documentation
 
 Every feature was designed before it was built. Full history, in order, spec first then the implementation plan built from it:
