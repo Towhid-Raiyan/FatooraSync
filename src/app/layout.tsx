@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, IBM_Plex_Sans_Arabic } from "next/font/google";
 import { resolveLocale } from "@/lib/i18n/locale";
 import { LanguageProvider } from "@/lib/i18n/language-provider";
+import { ToastProvider } from "@/lib/toast/toast-provider";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -36,7 +37,9 @@ export default async function RootLayout({
           locale === "ar" ? "font-arabic" : "font-sans"
         } antialiased`}
       >
-        <LanguageProvider initialLocale={locale}>{children}</LanguageProvider>
+        <LanguageProvider initialLocale={locale}>
+          <ToastProvider>{children}</ToastProvider>
+        </LanguageProvider>
       </body>
     </html>
   );
