@@ -18,10 +18,10 @@ export function ToastViewport({
   toasts: ToastMessage[];
   onRemove: (id: string) => void;
 }) {
-  const { dict } = useLocale();
+  const { dict, locale } = useLocale();
 
   return (
-    <ToastPrimitive.Provider swipeDirection="left" duration={4000}>
+    <ToastPrimitive.Provider swipeDirection={locale === "ar" ? "left" : "right"} duration={4000}>
       {toasts.map((t) => (
         <ToastPrimitive.Root
           key={t.id}
