@@ -57,6 +57,8 @@ export const en: Dictionary = {
     a4: "A4 (full page)",
     saveChanges: "Save Changes",
     cashierCanManageCatalog: "Cashiers can add, edit, and deactivate products and customers",
+    savedToast: "Settings saved",
+    saveError: "Couldn't save settings — please try again",
   },
   products: {
     searchPlaceholder: "Search by name, SKU, or barcode",

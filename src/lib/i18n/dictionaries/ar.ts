@@ -57,6 +57,8 @@ export const ar: Dictionary = {
     a4: "A4 (صفحة كاملة)",
     saveChanges: "حفظ التغييرات",
     cashierCanManageCatalog: "يمكن للكاشير إضافة وتعديل وإيقاف المنتجات والعملاء",
+    savedToast: "تم حفظ الإعدادات",
+    saveError: "تعذر حفظ الإعدادات — حاول مرة أخرى",
   },
   products: {
     searchPlaceholder: "ابحث بالاسم أو رمز المنتج أو الباركود",

@@ -55,6 +55,8 @@ export interface Dictionary {
     a4: string;
     saveChanges: string;
     cashierCanManageCatalog: string;
+    savedToast: string;
+    saveError: string;
   };
   products: {
     searchPlaceholder: string;

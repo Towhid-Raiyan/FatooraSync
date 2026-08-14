@@ -7,15 +7,20 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocale } from "@/lib/i18n/language-provider";
+import { useToast } from "@/lib/toast/toast-provider";
+import { Loader2Icon } from "lucide-react";
 
 export function SettingsClient() {
   const { dict } = useLocale();
+  const { toast } = useToast();
   const [defaultVatRate, setDefaultVatRate] = useState("15");
   const [language, setLanguage] = useState("ar");
   const [printFormat, setPrintFormat] = useState("THERMAL");
   const [phone, setPhone] = useState("");
   const [cashierCanManageCatalog, setCashierCanManageCatalog] = useState(true);
   const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -31,10 +36,23 @@ export function SettingsClient() {
   }, []);
 
   async function handleSave() {
-    await fetch("/api/settings", {
-      method: "PATCH",
-      body: JSON.stringify({ defaultVatRate, language, printFormat, phone, cashierCanManageCatalog }),
-    });
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ defaultVatRate, language, printFormat, phone, cashierCanManageCatalog }),
+      });
+      if (!response.ok) {
+        setError(dict.settings.saveError);
+        return;
+      }
+      toast.success(dict.settings.savedToast);
+    } catch {
+      setError(dict.settings.saveError);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -99,7 +117,14 @@ export function SettingsClient() {
           {dict.settings.cashierCanManageCatalog}
         </label>
 
-        <Button onClick={handleSave} variant="primary" disabled={!loaded}>
+        {error && (
+          <p role="alert" className="text-xs text-red-600">
+            {error}
+          </p>
+        )}
+
+        <Button onClick={handleSave} variant="primary" disabled={!loaded || saving}>
+          {saving && <Loader2Icon className="size-3.5 animate-spin" />}
           {dict.settings.saveChanges}
         </Button>
       </CardContent>
