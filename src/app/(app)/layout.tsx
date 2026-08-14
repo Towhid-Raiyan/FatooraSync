@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <AppShell tenantName={tenant.tradeNameEn} userEmail={session!.user.email ?? ""}>
+    <AppShell tenantName={tenant.tradeNameEn} userEmail={session!.user.email ?? ""} role={session!.user.role}>
       {children}
     </AppShell>
   );

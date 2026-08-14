@@ -17,7 +17,13 @@ export type SerializedProduct = Omit<Product, "unitPrice" | "vatRate" | "quantit
   quantity: string;
 };
 
-export function ProductsClient({ initialProducts }: { initialProducts: SerializedProduct[] }) {
+export function ProductsClient({
+  initialProducts,
+  canManageCatalog,
+}: {
+  initialProducts: SerializedProduct[];
+  canManageCatalog: boolean;
+}) {
   const { dict } = useLocale();
   const unitLabels = getUnitLabels(dict);
   const [products, setProducts] = useState(initialProducts);
@@ -87,9 +93,11 @@ export function ProductsClient({ initialProducts }: { initialProducts: Serialize
             {dict.common.showInactive}
           </label>
         </div>
-        <Button variant="primary" onClick={() => setDialogState({ open: true, product: null })}>
-          {dict.common.addProduct}
-        </Button>
+        {canManageCatalog && (
+          <Button variant="primary" onClick={() => setDialogState({ open: true, product: null })}>
+            {dict.common.addProduct}
+          </Button>
+        )}
       </div>
 
       {actionError && (
@@ -137,14 +145,16 @@ export function ProductsClient({ initialProducts }: { initialProducts: Serialize
                   </TableCell>
                   <TableCell className="text-right">{product.quantity}</TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={() => setDialogState({ open: true, product })}>
-                        {dict.common.edit}
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => toggleActive(product)}>
-                        {product.isActive ? dict.common.deactivate : dict.common.reactivate}
-                      </Button>
-                    </div>
+                    {canManageCatalog && (
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setDialogState({ open: true, product })}>
+                          {dict.common.edit}
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => toggleActive(product)}>
+                          {product.isActive ? dict.common.deactivate : dict.common.reactivate}
+                        </Button>
+                      </div>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

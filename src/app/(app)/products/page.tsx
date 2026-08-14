@@ -6,7 +6,11 @@ export default async function ProductsPage() {
   const session = await auth();
   const tenantId = session!.user.tenantId;
 
-  const products = await withTenant(tenantId, (tx) => tx.product.findMany({ orderBy: { nameEn: "asc" } }));
+  const [products, settings] = await Promise.all([
+    withTenant(tenantId, (tx) => tx.product.findMany({ orderBy: { nameEn: "asc" } })),
+    withTenant(tenantId, (tx) => tx.settings.findUniqueOrThrow({ where: { tenantId } })),
+  ]);
+  const canManageCatalog = session!.user.role === "OWNER" || settings.cashierCanManageCatalog;
 
   // Decimal fields (unitPrice, vatRate, quantity) can't cross the Server -> Client
   // Component boundary as raw Prisma Decimal instances -- convert to strings first.
@@ -18,5 +22,5 @@ export default async function ProductsPage() {
     quantity: p.quantity.toString(),
   }));
 
-  return <ProductsClient initialProducts={serialized} />;
+  return <ProductsClient initialProducts={serialized} canManageCatalog={canManageCatalog} />;
 }

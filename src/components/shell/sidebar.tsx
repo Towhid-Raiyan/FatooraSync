@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useLocale } from "@/lib/i18n/language-provider";
 import { NAV_ITEMS } from "./nav-items";
 
-export function Sidebar({ tenantName }: { tenantName: string }) {
+export function Sidebar({ tenantName, role }: { tenantName: string; role: string }) {
   const pathname = usePathname();
   const { dict } = useLocale();
 
@@ -17,7 +17,7 @@ export function Sidebar({ tenantName }: { tenantName: string }) {
       </div>
 
       <nav className="flex flex-col">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => !item.ownerOnly || role === "OWNER").map((item) => {
           const isActive = item.href !== null && pathname === item.href;
           const label = dict.nav[item.labelKey];
 

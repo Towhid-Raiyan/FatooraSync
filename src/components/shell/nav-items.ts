@@ -3,6 +3,7 @@ import type { Dictionary } from "@/lib/i18n/dictionaries/dictionary.types";
 export interface NavItem {
   labelKey: keyof Dictionary["nav"];
   href: string | null; // null = visually present but not yet clickable ("coming soon")
+  ownerOnly?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -13,5 +14,5 @@ export const NAV_ITEMS: NavItem[] = [
   { labelKey: "customers", href: "/customers" },
   { labelKey: "receiptHistory", href: "/receipts" },
   { labelKey: "quotationHistory", href: "/quotations" },
-  { labelKey: "settings", href: "/settings" },
+  { labelKey: "settings", href: "/settings", ownerOnly: true },
 ];

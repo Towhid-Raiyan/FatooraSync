@@ -11,7 +11,13 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { useLocale } from "@/lib/i18n/language-provider";
 import { CustomerFormDialog } from "./customer-form-dialog";
 
-export function CustomersClient({ initialCustomers }: { initialCustomers: Customer[] }) {
+export function CustomersClient({
+  initialCustomers,
+  canManageCatalog,
+}: {
+  initialCustomers: Customer[];
+  canManageCatalog: boolean;
+}) {
   const { dict } = useLocale();
   const [customers, setCustomers] = useState(initialCustomers);
   const [search, setSearch] = useState("");
@@ -81,9 +87,11 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
             {dict.common.showInactive}
           </label>
         </div>
-        <Button variant="primary" onClick={() => setDialogState({ open: true, customer: null })}>
-          + {dict.customers.dialogTitleAdd}
-        </Button>
+        {canManageCatalog && (
+          <Button variant="primary" onClick={() => setDialogState({ open: true, customer: null })}>
+            + {dict.customers.dialogTitleAdd}
+          </Button>
+        )}
       </div>
 
       {actionError && (
@@ -125,7 +133,7 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
                   <TableCell>{customer.phone ?? "—"}</TableCell>
                   <TableCell>{customer.address ?? "—"}</TableCell>
                   <TableCell className="text-right">
-                    {!customer.isWalkIn && (
+                    {!customer.isWalkIn && canManageCatalog && (
                       <div className="flex justify-end gap-2">
                         <Button variant="outline" size="sm" onClick={() => setDialogState({ open: true, customer })}>
                           {dict.common.edit}

@@ -4,15 +4,17 @@ import { Topbar } from "./topbar";
 export function AppShell({
   tenantName,
   userEmail,
+  role,
   children,
 }: {
   tenantName: string;
   userEmail: string;
+  role: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex h-screen">
-      <Sidebar tenantName={tenantName} />
+      <Sidebar tenantName={tenantName} role={role} />
 
       <div className="relative flex flex-1 flex-col overflow-hidden bg-bg-app">
         <div
