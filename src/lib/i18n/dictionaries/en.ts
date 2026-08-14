@@ -148,6 +148,11 @@ export const en: Dictionary = {
   printChrome: {
     print: "Print",
   },
+  billing: {
+    blockedTitle: "Account access paused",
+    blockedMessage: "Your shop's access to FatooraSync is currently paused. Contact us to resolve this and get back to work.",
+    signOut: "Sign Out",
+  },
   a11y: {
     language: "Language",
     comingSoon: "Coming soon",
