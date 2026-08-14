@@ -28,6 +28,7 @@ export const ar: Dictionary = {
     loading: "جارٍ التحميل…",
     to: "إلى",
     poweredBy: "بدعم من FatooraSync",
+    signOut: "تسجيل الخروج",
     pageOf: (page, totalPages) => `صفحة ${page} من ${totalPages}`,
     totalMatches: (count) => (count === 1 ? "نتيجة واحدة" : `${count} نتيجة إجمالاً`),
   },

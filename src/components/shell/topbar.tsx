@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { useLocale } from "@/lib/i18n/language-provider";
 import { LanguageSwitcher } from "./language-switcher";
 import { NAV_ITEMS } from "./nav-items";
@@ -17,6 +18,13 @@ export function Topbar({ userEmail }: { userEmail: string }) {
       <div className="flex items-center gap-3">
         <LanguageSwitcher />
         <div className="text-[12.5px] text-muted-fg">{userEmail}</div>
+        <button
+          type="button"
+          onClick={() => signOut({ redirectTo: "/login" })}
+          className="text-[12.5px] font-medium text-muted-fg underline-offset-2 hover:text-heading hover:underline"
+        >
+          {dict.common.signOut}
+        </button>
       </div>
     </div>
   );

@@ -28,6 +28,7 @@ export const en: Dictionary = {
     loading: "Loading…",
     to: "to",
     poweredBy: "Powered by FatooraSync",
+    signOut: "Sign Out",
     pageOf: (page, totalPages) => `Page ${page} of ${totalPages}`,
     totalMatches: (count) => `${count} total match${count === 1 ? "" : "es"}`,
   },

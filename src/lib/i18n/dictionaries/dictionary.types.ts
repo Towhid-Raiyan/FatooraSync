@@ -26,6 +26,7 @@ export interface Dictionary {
     loading: string;
     to: string;
     poweredBy: string;
+    signOut: string;
     pageOf: (page: number, totalPages: number) => string;
     totalMatches: (count: number) => string;
   };
