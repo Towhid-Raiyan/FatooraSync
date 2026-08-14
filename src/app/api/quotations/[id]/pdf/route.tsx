@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/client";
 import { withTenant } from "@/lib/db/tenant-context";
 import { QuotationPdfDocument } from "@/lib/quotations/quotation-pdf";
 import { QuotationPdfA4Document } from "@/lib/quotations/quotation-pdf-a4";
+import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -12,6 +13,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const tenantId = session.user.tenantId;
+  const blocked = await assertTenantAccess(tenantId);
+  if (blocked) return blocked;
   const { id } = await params;
 
   const [document, settings] = await withTenant(tenantId, (tx) =>

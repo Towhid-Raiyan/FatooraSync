@@ -8,6 +8,7 @@ import { computeInvoiceHash, GENESIS_HASH } from "@/lib/zatca/hash-chain";
 import { buildZatcaQrPayload } from "@/lib/zatca/qr-payload";
 import { withTenant } from "@/lib/db/tenant-context";
 import { PAGE_SIZE } from "@/lib/receipts/constants";
+import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
 
 class ReceiptError extends Error {
   status: number;
@@ -30,6 +31,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const tenantId = session.user.tenantId;
+  const blocked = await assertTenantAccess(tenantId);
+  if (blocked) return blocked;
   const body = await request.json();
 
   const rawLines: RawLine[] = Array.isArray(body.lines) ? body.lines : [];
@@ -334,6 +337,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const tenantId = session.user.tenantId;
+  const blocked = await assertTenantAccess(tenantId);
+  if (blocked) return blocked;
 
   const url = new URL(request.url);
   const pageParam = Number(url.searchParams.get("page"));

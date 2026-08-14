@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth/config";
 import { withTenant } from "@/lib/db/tenant-context";
+import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -9,6 +10,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const tenantId = session.user.tenantId;
+  const blocked = await assertTenantAccess(tenantId);
+  if (blocked) return blocked;
   const { id } = await params;
   const body = await request.json();
 
