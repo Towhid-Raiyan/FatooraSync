@@ -45,7 +45,7 @@ This is a design spec for a system to be built later, not an implementation plan
 | Agency roles | `AgencyStaff.role`: `CTO \| DEVELOPER` | CTO: full control, including billing overrides, tenant suspension/deletion, and managing other agency staff accounts. Developer: support and fixes — can impersonate a tenant to help with configuration, cannot change billing, cannot create/delete staff or tenants |
 | Impersonation | A Developer or CTO can start an "as this tenant" session from the admin panel; every impersonation session is written to the audit log | This is the one sanctioned crossing from Agency Land into a tenant's wall — it needs to be visible after the fact, not just permitted in the moment |
 | Audit log | New `AuditLog` model, written for every impersonation and every sensitive admin action (billing change, tenant suspension, staff account changes) | Cheap to build alongside the admin panel; expensive to reconstruct after an incident if it's missing |
-| Owner self-service for adding Cashiers | **Open — not yet decided.** See §7 | Genuine product decision, not an engineering one |
+| Owner self-service for adding Cashiers | **Owner adds their own Cashiers**, from within their own tenant — not agency-mediated | Lower-friction for the Owner, and keeps the agency out of routine staffing changes; a new Cashier is not a sales event, so it shouldn't need to route through you |
 | Repo structure | Stay in one repo, one deploy, with the admin surface as its own isolated route group (`(admin)`) — sharing only the Prisma client with the customer app, nothing else | The admin panel's real feature set isn't proven out yet; a monorepo split before that is process paid for early with no benefit yet |
 | Trigger to revisit repo structure | A second developer joins, or the admin surface needs its own network-level restrictions (VPN/IP allowlist) that would be awkward to apply to only half of one deployed app | At that point, migrate to a monorepo (e.g. Turborepo: `apps/web` + `apps/admin` + shared `packages/db`) — the same Prisma schema either way, so this is a deploy-boundary change, not a data-model change |
 | Deployment timing | Not now — build and verify locally against the existing dev database | Nothing in this spec requires a live domain; deployment is the correct trigger for the *next* piece of work, once there's a real client to onboard |
@@ -64,6 +64,7 @@ This is a design spec for a system to be built later, not an implementation plan
 **`User`** (existing model, tenant-scoped):
 - `role`: `OWNER | CASHIER`
 - The existing "one user per tenant" assumption is retired — a tenant now has exactly one Owner and any number of Cashiers
+- Owner accounts are provisioned by the agency (via the admin panel, §6); Cashier accounts are provisioned by the Owner themselves, from inside their own tenant — an "add staff" action on the Owner's side, not an admin-panel action
 
 **`AgencyStaff`** (new model, deliberately outside the tenant-isolation extension — never touched by `withTenant()`):
 - `email`, `passwordHash`, `role: CTO | DEVELOPER`, `createdAt`
@@ -79,7 +80,7 @@ This is a design spec for a system to be built later, not an implementation plan
 **Inside one shop, three tiers, not two:**
 1. **Always Cashier** — New Receipt, New Quotation, Products/Customers search. Fixed, no toggle.
 2. **Owner's toggle, on by default** — managing (not just searching) Products/Customers. The Owner can restrict this per shop.
-3. **Always Owner** — Settings, and any future Statistics/Reports surface. No toggle exists for this tier; it's a hard ceiling.
+3. **Always Owner** — Settings, adding/removing Cashier accounts, and any future Statistics/Reports surface. No toggle exists for this tier; it's a hard ceiling.
 
 This three-tier shape (fixed-for-role / owner-togglable / fixed-for-role) is worth keeping as the general pattern for future features, not a one-off for the catalog permission — the next time a new capability needs gating, the first question should be which of these three tiers it belongs to.
 
@@ -94,12 +95,6 @@ Built on top of §4-5, giving agency staff:
 
 Security note carried forward from the earlier discussion: this panel is the one part of the system explicitly designed to bypass the tenant-isolation boundary. It deserves its own scrutiny beyond the customer-facing app — strong auth for agency accounts (2FA worth considering even at small scale), and every cross-tenant action logged, not just the destructive ones.
 
-## 7. Open Question
-
-**Can an Owner add their own Cashiers (self-service, from their own Settings), or does every new Cashier login get created by agency staff through the admin panel?**
-
-Not resolved yet — this is a product call, not an engineering one. Self-service is lower-friction for the Owner and keeps the agency out of routine staffing changes; agency-mediated keeps a single, deliberate provisioning path but adds you as a dependency for something that will happen often once a client has more than one staff member. Needs a decision before implementation planning starts on tenant-side RBAC.
-
 ## Next Steps
 
-Pick up implementation planning for whichever piece is prioritized first — most likely §4's `Tenant`/`Settings` fields and the access gate, since the admin panel (§6) is built on top of them and can't meaningfully exist without them first. Resolve §7 before planning the Owner/Cashier work specifically.
+Pick up implementation planning for whichever piece is prioritized first — most likely §4's `Tenant`/`Settings` fields and the access gate, since the admin panel (§6) is built on top of them and can't meaningfully exist without them first.
