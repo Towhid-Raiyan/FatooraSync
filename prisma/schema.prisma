@@ -26,8 +26,16 @@ enum PrintFormat {
   A4
 }
 
+enum BillingStatus {
+  TRIALING
+  ACTIVE
+  COMPLIMENTARY
+  PAST_DUE
+  SUSPENDED
+}
+
 model Tenant {
-  id                     String   @id @default(uuid())
+  id                     String        @id @default(uuid())
   legalName              String
   tradeNameEn            String
   tradeNameAr            String?
@@ -35,12 +43,15 @@ model Tenant {
   crNumber               String?
   address                String?
   phone                  String?
-  defaultLocale          String   @default("ar")
-  createdAt              DateTime @default(now())
-  nextProductSkuNumber   Int      @default(1)
-  nextSalesReceiptNumber Int      @default(1)
-  nextQuotationNumber    Int      @default(1)
+  defaultLocale          String        @default("ar")
+  createdAt              DateTime      @default(now())
+  nextProductSkuNumber   Int           @default(1)
+  nextSalesReceiptNumber Int           @default(1)
+  nextQuotationNumber    Int           @default(1)
   lastSalesReceiptHash   String?
+  billingStatus          BillingStatus @default(TRIALING)
+  trialEndsAt            DateTime?
+  featureFlags           Json          @default("{}")
 
   users         User[]
   settings      Settings?
@@ -51,12 +62,13 @@ model Tenant {
 }
 
 model Settings {
-  id             String      @id @default(uuid())
-  tenantId       String      @unique
-  tenant         Tenant      @relation(fields: [tenantId], references: [id])
-  defaultVatRate Decimal     @default(15.00) @db.Decimal(5, 2)
-  language       String      @default("en")
-  printFormat    PrintFormat @default(THERMAL)
+  id                      String      @id @default(uuid())
+  tenantId                String      @unique
+  tenant                  Tenant      @relation(fields: [tenantId], references: [id])
+  defaultVatRate          Decimal     @default(15.00) @db.Decimal(5, 2)
+  language                String      @default("en")
+  printFormat             PrintFormat @default(THERMAL)
+  cashierCanManageCatalog Boolean     @default(true)
 }
 
 model User {

@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth/config";
 import { withTenant } from "@/lib/db/tenant-context";
 import { findBarcodeConflict } from "./check-uniqueness";
 import { generateNextSku } from "./generate-sku";
+import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
 
 const VALID_UNITS: Unit[] = ["PIECE", "KG", "BOX", "CARTON", "LITER"];
 
@@ -16,6 +17,8 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const tenantId = session.user.tenantId;
+  const blocked = await assertTenantAccess(tenantId);
+  if (blocked) return blocked;
 
   const products = await withTenant(tenantId, (tx) => tx.product.findMany({ orderBy: { nameEn: "asc" } }));
   return NextResponse.json(products);
@@ -27,6 +30,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const tenantId = session.user.tenantId;
+  const blocked = await assertTenantAccess(tenantId);
+  if (blocked) return blocked;
   const body = await request.json();
 
   const nameEn = typeof body.nameEn === "string" ? body.nameEn.trim() : "";

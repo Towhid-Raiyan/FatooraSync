@@ -423,6 +423,18 @@ describe("/api/receipts", () => {
     }
   });
 
+  it("returns 403 for a SUSPENDED tenant instead of saving the receipt", { timeout: 30000 }, async () => {
+    await prisma.tenant.update({ where: { id: tenantId }, data: { billingStatus: "SUSPENDED" } });
+    try {
+      const response = await POST(
+        postRequest({ customer: { name: "", vatId: "" }, lines: [{ productId, quantity: "1" }] })
+      );
+      expect(response.status).toBe(403);
+    } finally {
+      await prisma.tenant.update({ where: { id: tenantId }, data: { billingStatus: "TRIALING" } });
+    }
+  });
+
   describe("GET /api/receipts", () => {
     let historyTenantId: string;
     let historyProductId: string;

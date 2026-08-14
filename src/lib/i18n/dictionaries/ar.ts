@@ -149,6 +149,11 @@ export const ar: Dictionary = {
   printChrome: {
     print: "طباعة",
   },
+  billing: {
+    blockedTitle: "تم إيقاف الوصول إلى الحساب",
+    blockedMessage: "تم إيقاف وصول متجرك إلى FatooraSync مؤقتاً. تواصل معنا لحل هذا الأمر والعودة إلى العمل.",
+    signOut: "تسجيل الخروج",
+  },
   a11y: {
     language: "اللغة",
     comingSoon: "قريباً",

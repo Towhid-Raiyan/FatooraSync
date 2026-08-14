@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth/config";
 import { withTenant } from "@/lib/db/tenant-context";
+import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
 
 // Not called by any UI in this codebase (both the Customers and the Sales Receipt
 // pages fetch directly via withTenant instead) -- kept because the design spec
@@ -12,6 +13,8 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const tenantId = session.user.tenantId;
+  const blocked = await assertTenantAccess(tenantId);
+  if (blocked) return blocked;
 
   const customers = await withTenant(tenantId, (tx) =>
     tx.customer.findMany({ orderBy: { name: "asc" } })
@@ -25,6 +28,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const tenantId = session.user.tenantId;
+  const blocked = await assertTenantAccess(tenantId);
+  if (blocked) return blocked;
   const body = await request.json();
 
   const name = typeof body.name === "string" ? body.name.trim() : "";

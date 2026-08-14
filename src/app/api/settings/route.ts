@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/client";
 import { withTenant } from "@/lib/db/tenant-context";
+import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
 
 export async function GET() {
   const session = await auth();
@@ -9,6 +10,8 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const tenantId = session.user.tenantId;
+  const blocked = await assertTenantAccess(tenantId);
+  if (blocked) return blocked;
 
   const [settings, tenant] = await Promise.all([
     withTenant(tenantId, (tx) => tx.settings.findUniqueOrThrow({ where: { tenantId } })),
@@ -24,6 +27,8 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const tenantId = session.user.tenantId;
+  const blocked = await assertTenantAccess(tenantId);
+  if (blocked) return blocked;
   const body = await request.json();
 
   const vatRate = Number(body.defaultVatRate);
