@@ -56,6 +56,7 @@ export const ar: Dictionary = {
     thermal: "حراري (لفة إيصالات)",
     a4: "A4 (صفحة كاملة)",
     saveChanges: "حفظ التغييرات",
+    cashierCanManageCatalog: "يمكن للكاشير إضافة وتعديل وإيقاف المنتجات والعملاء",
   },
   products: {
     searchPlaceholder: "ابحث بالاسم أو رمز المنتج أو الباركود",
@@ -148,6 +149,22 @@ export const ar: Dictionary = {
   },
   printChrome: {
     print: "طباعة",
+  },
+  staff: {
+    title: "الموظفون",
+    addCashier: "+ إضافة كاشير",
+    noCashiersYet: "لا يوجد كاشير بعد — أضف أول واحد",
+    email: "البريد الإلكتروني",
+    password: "كلمة المرور",
+    dialogTitle: "إضافة كاشير",
+    activeBadge: "نشط",
+    inactiveBadge: "موقوف",
+    passwordRules: {
+      minLength: "8 أحرف على الأقل",
+      uppercase: "حرف كبير واحد",
+      number: "رقم واحد",
+      special: "رمز خاص واحد",
+    },
   },
   billing: {
     blockedTitle: "تم إيقاف الوصول إلى الحساب",

@@ -54,6 +54,7 @@ export interface Dictionary {
     thermal: string;
     a4: string;
     saveChanges: string;
+    cashierCanManageCatalog: string;
   };
   products: {
     searchPlaceholder: string;
@@ -146,6 +147,22 @@ export interface Dictionary {
   };
   printChrome: {
     print: string;
+  };
+  staff: {
+    title: string;
+    addCashier: string;
+    noCashiersYet: string;
+    email: string;
+    password: string;
+    dialogTitle: string;
+    activeBadge: string;
+    inactiveBadge: string;
+    passwordRules: {
+      minLength: string;
+      uppercase: string;
+      number: string;
+      special: string;
+    };
   };
   billing: {
     blockedTitle: string;

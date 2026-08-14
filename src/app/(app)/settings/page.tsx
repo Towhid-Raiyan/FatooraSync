@@ -1,95 +1,24 @@
-"use client";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth/config";
+import { withTenant } from "@/lib/db/tenant-context";
+import { SettingsClient } from "@/components/settings/settings-client";
+import { StaffSection } from "@/components/settings/staff-section";
 
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useLocale } from "@/lib/i18n/language-provider";
-
-export default function SettingsPage() {
-  const { dict } = useLocale();
-  const [defaultVatRate, setDefaultVatRate] = useState("15");
-  const [language, setLanguage] = useState("ar");
-  const [printFormat, setPrintFormat] = useState("THERMAL");
-  const [phone, setPhone] = useState("");
-
-  useEffect(() => {
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then((data) => {
-        setDefaultVatRate(data.defaultVatRate);
-        setLanguage(data.language);
-        setPrintFormat(data.printFormat);
-        setPhone(data.phone ?? "");
-      });
-  }, []);
-
-  async function handleSave() {
-    await fetch("/api/settings", {
-      method: "PATCH",
-      body: JSON.stringify({ defaultVatRate, language, printFormat, phone }),
-    });
+export default async function SettingsPage() {
+  const session = await auth();
+  if (session!.user.role !== "OWNER") {
+    redirect("/");
   }
+  const tenantId = session!.user.tenantId;
+
+  const cashiers = await withTenant(tenantId, (tx) =>
+    tx.user.findMany({ where: { role: "CASHIER" }, orderBy: { email: "asc" } })
+  );
 
   return (
-    <Card className="max-w-md border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
-      <CardHeader>
-        <CardTitle className="text-heading">{dict.settings.title}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <Label htmlFor="vat" className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wider text-muted-fg">
-            {dict.settings.defaultVatRate}
-          </Label>
-          <Input id="vat" value={defaultVatRate} onChange={(e) => setDefaultVatRate(e.target.value)} />
-        </div>
-
-        <div>
-          <Label htmlFor="lang" className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wider text-muted-fg">
-            {dict.settings.language}
-          </Label>
-          <select
-            id="lang"
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            className="w-full rounded-lg border border-input h-8 px-3 text-sm bg-background"
-          >
-            <option value="ar">العربية</option>
-            <option value="en">English</option>
-          </select>
-          <p className="mt-1.5 text-xs text-muted-fg">{dict.settings.languageCaption}</p>
-        </div>
-
-        <div>
-          <Label htmlFor="phone" className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wider text-muted-fg">
-            {dict.settings.businessPhone}
-          </Label>
-          <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+966 5X XXX XXXX" />
-        </div>
-
-        <div>
-          <Label
-            htmlFor="printFormat"
-            className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wider text-muted-fg"
-          >
-            {dict.settings.printFormat}
-          </Label>
-          <select
-            id="printFormat"
-            value={printFormat}
-            onChange={(e) => setPrintFormat(e.target.value)}
-            className="w-full rounded-lg border border-input h-8 px-3 text-sm bg-background"
-          >
-            <option value="THERMAL">{dict.settings.thermal}</option>
-            <option value="A4">{dict.settings.a4}</option>
-          </select>
-        </div>
-
-        <Button onClick={handleSave} variant="primary">
-          {dict.settings.saveChanges}
-        </Button>
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-6">
+      <SettingsClient />
+      <StaffSection initialCashiers={cashiers.map((c) => ({ id: c.id, email: c.email, isActive: c.isActive }))} />
+    </div>
   );
 }

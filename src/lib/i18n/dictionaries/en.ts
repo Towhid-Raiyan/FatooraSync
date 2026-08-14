@@ -56,6 +56,7 @@ export const en: Dictionary = {
     thermal: "Thermal (receipt roll)",
     a4: "A4 (full page)",
     saveChanges: "Save Changes",
+    cashierCanManageCatalog: "Cashiers can add, edit, and deactivate products and customers",
   },
   products: {
     searchPlaceholder: "Search by name, SKU, or barcode",
@@ -148,6 +149,22 @@ export const en: Dictionary = {
   },
   printChrome: {
     print: "Print",
+  },
+  staff: {
+    title: "Staff",
+    addCashier: "+ Add Cashier",
+    noCashiersYet: "No cashiers yet — add your first one",
+    email: "Email",
+    password: "Password",
+    dialogTitle: "Add Cashier",
+    activeBadge: "Active",
+    inactiveBadge: "Inactive",
+    passwordRules: {
+      minLength: "At least 8 characters",
+      uppercase: "One uppercase letter",
+      number: "One number",
+      special: "One special character",
+    },
   },
   billing: {
     blockedTitle: "Account access paused",
