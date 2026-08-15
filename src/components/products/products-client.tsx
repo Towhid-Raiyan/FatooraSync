@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Product } from "@prisma/client";
+import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -9,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { useLocale } from "@/lib/i18n/language-provider";
+import { useToast } from "@/lib/toast/toast-provider";
 import { ProductFormDialog, getUnitLabels } from "./product-form-dialog";
 
 export type SerializedProduct = Omit<Product, "unitPrice" | "vatRate" | "quantity"> & {
@@ -25,11 +27,13 @@ export function ProductsClient({
   canManageCatalog: boolean;
 }) {
   const { dict } = useLocale();
+  const { toast } = useToast();
   const unitLabels = getUnitLabels(dict);
   const [products, setProducts] = useState(initialProducts);
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [dialogState, setDialogState] = useState<{ open: boolean; product: SerializedProduct | null }>({
     open: false,
     product: null,
@@ -57,10 +61,12 @@ export function ProductsClient({
       return exists ? prev.map((p) => (p.id === product.id ? product : p)) : [...prev, product];
     });
     setDialogState({ open: false, product: null });
+    toast.success(dict.products.savedToast);
   }
 
   async function toggleActive(product: SerializedProduct) {
     setActionError(null);
+    setTogglingId(product.id);
     try {
       const response = await fetch(`/api/products/${product.id}`, {
         method: "PATCH",
@@ -73,8 +79,11 @@ export function ProductsClient({
       }
       const updated = await response.json();
       setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      toast.success(dict.products.statusUpdatedToast);
     } catch {
       setActionError(dict.common.somethingWentWrong);
+    } finally {
+      setTogglingId(null);
     }
   }
 
@@ -150,7 +159,13 @@ export function ProductsClient({
                         <Button variant="outline" size="sm" onClick={() => setDialogState({ open: true, product })}>
                           {dict.common.edit}
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => toggleActive(product)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={togglingId === product.id}
+                          onClick={() => toggleActive(product)}
+                        >
+                          {togglingId === product.id && <Loader2Icon className="size-3.5 animate-spin" />}
                           {product.isActive ? dict.common.deactivate : dict.common.reactivate}
                         </Button>
                       </div>

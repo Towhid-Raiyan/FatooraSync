@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useLocale } from "@/lib/i18n/language-provider";
+import { useToast } from "@/lib/toast/toast-provider";
 import { isPasswordValid } from "@/lib/auth/password-rules";
 import { PasswordChecklist } from "./password-checklist";
 
@@ -22,6 +24,7 @@ const LABEL_CLASS = "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wid
 
 export function StaffSection({ initialCashiers }: { initialCashiers: Cashier[] }) {
   const { dict } = useLocale();
+  const { toast } = useToast();
   const [cashiers, setCashiers] = useState(initialCashiers);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [email, setEmail] = useState("");
@@ -29,6 +32,7 @@ export function StaffSection({ initialCashiers }: { initialCashiers: Cashier[] }
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   function openDialog() {
     setEmail("");
@@ -50,6 +54,7 @@ export function StaffSection({ initialCashiers }: { initialCashiers: Cashier[] }
       }
       setCashiers((prev) => [...prev, body]);
       setDialogOpen(false);
+      toast.success(dict.staff.cashierAddedToast);
     } catch {
       setError(dict.common.somethingWentWrong);
     } finally {
@@ -59,6 +64,7 @@ export function StaffSection({ initialCashiers }: { initialCashiers: Cashier[] }
 
   async function toggleActive(cashier: Cashier) {
     setActionError(null);
+    setTogglingId(cashier.id);
     try {
       const response = await fetch(`/api/users/${cashier.id}`, {
         method: "PATCH",
@@ -71,8 +77,11 @@ export function StaffSection({ initialCashiers }: { initialCashiers: Cashier[] }
       }
       const updated = await response.json();
       setCashiers((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+      toast.success(dict.staff.statusUpdatedToast);
     } catch {
       setActionError(dict.common.somethingWentWrong);
+    } finally {
+      setTogglingId(null);
     }
   }
 
@@ -113,7 +122,13 @@ export function StaffSection({ initialCashiers }: { initialCashiers: Cashier[] }
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="outline" size="sm" onClick={() => toggleActive(cashier)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={togglingId === cashier.id}
+                    onClick={() => toggleActive(cashier)}
+                  >
+                    {togglingId === cashier.id && <Loader2Icon className="size-3.5 animate-spin" />}
                     {cashier.isActive ? dict.common.deactivate : dict.common.reactivate}
                   </Button>
                 </TableCell>

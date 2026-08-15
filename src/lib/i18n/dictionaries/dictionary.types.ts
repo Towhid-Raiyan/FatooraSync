@@ -76,6 +76,8 @@ export interface Dictionary {
     useDefaultVat: string;
     vatRate: string;
     units: { piece: string; kg: string; box: string; carton: string; liter: string };
+    savedToast: string;
+    statusUpdatedToast: string;
   };
   customers: {
     searchPlaceholder: string;
@@ -88,6 +90,8 @@ export interface Dictionary {
     systemBadge: string;
     dialogTitleEdit: string;
     dialogTitleAdd: string;
+    savedToast: string;
+    statusUpdatedToast: string;
   };
   documentForm: {
     customerSection: {
@@ -165,6 +169,8 @@ export interface Dictionary {
       number: string;
       special: string;
     };
+    cashierAddedToast: string;
+    statusUpdatedToast: string;
   };
   billing: {
     blockedTitle: string;

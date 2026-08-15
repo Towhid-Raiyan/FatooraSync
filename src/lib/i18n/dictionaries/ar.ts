@@ -78,6 +78,8 @@ export const ar: Dictionary = {
     useDefaultVat: "استخدام نسبة الضريبة الافتراضية",
     vatRate: "نسبة الضريبة (%)",
     units: { piece: "قطعة", kg: "كيلوغرام", box: "صندوق", carton: "كرتون", liter: "لتر" },
+    savedToast: "تم حفظ المنتج",
+    statusUpdatedToast: "تم تحديث حالة المنتج",
   },
   customers: {
     searchPlaceholder: "ابحث بالاسم أو الرقم الضريبي أو الهاتف",
@@ -90,6 +92,8 @@ export const ar: Dictionary = {
     systemBadge: "نظامي",
     dialogTitleEdit: "تعديل العميل",
     dialogTitleAdd: "إضافة عميل",
+    savedToast: "تم حفظ العميل",
+    statusUpdatedToast: "تم تحديث حالة العميل",
   },
   documentForm: {
     customerSection: {
@@ -167,6 +171,8 @@ export const ar: Dictionary = {
       number: "رقم واحد",
       special: "رمز خاص واحد",
     },
+    cashierAddedToast: "تم إضافة الكاشير",
+    statusUpdatedToast: "تم تحديث حالة الكاشير",
   },
   billing: {
     blockedTitle: "تم إيقاف الوصول إلى الحساب",

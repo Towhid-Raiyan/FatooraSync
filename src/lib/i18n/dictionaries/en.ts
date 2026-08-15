@@ -78,6 +78,8 @@ export const en: Dictionary = {
     useDefaultVat: "Use default VAT rate",
     vatRate: "VAT Rate (%)",
     units: { piece: "Piece", kg: "KG", box: "Box", carton: "Carton", liter: "Liter" },
+    savedToast: "Product saved",
+    statusUpdatedToast: "Product status updated",
   },
   customers: {
     searchPlaceholder: "Search by name, VAT ID, or phone",
@@ -90,6 +92,8 @@ export const en: Dictionary = {
     systemBadge: "System",
     dialogTitleEdit: "Edit Customer",
     dialogTitleAdd: "Add Customer",
+    savedToast: "Customer saved",
+    statusUpdatedToast: "Customer status updated",
   },
   documentForm: {
     customerSection: {
@@ -167,6 +171,8 @@ export const en: Dictionary = {
       number: "One number",
       special: "One special character",
     },
+    cashierAddedToast: "Cashier added",
+    statusUpdatedToast: "Cashier status updated",
   },
   billing: {
     blockedTitle: "Account access paused",

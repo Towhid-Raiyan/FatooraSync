@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Customer } from "@prisma/client";
+import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -9,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { useLocale } from "@/lib/i18n/language-provider";
+import { useToast } from "@/lib/toast/toast-provider";
 import { CustomerFormDialog } from "./customer-form-dialog";
 
 export function CustomersClient({
@@ -19,6 +21,7 @@ export function CustomersClient({
   canManageCatalog: boolean;
 }) {
   const { dict } = useLocale();
+  const { toast } = useToast();
   const [customers, setCustomers] = useState(initialCustomers);
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
@@ -27,6 +30,7 @@ export function CustomersClient({
     customer: null,
   });
   const [actionError, setActionError] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -51,10 +55,12 @@ export function CustomersClient({
       return exists ? prev.map((c) => (c.id === customer.id ? customer : c)) : [...prev, customer];
     });
     setDialogState({ open: false, customer: null });
+    toast.success(dict.customers.savedToast);
   }
 
   async function toggleActive(customer: Customer) {
     setActionError(null);
+    setTogglingId(customer.id);
     try {
       const response = await fetch(`/api/customers/${customer.id}`, {
         method: "PATCH",
@@ -67,8 +73,11 @@ export function CustomersClient({
       }
       const updated = await response.json();
       setCustomers((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+      toast.success(dict.customers.statusUpdatedToast);
     } catch {
       setActionError(dict.common.somethingWentWrong);
+    } finally {
+      setTogglingId(null);
     }
   }
 
@@ -138,7 +147,13 @@ export function CustomersClient({
                         <Button variant="outline" size="sm" onClick={() => setDialogState({ open: true, customer })}>
                           {dict.common.edit}
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => toggleActive(customer)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={togglingId === customer.id}
+                          onClick={() => toggleActive(customer)}
+                        >
+                          {togglingId === customer.id && <Loader2Icon className="size-3.5 animate-spin" />}
                           {customer.isActive ? dict.common.deactivate : dict.common.reactivate}
                         </Button>
                       </div>
