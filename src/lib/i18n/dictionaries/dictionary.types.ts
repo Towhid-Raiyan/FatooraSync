@@ -153,6 +153,8 @@ export interface Dictionary {
   };
   printChrome: {
     print: string;
+    receiptTitle: string;
+    quotationTitle: string;
   };
   staff: {
     title: string;

@@ -155,6 +155,8 @@ export const en: Dictionary = {
   },
   printChrome: {
     print: "Print",
+    receiptTitle: "Receipt",
+    quotationTitle: "Quotation",
   },
   staff: {
     title: "Staff",

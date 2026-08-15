@@ -155,6 +155,8 @@ export const ar: Dictionary = {
   },
   printChrome: {
     print: "طباعة",
+    receiptTitle: "فاتورة",
+    quotationTitle: "عرض سعر",
   },
   staff: {
     title: "الموظفون",

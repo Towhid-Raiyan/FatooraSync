@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2Icon } from "lucide-react";
-import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/lib/i18n/language-provider";
 import { useToast } from "@/lib/toast/toast-provider";
@@ -60,24 +60,32 @@ export function PrintModal({
   const { toast } = useToast();
   const [data, setData] = useState<PrintData | null>(null);
   const [loading, setLoading] = useState(false);
+  const requestedIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!documentId) {
       setData(null);
       return;
     }
+    requestedIdRef.current = documentId;
     setLoading(true);
     fetch(`/api/${kind}s/${documentId}/print-data`)
       .then((response) => {
         if (!response.ok) throw new Error("failed to load print data");
         return response.json();
       })
-      .then((body: PrintData) => setData(body))
-      .catch(() => {
-        toast.error(dict.common.somethingWentWrong);
-        onOpenChange(false);
+      .then((body: PrintData) => {
+        if (requestedIdRef.current === documentId) setData(body);
       })
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (requestedIdRef.current === documentId) {
+          toast.error(dict.common.somethingWentWrong);
+          onOpenChange(false);
+        }
+      })
+      .finally(() => {
+        if (requestedIdRef.current === documentId) setLoading(false);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind, documentId]);
 
@@ -96,6 +104,9 @@ export function PrintModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogTitle className="sr-only">
+          {kind === "receipt" ? dict.printChrome.receiptTitle : dict.printChrome.quotationTitle}
+        </DialogTitle>
         {loading || !data || !documentForPrint ? (
           <div className="flex items-center justify-center py-24">
             <Loader2Icon className="size-6 animate-spin text-muted-fg" />
