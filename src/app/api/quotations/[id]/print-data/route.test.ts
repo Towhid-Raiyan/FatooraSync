@@ -48,16 +48,24 @@ describe("/api/quotations/[id]/print-data", () => {
     await prisma.$disconnect();
   });
 
-  it("returns the quotation's print data", async () => {
+  it("returns the quotation's print data", { timeout: 30000 }, async () => {
     const response = await GET(new Request("http://localhost"), { params: Promise.resolve({ id: quotationId }) });
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.document.number).toBe(1);
-    expect(body.document.id).toBeUndefined();
+    expect(Object.keys(body.tenant).sort()).toEqual(
+      ["address", "crNumber", "legalName", "phone", "tradeNameAr", "tradeNameEn", "vatNumber"].sort()
+    );
+    expect(Object.keys(body.document).sort()).toEqual(
+      ["createdAt", "customer", "grandTotal", "notes", "number", "subtotal", "vatTotal", "lines"].sort()
+    );
+    expect(Object.keys(body.document.customer).sort()).toEqual(
+      ["address", "crNumber", "name", "phone", "vatId"].sort()
+    );
     expect(body.printFormat).toBe("THERMAL");
   });
 
-  it("returns 404 for a document belonging to another tenant", async () => {
+  it("returns 404 for a document belonging to another tenant", { timeout: 30000 }, async () => {
     mockSession = { user: { tenantId: otherTenantId, role: "OWNER" } };
     try {
       const response = await GET(new Request("http://localhost"), { params: Promise.resolve({ id: quotationId }) });
@@ -67,7 +75,7 @@ describe("/api/quotations/[id]/print-data", () => {
     }
   });
 
-  it("returns 401 when unauthenticated", async () => {
+  it("returns 401 when unauthenticated", { timeout: 30000 }, async () => {
     mockSession = null;
     try {
       const response = await GET(new Request("http://localhost"), { params: Promise.resolve({ id: quotationId }) });

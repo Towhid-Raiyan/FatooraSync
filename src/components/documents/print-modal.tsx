@@ -28,7 +28,7 @@ interface PrintDataDocument {
   vatTotal: string;
   grandTotal: string;
   notes: string | null;
-  customer: { name: string; vatId: string | null };
+  customer: { name: string; vatId: string | null; crNumber: string | null; phone: string | null; address: string | null };
   lines: PrintDataLine[];
 }
 

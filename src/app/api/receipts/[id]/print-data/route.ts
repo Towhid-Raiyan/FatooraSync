@@ -41,7 +41,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       vatTotal: data.document.vatTotal,
       grandTotal: data.document.grandTotal,
       notes: data.document.notes,
-      customer: { name: data.document.customer.name, vatId: data.document.customer.vatId },
+      customer: {
+        name: data.document.customer.name,
+        vatId: data.document.customer.vatId,
+        crNumber: data.document.customer.crNumber,
+        phone: data.document.customer.phone,
+        address: data.document.customer.address,
+      },
       lines: data.document.lines.map((line) => ({
         id: line.id,
         productName: line.productName,
