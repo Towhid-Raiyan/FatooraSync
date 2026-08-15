@@ -157,3 +157,23 @@
     @apply font-sans;
   }
 }
+
+/* Print-scoping used by both the standalone print pages and the print modal
+   (src/components/documents/print-modal.tsx): whatever carries id="print-target"
+   is the only thing that prints, regardless of what else is on screen around it
+   (app shell, dialog chrome, the page behind an open modal). Component-specific
+   page-size rules (e.g. A4's @page block) stay local to those components --
+   this rule only handles visibility, not page geometry. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #print-target,
+  #print-target * {
+    visibility: visible;
+  }
+  #print-target {
+    position: fixed;
+    inset: 0;
+  }
+}

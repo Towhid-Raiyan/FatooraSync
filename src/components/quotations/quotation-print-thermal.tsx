@@ -1,23 +1,41 @@
-import type { Customer, DocumentLine, Tenant, Document as PrismaDocument } from "@prisma/client";
+import type { Customer, Tenant, Document as PrismaDocument } from "@prisma/client";
 import { PrintButton } from "@/components/receipts/print-button";
 
 function money(value: { toString(): string }): string {
   return Number(value.toString()).toFixed(2);
 }
 
-type QuotationDocument = PrismaDocument & { customer: Customer; lines: DocumentLine[] };
+interface PrintableLine {
+  id: string;
+  productName: string;
+  quantity: { toString(): string };
+  unitPrice: { toString(): string };
+  discount: { toString(): string };
+  lineVat: { toString(): string };
+  lineTotal: { toString(): string };
+}
+
+type QuotationDocument = Omit<PrismaDocument, "subtotal" | "vatTotal" | "grandTotal"> & {
+  subtotal: { toString(): string };
+  vatTotal: { toString(): string };
+  grandTotal: { toString(): string };
+  customer: Customer;
+  lines: PrintableLine[];
+};
 
 export function QuotationPrintThermal({
   tenant,
   document,
+  showPrintButton = true,
 }: {
   tenant: Tenant;
   document: QuotationDocument;
+  showPrintButton?: boolean;
 }) {
   const hasDiscount = document.lines.some((line) => Number(line.discount) > 0);
 
   return (
-    <div className="mx-auto max-w-[420px] bg-white p-6 text-sm text-black print:p-0 font-sans" dir="ltr">
+    <div id="print-target" className="mx-auto max-w-[420px] bg-white p-6 text-sm text-black print:p-0 font-sans" dir="ltr">
       <div className="mb-4 text-center">
         <div className="text-lg font-bold">{tenant.tradeNameAr ?? tenant.tradeNameEn}</div>
         <div className="text-base">{tenant.tradeNameEn}</div>
@@ -81,18 +99,7 @@ export function QuotationPrintThermal({
 
       {document.notes && <div className="mt-3 text-xs">Notes: {document.notes}</div>}
 
-      <PrintButton />
-
-      <style>{`
-        @media print {
-          aside,
-          [aria-hidden] { display: none !important; }
-          div.border-b.border-border-subtle.backdrop-blur-sm { display: none !important; }
-          .flex.h-screen { display: block !important; height: auto !important; }
-          .overflow-hidden.bg-bg-app { overflow: visible !important; }
-          main { padding: 0 !important; overflow: visible !important; }
-        }
-      `}</style>
+      {showPrintButton && <PrintButton />}
     </div>
   );
 }

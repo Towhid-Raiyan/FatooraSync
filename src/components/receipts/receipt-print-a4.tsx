@@ -19,10 +19,12 @@ export function ReceiptPrintA4({
   tenant,
   document,
   qrImageDataUrl,
+  showPrintButton = true,
 }: {
   tenant: Tenant;
   document: A4Document;
   qrImageDataUrl: string | null;
+  showPrintButton?: boolean;
 }) {
   const hasDiscount = document.lines.some((line) => Number(line.discount) > 0);
   const pageItemCounts = paginateA4Items(document.lines.length);
@@ -30,7 +32,7 @@ export function ReceiptPrintA4({
   let cursor = 0;
 
   return (
-    <div className={`${inter.className} font-sans`} dir="ltr">
+    <div id="print-target" className={`${inter.className} font-sans`} dir="ltr">
       {pageItemCounts.map((count, pageIndex) => {
         const isFirstPage = pageIndex === 0;
         const isLastPage = pageIndex === pageItemCounts.length - 1;
@@ -65,7 +67,7 @@ export function ReceiptPrintA4({
         );
       })}
 
-      <PrintButton />
+      {showPrintButton && <PrintButton />}
 
       <style>{`
         @media screen {
@@ -80,12 +82,6 @@ export function ReceiptPrintA4({
              documents. Zeroing the browser margin makes our own padding the
              only margin, matching what the layout was actually measured against. */
           @page { size: A4; margin: 0; }
-          aside,
-          [aria-hidden] { display: none !important; }
-          div.border-b.border-border-subtle.backdrop-blur-sm { display: none !important; }
-          .flex.h-screen { display: block !important; height: auto !important; }
-          .overflow-hidden.bg-bg-app { overflow: visible !important; }
-          main { padding: 0 !important; overflow: visible !important; }
           .a4-page { box-shadow: none !important; margin-bottom: 0 !important; }
           .a4-page + .a4-page { break-before: page; }
         }

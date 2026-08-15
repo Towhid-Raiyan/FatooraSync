@@ -1,11 +1,27 @@
-import type { Customer, DocumentLine, Tenant, Document as PrismaDocument } from "@prisma/client";
+import type { Customer, Tenant, Document as PrismaDocument } from "@prisma/client";
 import { truncateNote } from "@/lib/print-format/truncate-note";
 
 export function money(value: { toString(): string }): string {
   return Number(value.toString()).toFixed(2);
 }
 
-export type A4Document = PrismaDocument & { customer: Customer; lines: DocumentLine[] };
+export interface A4PrintableLine {
+  id: string;
+  productName: string;
+  quantity: { toString(): string };
+  unitPrice: { toString(): string };
+  discount: { toString(): string };
+  lineVat: { toString(): string };
+  lineTotal: { toString(): string };
+}
+
+export type A4Document = Omit<PrismaDocument, "subtotal" | "vatTotal" | "grandTotal"> & {
+  subtotal: { toString(): string };
+  vatTotal: { toString(): string };
+  grandTotal: { toString(): string };
+  customer: Customer;
+  lines: A4PrintableLine[];
+};
 
 export function A4BusinessHeader({
   tenant,
@@ -89,7 +105,7 @@ export function A4ItemsTable({
   startIndex,
   hasDiscount,
 }: {
-  lines: DocumentLine[];
+  lines: A4PrintableLine[];
   startIndex: number;
   hasDiscount: boolean;
 }) {
