@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { PAGE_SIZE } from "@/lib/receipts/constants";
 import { useLocale } from "@/lib/i18n/language-provider";
+import { PrintModal } from "@/components/documents/print-modal";
 
 interface ReceiptRow {
   id: string;
@@ -36,6 +36,7 @@ export function ReceiptHistoryClient({ initial }: { initial: ReceiptsResponse })
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [printModalId, setPrintModalId] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isFirstRun = useRef(true);
 
@@ -149,14 +150,9 @@ export function ReceiptHistoryClient({ initial }: { initial: ReceiptsResponse })
                       {Number(r.grandTotal).toFixed(2)} SAR
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" asChild>
-                          <Link href={`/receipts/${r.id}/print`}>{dict.common.view}</Link>
-                        </Button>
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={`/api/receipts/${r.id}/pdf`}>{dict.common.download}</a>
-                        </Button>
-                      </div>
+                      <Button variant="outline" size="sm" onClick={() => setPrintModalId(r.id)}>
+                        {dict.common.view}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -185,6 +181,7 @@ export function ReceiptHistoryClient({ initial }: { initial: ReceiptsResponse })
           </div>
         </div>
       )}
+      <PrintModal kind="receipt" documentId={printModalId} onOpenChange={(open) => !open && setPrintModalId(null)} />
     </div>
   );
 }
