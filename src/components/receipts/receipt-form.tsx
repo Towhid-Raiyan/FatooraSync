@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import type { Customer } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
+import { PrintModal } from "@/components/documents/print-modal";
 import type { SerializedProduct } from "@/components/products/products-client";
 import { round2, calculateLine, calculateDocumentTotals, deriveUnitPriceFromTotal } from "@/lib/receipts/calculate-totals";
 import { useLocale } from "@/lib/i18n/language-provider";
@@ -21,7 +21,6 @@ interface ReceiptFormProps {
 }
 
 export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate }: ReceiptFormProps) {
-  const router = useRouter();
   const { dict } = useLocale();
   const [customers, setCustomers] = useState(initialCustomers);
   const [products, setProducts] = useState(initialProducts);
@@ -34,6 +33,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [printModalId, setPrintModalId] = useState<string | null>(null);
 
   // Resolves each line's VAT the same way the server does (Task 2): the product's
   // own override if it has one, otherwise the tenant's real default -- never a
@@ -176,11 +176,8 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
       }
 
       if (printAfter) {
-        // Deliberately leave `saving` true through the navigation so the buttons stay
-        // disabled until this component unmounts -- clearing it in a `finally` here
-        // would re-enable Save & Print for the several seconds router.push takes to
-        // actually navigate, letting a second click mint a second immutable receipt.
-        router.push(`/receipts/${body.id}/print`);
+        setPrintModalId(body.id);
+        setSaving(false);
       } else {
         resetForm();
         setSaving(false);
@@ -268,6 +265,17 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
         product={null}
         onOpenChange={setQuickCreateOpen}
         onSaved={handleQuickCreateSaved}
+      />
+
+      <PrintModal
+        kind="receipt"
+        documentId={printModalId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPrintModalId(null);
+            resetForm();
+          }
+        }}
       />
     </div>
   );

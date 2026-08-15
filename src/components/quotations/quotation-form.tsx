@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import type { Customer } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
+import { PrintModal } from "@/components/documents/print-modal";
 import type { SerializedProduct } from "@/components/products/products-client";
 import { round2, calculateLine, calculateDocumentTotals, deriveUnitPriceFromTotal } from "@/lib/receipts/calculate-totals";
 import { useLocale } from "@/lib/i18n/language-provider";
@@ -21,7 +21,6 @@ interface QuotationFormProps {
 }
 
 export function QuotationForm({ initialCustomers, initialProducts, defaultVatRate }: QuotationFormProps) {
-  const router = useRouter();
   const { dict } = useLocale();
   const [customers, setCustomers] = useState(initialCustomers);
   const [products, setProducts] = useState(initialProducts);
@@ -34,6 +33,7 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [printModalId, setPrintModalId] = useState<string | null>(null);
 
   const lineTotals = useMemo(
     () =>
@@ -158,7 +158,8 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
       }
 
       if (printAfter) {
-        router.push(`/quotations/${body.id}/print`);
+        setPrintModalId(body.id);
+        setSaving(false);
       } else {
         resetForm();
         setSaving(false);
@@ -246,6 +247,17 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
         product={null}
         onOpenChange={setQuickCreateOpen}
         onSaved={handleQuickCreateSaved}
+      />
+
+      <PrintModal
+        kind="quotation"
+        documentId={printModalId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPrintModalId(null);
+            resetForm();
+          }
+        }}
       />
     </div>
   );
