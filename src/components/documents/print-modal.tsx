@@ -103,7 +103,7 @@ export function PrintModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+      <DialogContent className="flex max-h-[90vh] w-full max-w-6xl sm:max-w-6xl flex-col overflow-hidden">
         <DialogTitle className="sr-only">
           {kind === "receipt" ? dict.printChrome.receiptTitle : dict.printChrome.quotationTitle}
         </DialogTitle>
@@ -113,27 +113,29 @@ export function PrintModal({
           </div>
         ) : (
           <>
-            {kind === "receipt" ? (
-              data.printFormat === "A4" ? (
-                <ReceiptPrintA4
-                  tenant={data.tenant as never}
-                  document={documentForPrint as never}
-                  qrImageDataUrl={data.qrImageDataUrl}
-                  showPrintButton={false}
-                />
+            <div className="min-h-0 flex-1 overflow-auto">
+              {kind === "receipt" ? (
+                data.printFormat === "A4" ? (
+                  <ReceiptPrintA4
+                    tenant={data.tenant as never}
+                    document={documentForPrint as never}
+                    qrImageDataUrl={data.qrImageDataUrl}
+                    showPrintButton={false}
+                  />
+                ) : (
+                  <ReceiptPrintThermal
+                    tenant={data.tenant as never}
+                    document={documentForPrint as never}
+                    qrImageDataUrl={data.qrImageDataUrl}
+                    showPrintButton={false}
+                  />
+                )
+              ) : data.printFormat === "A4" ? (
+                <QuotationPrintA4 tenant={data.tenant as never} document={documentForPrint as never} showPrintButton={false} />
               ) : (
-                <ReceiptPrintThermal
-                  tenant={data.tenant as never}
-                  document={documentForPrint as never}
-                  qrImageDataUrl={data.qrImageDataUrl}
-                  showPrintButton={false}
-                />
-              )
-            ) : data.printFormat === "A4" ? (
-              <QuotationPrintA4 tenant={data.tenant as never} document={documentForPrint as never} showPrintButton={false} />
-            ) : (
-              <QuotationPrintThermal tenant={data.tenant as never} document={documentForPrint as never} showPrintButton={false} />
-            )}
+                <QuotationPrintThermal tenant={data.tenant as never} document={documentForPrint as never} showPrintButton={false} />
+              )}
+            </div>
 
             <DialogFooter>
               <Button variant="outline" asChild>
