@@ -9,6 +9,7 @@ import { PrintModal } from "@/components/documents/print-modal";
 import type { SerializedProduct } from "@/components/products/products-client";
 import { round2, calculateLine, calculateDocumentTotals, deriveUnitPriceFromTotal } from "@/lib/receipts/calculate-totals";
 import { useLocale } from "@/lib/i18n/language-provider";
+import { useToast } from "@/lib/toast/toast-provider";
 import { CustomerSection, type CustomerDraft } from "@/components/receipts/customer-section";
 import { ItemsSection, type ReceiptLine } from "@/components/receipts/items-section";
 
@@ -22,6 +23,7 @@ interface QuotationFormProps {
 
 export function QuotationForm({ initialCustomers, initialProducts, defaultVatRate }: QuotationFormProps) {
   const { dict } = useLocale();
+  const { toast } = useToast();
   const [customers, setCustomers] = useState(initialCustomers);
   const [products, setProducts] = useState(initialProducts);
 
@@ -161,6 +163,7 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
         setPrintModalId(body.id);
         setSaving(false);
       } else {
+        toast.success(dict.documentForm.totals.savedToast);
         resetForm();
         setSaving(false);
       }

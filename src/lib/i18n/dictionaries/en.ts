@@ -131,6 +131,7 @@ export const en: Dictionary = {
       grandTotal: "Grand Total",
       savePrint: "Save & Print",
       addAtLeastOneItem: "Add at least one item",
+      savedToast: "Saved",
     },
   },
   receiptHistory: {

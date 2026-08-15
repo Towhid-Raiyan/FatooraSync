@@ -163,17 +163,41 @@
    is the only thing that prints, regardless of what else is on screen around it
    (app shell, dialog chrome, the page behind an open modal). Component-specific
    page-size rules (e.g. A4's @page block) stay local to those components --
-   this rule only handles visibility, not page geometry. */
+   this rule only handles visibility/flow, not page geometry.
+
+   This collapses (display: none, not just visibility: hidden) every branch of
+   the tree that isn't on the direct path to #print-target, rather than hiding
+   #print-target's ancestors and re-pulling it out with position:fixed/absolute.
+   That matters for two reasons verified against real print/PDF output, not just
+   the DOM: (1) an absolutely/fixed positioned #print-target doesn't reliably
+   fragment its own multi-page content (.a4-page + break-before: page) across
+   physical pages -- browsers generally don't paginate out-of-flow subtrees, so
+   the A4 layout's second/third page silently never printed even though the
+   markup for it existed; (2) leaving #print-target in normal flow only works if
+   nothing ahead of it in the DOM still occupies layout height, which requires
+   collapsing (not just hiding) the app shell/dialog chrome around it, and
+   resetting every remaining ancestor's own height/overflow/position caps
+   (h-screen, overflow-auto, the dialog's fixed positioning) -- otherwise those
+   ancestors clip the content to one screen-height the same way the dialog's
+   overflow-y-auto did. */
 @media print {
-  body * {
-    visibility: hidden;
+  body *:not(:has(#print-target)):not(#print-target):not(#print-target *) {
+    display: none !important;
   }
-  #print-target,
-  #print-target * {
-    visibility: visible;
+  body *:has(#print-target) {
+    position: static !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    max-width: none !important;
+    padding: 0 !important;
   }
-  #print-target {
-    position: fixed;
-    inset: 0;
+  /* Tailwind v4 sets this dialog's centering offset via the standalone `translate`
+     property (not `transform`), so it survives the position:static reset above
+     unless cleared separately -- and it must stay in its own rule: pairing it with
+     `transform: none` in the same declaration block gets the `translate` silently
+     dropped by the CSS build (verified against the served stylesheet). */
+  [data-slot="dialog-content"] {
+    translate: none !important;
   }
 }

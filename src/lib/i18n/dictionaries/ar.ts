@@ -131,6 +131,7 @@ export const ar: Dictionary = {
       grandTotal: "الإجمالي الكلي",
       savePrint: "حفظ وطباعة",
       addAtLeastOneItem: "أضف صنفاً واحداً على الأقل",
+      savedToast: "تم الحفظ",
     },
   },
   receiptHistory: {

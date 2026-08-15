@@ -129,6 +129,7 @@ export interface Dictionary {
       grandTotal: string;
       savePrint: string;
       addAtLeastOneItem: string;
+      savedToast: string;
     };
   };
   receiptHistory: {

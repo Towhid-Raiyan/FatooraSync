@@ -9,6 +9,7 @@ import { PrintModal } from "@/components/documents/print-modal";
 import type { SerializedProduct } from "@/components/products/products-client";
 import { round2, calculateLine, calculateDocumentTotals, deriveUnitPriceFromTotal } from "@/lib/receipts/calculate-totals";
 import { useLocale } from "@/lib/i18n/language-provider";
+import { useToast } from "@/lib/toast/toast-provider";
 import { CustomerSection, type CustomerDraft } from "./customer-section";
 import { ItemsSection, type ReceiptLine } from "./items-section";
 
@@ -22,6 +23,7 @@ interface ReceiptFormProps {
 
 export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate }: ReceiptFormProps) {
   const { dict } = useLocale();
+  const { toast } = useToast();
   const [customers, setCustomers] = useState(initialCustomers);
   const [products, setProducts] = useState(initialProducts);
 
@@ -179,6 +181,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
         setPrintModalId(body.id);
         setSaving(false);
       } else {
+        toast.success(dict.documentForm.totals.savedToast);
         resetForm();
         setSaving(false);
       }

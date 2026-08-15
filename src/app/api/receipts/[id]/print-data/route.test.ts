@@ -52,7 +52,8 @@ describe("/api/receipts/[id]/print-data", () => {
     const response = await GET(new Request("http://localhost"), { params: Promise.resolve({ id: receiptId }) });
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.document.id).toBe(receiptId);
+    expect(body.document.number).toBe(1);
+    expect(body.document.id).toBeUndefined();
     expect(body.printFormat).toBe("THERMAL");
   });
 

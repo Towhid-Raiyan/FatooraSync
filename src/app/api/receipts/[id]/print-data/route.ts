@@ -18,5 +18,40 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json(data);
+  // Only the fields the print modal's PrintData shape (print-modal.tsx) actually
+  // uses cross the network boundary here -- `data` itself also carries the full
+  // Tenant row (billing internals) and full Document row (ZATCA hash-chain
+  // internals), which are fine for the server-only PDF routes/print pages but
+  // shouldn't be readable as raw JSON by any authenticated tenant user.
+  return NextResponse.json({
+    printFormat: data.printFormat,
+    tenant: {
+      tradeNameEn: data.tenant.tradeNameEn,
+      tradeNameAr: data.tenant.tradeNameAr,
+      legalName: data.tenant.legalName,
+      vatNumber: data.tenant.vatNumber,
+      crNumber: data.tenant.crNumber,
+      phone: data.tenant.phone,
+      address: data.tenant.address,
+    },
+    document: {
+      number: data.document.number,
+      createdAt: data.document.createdAt,
+      subtotal: data.document.subtotal,
+      vatTotal: data.document.vatTotal,
+      grandTotal: data.document.grandTotal,
+      notes: data.document.notes,
+      customer: { name: data.document.customer.name, vatId: data.document.customer.vatId },
+      lines: data.document.lines.map((line) => ({
+        id: line.id,
+        productName: line.productName,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        discount: line.discount,
+        lineVat: line.lineVat,
+        lineTotal: line.lineTotal,
+      })),
+    },
+    qrImageDataUrl: data.qrImageDataUrl,
+  });
 }

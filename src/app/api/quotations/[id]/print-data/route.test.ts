@@ -52,7 +52,8 @@ describe("/api/quotations/[id]/print-data", () => {
     const response = await GET(new Request("http://localhost"), { params: Promise.resolve({ id: quotationId }) });
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.document.id).toBe(quotationId);
+    expect(body.document.number).toBe(1);
+    expect(body.document.id).toBeUndefined();
     expect(body.printFormat).toBe("THERMAL");
   });
 
