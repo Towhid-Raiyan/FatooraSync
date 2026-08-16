@@ -10,7 +10,11 @@ import { authConfig } from "@/lib/auth/auth.config";
 const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
-  const isPublic = req.nextUrl.pathname.startsWith("/login") || req.nextUrl.pathname.startsWith("/api/auth");
+  const isPublic =
+    req.nextUrl.pathname.startsWith("/login") ||
+    req.nextUrl.pathname.startsWith("/api/auth") ||
+    req.nextUrl.pathname.startsWith("/admin") ||
+    req.nextUrl.pathname.startsWith("/api/admin-auth");
   if (!req.auth && !isPublic) {
     return NextResponse.redirect(new URL("/login", req.nextUrl));
   }
