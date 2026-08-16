@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import { getAdminSession } from "@/lib/admin-auth/get-admin-session";
 import { assertCtoRole } from "@/lib/admin-auth/require-cto";
@@ -27,13 +28,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
   }
 
+  const data: Prisma.TenantUpdateInput = {
+    billingStatus: body.billingStatus,
+  };
+  if ("trialEndsAt" in body) {
+    data.trialEndsAt = body.trialEndsAt ? new Date(body.trialEndsAt) : null;
+  }
+  if ("featureFlags" in body) {
+    data.featureFlags = (body.featureFlags ?? {}) as Prisma.InputJsonValue;
+  }
+
   const tenant = await prisma.tenant.update({
     where: { id },
-    data: {
-      billingStatus: body.billingStatus,
-      trialEndsAt: body.trialEndsAt ? new Date(body.trialEndsAt) : null,
-      featureFlags: body.featureFlags ?? {},
-    },
+    data,
     select: { id: true, billingStatus: true, trialEndsAt: true, featureFlags: true },
   });
 

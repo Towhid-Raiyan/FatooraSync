@@ -92,7 +92,7 @@ export async function POST(request: Request) {
     );
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return NextResponse.json({ error: "A tenant with this VAT number or an account with this owner email already exists" }, { status: 409 });
+      return NextResponse.json({ error: "An account with this owner email already exists" }, { status: 409 });
     }
     throw err;
   }

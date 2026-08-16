@@ -15,13 +15,13 @@ let tenantId: string;
 
 describe("/api/admin/tenants/[id]", () => {
   beforeAll(async () => {
+    const uniqueId = Date.now();
     const cto = await prisma.agencyStaff.create({
-      data: { email: "detail-route-cto@fatoorasync.sa", passwordHash: await hashPassword("x"), role: "CTO" },
+      data: { email: `detail-route-cto+${uniqueId}@fatoorasync.sa`, passwordHash: await hashPassword("x"), role: "CTO" },
     });
     ctoId = cto.id;
     mockSession = { user: { agencyStaffId: ctoId, role: "CTO" } };
 
-    const uniqueId = Date.now();
     const result = await seedTenant({
       legalName: "Detail Route Test Co",
       tradeNameEn: "Detail Route Shop",
