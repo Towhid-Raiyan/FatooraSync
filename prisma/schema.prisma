@@ -39,6 +39,11 @@ enum UserRole {
   CASHIER
 }
 
+enum AgencyStaffRole {
+  CTO
+  DEVELOPER
+}
+
 model Tenant {
   id                     String        @id @default(uuid())
   legalName              String
@@ -101,6 +106,26 @@ model Session {
   userId       String
   user         User     @relation(fields: [userId], references: [id])
   expires      DateTime
+}
+
+model AgencyStaff {
+  id           String          @id @default(uuid())
+  email        String          @unique
+  passwordHash String
+  role         AgencyStaffRole @default(DEVELOPER)
+  createdAt    DateTime        @default(now())
+
+  auditLogs AuditLog[]
+}
+
+model AuditLog {
+  id            String      @id @default(uuid())
+  agencyStaffId String
+  agencyStaff   AgencyStaff @relation(fields: [agencyStaffId], references: [id])
+  action        String
+  tenantId      String?
+  metadata      Json        @default("{}")
+  createdAt     DateTime    @default(now())
 }
 
 model Customer {

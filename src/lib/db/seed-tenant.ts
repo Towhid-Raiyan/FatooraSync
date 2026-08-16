@@ -2,17 +2,32 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "./client";
 import { hashPassword } from "@/lib/auth/password";
 
+const TRIAL_LENGTH_MS = 14 * 24 * 60 * 60 * 1000;
+
 export interface SeedTenantInput {
   legalName: string;
   tradeNameEn: string;
   tradeNameAr?: string;
   vatNumber: string;
+  crNumber?: string;
+  phone?: string;
+  address?: string;
   ownerEmail: string;
   ownerPassword: string;
 }
 
 export interface SeedTenantResult {
-  tenant: { id: string; legalName: string; tradeNameEn: string; tradeNameAr: string | null; vatNumber: string };
+  tenant: {
+    id: string;
+    legalName: string;
+    tradeNameEn: string;
+    tradeNameAr: string | null;
+    vatNumber: string;
+    crNumber: string | null;
+    phone: string | null;
+    address: string | null;
+    trialEndsAt: Date | null;
+  };
   user: { id: string; tenantId: string; email: string; passwordHash: string };
   settings: { tenantId: string; defaultVatRate: Prisma.Decimal };
   walkInCustomer: { id: string; tenantId: string; name: string; isWalkIn: boolean };
@@ -29,6 +44,10 @@ export async function seedTenant(input: SeedTenantInput): Promise<SeedTenantResu
         tradeNameEn: input.tradeNameEn,
         tradeNameAr: input.tradeNameAr,
         vatNumber: input.vatNumber,
+        crNumber: input.crNumber,
+        phone: input.phone,
+        address: input.address,
+        trialEndsAt: new Date(Date.now() + TRIAL_LENGTH_MS),
       },
     });
 
