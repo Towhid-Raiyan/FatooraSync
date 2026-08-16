@@ -7,7 +7,7 @@ describe("admin credentials authorize", () => {
   beforeAll(async () => {
     await prisma.agencyStaff.create({
       data: {
-        email: "cto@fatoorasync.sa",
+        email: "admin-auth-config-test@fatoorasync.sa",
         passwordHash: await hashPassword("supersecret123"),
         role: "CTO",
       },
@@ -15,24 +15,24 @@ describe("admin credentials authorize", () => {
   });
 
   afterAll(async () => {
-    await prisma.agencyStaff.deleteMany({ where: { email: "cto@fatoorasync.sa" } });
+    await prisma.agencyStaff.deleteMany({ where: { email: "admin-auth-config-test@fatoorasync.sa" } });
     await prisma.$disconnect();
   });
 
   it("returns the staff member for valid credentials", async () => {
-    const staff = await authorize({ email: "cto@fatoorasync.sa", password: "supersecret123" });
+    const staff = await authorize({ email: "admin-auth-config-test@fatoorasync.sa", password: "supersecret123" });
     expect(staff).not.toBeNull();
     expect(staff?.role).toBe("CTO");
   });
 
   it("matches email case-insensitively", async () => {
-    const staff = await authorize({ email: "CTO@FatooraSync.SA", password: "supersecret123" });
+    const staff = await authorize({ email: "ADMIN-AUTH-CONFIG-TEST@FatooraSync.SA", password: "supersecret123" });
     expect(staff).not.toBeNull();
-    expect(staff?.email).toBe("cto@fatoorasync.sa");
+    expect(staff?.email).toBe("admin-auth-config-test@fatoorasync.sa");
   });
 
   it("returns null for an invalid password", async () => {
-    const staff = await authorize({ email: "cto@fatoorasync.sa", password: "wrong" });
+    const staff = await authorize({ email: "admin-auth-config-test@fatoorasync.sa", password: "wrong" });
     expect(staff).toBeNull();
   });
 
