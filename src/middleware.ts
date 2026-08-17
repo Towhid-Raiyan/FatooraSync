@@ -14,7 +14,12 @@ export default auth((req) => {
     req.nextUrl.pathname.startsWith("/login") ||
     req.nextUrl.pathname.startsWith("/api/auth") ||
     req.nextUrl.pathname.startsWith("/admin") ||
-    req.nextUrl.pathname.startsWith("/api/admin-auth");
+    // Covers both /api/admin-auth (admin sign-in) and /api/admin/* (the admin
+    // API routes, e.g. POST /api/admin/tenants). Those routes authorize
+    // themselves via getAdminSession()/assertCtoRole() and return JSON
+    // 401/403 - they must not be redirected to the tenant app's /login by
+    // this (tenant-session) middleware first.
+    req.nextUrl.pathname.startsWith("/api/admin");
   if (!req.auth && !isPublic) {
     return NextResponse.redirect(new URL("/login", req.nextUrl));
   }
