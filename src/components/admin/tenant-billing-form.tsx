@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/lib/toast/toast-provider";
+import { Spinner } from "@/components/admin/spinner";
 
 const STATUSES = ["TRIALING", "ACTIVE", "COMPLIMENTARY", "PAST_DUE", "SUSPENDED"];
 
@@ -77,7 +78,7 @@ export function TenantBillingForm({
           ))}
         </select>
         <p className="mt-1 text-[11px] text-neutral-400">
-          SUSPENDED blocks the tenant&apos;s app immediately — checked server-side on every page load, not just at login.
+          SUSPENDED blocks the client&apos;s app immediately — checked server-side on every page load, not just at login.
         </p>
       </div>
 
@@ -113,8 +114,9 @@ export function TenantBillingForm({
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="rounded-lg bg-green-800 px-4 py-2 text-[13px] font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg bg-green-800 px-4 py-2 text-[13px] font-semibold text-white hover:bg-green-700 disabled:opacity-70"
         >
+          {saving && <Spinner />}
           {saving ? "Saving…" : "Save changes"}
         </button>
       </div>

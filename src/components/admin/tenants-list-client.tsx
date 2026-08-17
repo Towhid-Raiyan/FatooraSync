@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { StatusPill } from "@/components/admin/status-pill";
+import { ClickableRow } from "@/components/admin/clickable-row";
 
 export interface TenantRow {
   id: string;
@@ -52,7 +52,7 @@ export function TenantsListClient({ initialTenants }: { initialTenants: TenantRo
       <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
         {tenants.length === 0 ? (
           <p className="py-10 text-center text-xs text-neutral-400">
-            {query.trim() ? "No tenants match your search." : "No tenants yet — create the first one."}
+            {query.trim() ? "No clients match your search." : "No clients yet — create the first one."}
           </p>
         ) : (
           <table className="w-full text-[13px]">
@@ -67,12 +67,10 @@ export function TenantsListClient({ initialTenants }: { initialTenants: TenantRo
             </thead>
             <tbody>
               {tenants.map((t) => (
-                <tr key={t.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
+                <ClickableRow key={t.id} href={`/admin/tenants/${t.id}`}>
                   <td className="px-4 py-3">
-                    <Link href={`/admin/tenants/${t.id}`} className="block">
-                      <div className="font-semibold text-neutral-900">{t.tradeNameEn}</div>
-                      <div className="text-[12px] text-neutral-400">{t.legalName}</div>
-                    </Link>
+                    <div className="font-semibold text-neutral-900">{t.tradeNameEn}</div>
+                    <div className="text-[12px] text-neutral-400">{t.legalName}</div>
                   </td>
                   <td className="px-4 py-3 font-mono text-[12px] text-neutral-600">{t.vatNumber}</td>
                   <td className="px-4 py-3">
@@ -80,7 +78,7 @@ export function TenantsListClient({ initialTenants }: { initialTenants: TenantRo
                   </td>
                   <td className="px-4 py-3 text-neutral-600">{t.ownerEmail ?? "—"}</td>
                   <td className="px-4 py-3 text-neutral-400">{new Date(t.createdAt).toLocaleDateString()}</td>
-                </tr>
+                </ClickableRow>
               ))}
             </tbody>
           </table>

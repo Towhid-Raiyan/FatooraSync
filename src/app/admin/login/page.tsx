@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { signIn } from "@/lib/admin-auth/config";
+import { LoginSubmitButton } from "@/components/admin/login-submit-button";
 
 export default async function AdminLoginPage({
   searchParams,
@@ -33,7 +34,7 @@ export default async function AdminLoginPage({
             FS
           </div>
           <h1 className="text-[15px] font-semibold text-neutral-900">Agency sign in</h1>
-          <p className="mt-1 text-xs text-neutral-500">Separate from tenant Owner/Cashier logins</p>
+          <p className="mt-1 text-xs text-neutral-500">Separate from client Owner/Cashier logins</p>
         </div>
 
         {error && (
@@ -68,12 +69,7 @@ export default async function AdminLoginPage({
           />
         </div>
 
-        <button
-          type="submit"
-          className="w-full rounded-lg bg-green-800 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700"
-        >
-          Sign in
-        </button>
+        <LoginSubmitButton />
       </form>
     </div>
   );

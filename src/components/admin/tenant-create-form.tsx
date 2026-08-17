@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PASSWORD_RULES, isPasswordValid } from "@/lib/auth/password-rules";
 import { useToast } from "@/lib/toast/toast-provider";
+import { Spinner } from "@/components/admin/spinner";
 
 const RULE_LABELS: Record<string, string> = {
   minLength: "8+ characters",
@@ -57,7 +58,7 @@ export function TenantCreateForm() {
         setError(body.error ?? "Something went wrong.");
         return;
       }
-      toast.success(`Tenant "${body.tradeNameEn}" created`);
+      toast.success(`Client "${body.tradeNameEn}" created`);
       setCreatedTenant({ id: body.id, tradeNameEn: body.tradeNameEn, ownerEmail, ownerPassword: password });
     } catch {
       setError("Something went wrong.");
@@ -135,9 +136,10 @@ export function TenantCreateForm() {
         <button
           type="submit"
           disabled={saving}
-          className="rounded-lg bg-green-800 px-4 py-2 text-[13px] font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg bg-green-800 px-4 py-2 text-[13px] font-semibold text-white hover:bg-green-700 disabled:opacity-70"
         >
-          {saving ? "Creating…" : "Create tenant"}
+          {saving && <Spinner />}
+          {saving ? "Creating…" : "Create client"}
         </button>
       </div>
     </form>
@@ -167,7 +169,7 @@ function TenantCreatedPanel({
 
   return (
     <div className="max-w-2xl rounded-xl border border-neutral-200 bg-white p-6">
-      <p className="mb-1 text-sm font-bold text-green-800">✓ Tenant created</p>
+      <p className="mb-1 text-sm font-bold text-green-800">✓ Client created</p>
       <p className="mb-5 text-sm text-neutral-500">
         {tenant.tradeNameEn} is ready. Share these Owner credentials now — the password will not be shown again.
       </p>
@@ -200,7 +202,7 @@ function TenantCreatedPanel({
           onClick={onContinue}
           className="rounded-lg bg-green-800 px-4 py-2 text-[13px] font-semibold text-white hover:bg-green-700"
         >
-          Go to tenant
+          Go to client
         </button>
       </div>
     </div>

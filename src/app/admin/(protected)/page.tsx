@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { prisma } from "@/lib/db/client";
 import { StatusPill } from "@/components/admin/status-pill";
+import { ClickableRow } from "@/components/admin/clickable-row";
 
 const STATUS_ORDER = ["TRIALING", "ACTIVE", "COMPLIMENTARY", "PAST_DUE", "SUSPENDED"] as const;
 const STATUS_BAR_COLOR: Record<string, string> = {
@@ -31,7 +31,7 @@ export default async function AdminDashboardPage() {
       <div className="mb-7 grid grid-cols-4 gap-3.5">
         <div className="rounded-xl border border-neutral-200 bg-white p-4">
           <div className="text-2xl font-extrabold text-neutral-900">{total}</div>
-          <div className="text-[11.5px] font-semibold text-neutral-500">Total tenants</div>
+          <div className="text-[11.5px] font-semibold text-neutral-500">Total clients</div>
         </div>
         <div className="rounded-xl border border-neutral-200 bg-white p-4">
           <div className="text-2xl font-extrabold text-green-800">{counts.ACTIVE ?? 0}</div>
@@ -69,25 +69,21 @@ export default async function AdminDashboardPage() {
       )}
 
       <div>
-        <p className="mb-2.5 text-[13px] font-bold text-neutral-900">Recently added tenants</p>
+        <p className="mb-2.5 text-[13px] font-bold text-neutral-900">Recently added clients</p>
         <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
           {recent.length === 0 ? (
-            <p className="py-8 text-center text-xs text-neutral-400">No tenants yet.</p>
+            <p className="py-8 text-center text-xs text-neutral-400">No clients yet.</p>
           ) : (
             <table className="w-full text-[13px]">
               <tbody>
                 {recent.map((t) => (
-                  <tr key={t.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
-                    <td className="px-4 py-3">
-                      <Link href={`/admin/tenants/${t.id}`} className="font-semibold text-neutral-900">
-                        {t.tradeNameEn}
-                      </Link>
-                    </td>
+                  <ClickableRow key={t.id} href={`/admin/tenants/${t.id}`}>
+                    <td className="px-4 py-3 font-semibold text-neutral-900">{t.tradeNameEn}</td>
                     <td className="px-4 py-3">
                       <StatusPill status={t.billingStatus} />
                     </td>
                     <td className="px-4 py-3 text-neutral-500">{t.createdAt.toLocaleDateString()}</td>
-                  </tr>
+                  </ClickableRow>
                 ))}
               </tbody>
             </table>

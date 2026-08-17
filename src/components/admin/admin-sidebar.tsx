@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SignOutButton } from "@/components/admin/sign-out-button";
 
 const NAV_GROUPS = [
   {
     label: "Business",
     items: [
       { href: "/admin", label: "Dashboard" },
-      { href: "/admin/tenants", label: "Tenants" },
+      { href: "/admin/tenants", label: "Clients" },
       { href: "/admin/analytics", label: "Analytics", soon: true },
     ],
   },
@@ -82,9 +83,7 @@ export function AdminSidebar({
           <div className="text-[10px] font-bold text-green-800">{role}</div>
         </div>
         <form action={signOutAction}>
-          <button type="submit" title="Sign out" className="text-neutral-400 hover:text-red-600">
-            ×
-          </button>
+          <SignOutButton />
         </form>
       </div>
     </div>
