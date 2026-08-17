@@ -39,8 +39,8 @@ export function A4BusinessHeader({
   return (
     <div className="flex justify-between">
       <div>
-        <div className="text-[17px] font-bold">{tenant.tradeNameAr ?? tenant.tradeNameEn}</div>
-        <div className="text-[15px] font-bold">{tenant.tradeNameEn}</div>
+        {tenant.tradeNameAr && <div className="text-[17px] font-bold">{tenant.tradeNameAr}</div>}
+        <div className="text-[15px] font-bold">{tenant.legalName}</div>
         <div className="mt-1 text-[13px] text-gray-600">VAT ID: {tenant.vatNumber}</div>
         {tenant.crNumber && <div className="text-[13px] text-gray-600">CR No: {tenant.crNumber}</div>}
         {tenant.phone && <div className="text-[13px] text-gray-600">Phone: {tenant.phone}</div>}

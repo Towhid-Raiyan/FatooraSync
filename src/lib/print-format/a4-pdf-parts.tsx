@@ -87,8 +87,8 @@ export function A4BusinessHeader({
   return (
     <View style={a4PdfStyles.headerRow}>
       <View>
-        <Text style={a4PdfStyles.bizNameAr}>{tenant.tradeNameAr ?? tenant.tradeNameEn}</Text>
-        <Text style={a4PdfStyles.bizNameEn}>{tenant.tradeNameEn}</Text>
+        {tenant.tradeNameAr && <Text style={a4PdfStyles.bizNameAr}>{tenant.tradeNameAr}</Text>}
+        <Text style={a4PdfStyles.bizNameEn}>{tenant.legalName}</Text>
         <Text style={a4PdfStyles.bizLine}>VAT ID: {tenant.vatNumber}</Text>
         {tenant.crNumber && <Text style={a4PdfStyles.bizLine}>CR No: {tenant.crNumber}</Text>}
         {tenant.phone && <Text style={a4PdfStyles.bizLine}>Phone: {tenant.phone}</Text>}
