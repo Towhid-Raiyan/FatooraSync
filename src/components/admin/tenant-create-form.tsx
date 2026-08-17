@@ -25,11 +25,13 @@ export function TenantCreateForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
+  const [createdTenant, setCreatedTenant] = useState<{ id: string; tradeNameEn: string; ownerEmail: string; ownerPassword: string } | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     const form = new FormData(e.currentTarget);
+    const ownerEmail = String(form.get("ownerEmail") ?? "");
     const payload = {
       legalName: form.get("legalName"),
       tradeNameEn: form.get("tradeNameEn"),
@@ -38,7 +40,7 @@ export function TenantCreateForm() {
       crNumber: form.get("crNumber"),
       phone: form.get("phone"),
       address: form.get("address"),
-      ownerEmail: form.get("ownerEmail"),
+      ownerEmail,
       ownerPassword: password,
     };
 
@@ -56,12 +58,16 @@ export function TenantCreateForm() {
         return;
       }
       toast.success(`Tenant "${body.tradeNameEn}" created`);
-      router.push(`/admin/tenants/${body.id}`);
+      setCreatedTenant({ id: body.id, tradeNameEn: body.tradeNameEn, ownerEmail, ownerPassword: password });
     } catch {
       setError("Something went wrong.");
     } finally {
       setSaving(false);
     }
+  }
+
+  if (createdTenant) {
+    return <TenantCreatedPanel tenant={createdTenant} onContinue={() => router.push(`/admin/tenants/${createdTenant.id}`)} />;
   }
 
   return (
@@ -79,7 +85,12 @@ export function TenantCreateForm() {
 
       <p className="mb-4 mt-6 text-[11px] font-bold uppercase tracking-wide text-neutral-400">Owner account</p>
       <div className="mb-1 grid grid-cols-2 gap-3.5">
-        <Field label="Owner email" name="ownerEmail" type="email" required />
+        <div>
+          <Field label="Owner email" name="ownerEmail" type="email" required />
+          <p className="mt-1.5 text-[11px] text-neutral-400">
+            Stored exactly as typed — the Owner&apos;s login is case-sensitive, so double-check capitalization.
+          </p>
+        </div>
         <div>
           <label className="mb-1.5 block text-xs font-semibold text-neutral-600">Owner password</label>
           <div className="flex gap-2">
@@ -130,6 +141,69 @@ export function TenantCreateForm() {
         </button>
       </div>
     </form>
+  );
+}
+
+function TenantCreatedPanel({
+  tenant,
+  onContinue,
+}: {
+  tenant: { id: string; tradeNameEn: string; ownerEmail: string; ownerPassword: string };
+  onContinue: () => void;
+}) {
+  const { toast } = useToast();
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(tenant.ownerPassword);
+      setCopied(true);
+      toast.success("Password copied");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Could not copy — select the text manually.");
+    }
+  }
+
+  return (
+    <div className="max-w-2xl rounded-xl border border-neutral-200 bg-white p-6">
+      <p className="mb-1 text-sm font-bold text-green-800">✓ Tenant created</p>
+      <p className="mb-5 text-sm text-neutral-500">
+        {tenant.tradeNameEn} is ready. Share these Owner credentials now — the password will not be shown again.
+      </p>
+
+      <div className="mb-5 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+        <div className="mb-3">
+          <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-neutral-400">Owner email</p>
+          <p className="select-all rounded-md bg-white px-3 py-2 font-mono text-sm text-neutral-900">{tenant.ownerEmail}</p>
+        </div>
+        <div>
+          <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-neutral-400">Owner password</p>
+          <div className="flex gap-2">
+            <p className="select-all flex-1 rounded-md bg-white px-3 py-2 font-mono text-sm text-neutral-900">{tenant.ownerPassword}</p>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="shrink-0 rounded-lg border border-neutral-200 px-3 text-xs font-semibold text-neutral-600 hover:border-green-700"
+            >
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <p className="mb-6 text-[11px] text-neutral-400">This password will not be shown again — copy it now before leaving this page.</p>
+
+      <div className="flex justify-end border-t border-neutral-100 pt-5">
+        <button
+          type="button"
+          onClick={onContinue}
+          className="rounded-lg bg-green-800 px-4 py-2 text-[13px] font-semibold text-white hover:bg-green-700"
+        >
+          Go to tenant
+        </button>
+      </div>
+    </div>
   );
 }
 
