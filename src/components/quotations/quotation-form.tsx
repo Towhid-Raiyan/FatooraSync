@@ -229,7 +229,13 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
           className="xl:col-start-1 xl:row-start-2 xl:min-h-0"
         />
 
-        <Card className="flex flex-col border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:13.5px] xl:col-start-2 xl:row-start-1">
+        {/* overflow-visible: Card's default overflow-hidden makes CSS Grid treat this
+            item's automatic minimum size (and its max-content contribution) as ~0 when
+            sizing its auto row track below xl -- the row was collapsing to ~29px (just
+            the Card's own padding) regardless of how much the header+textarea actually
+            needed, clipping the whole Notes card to invisible. See the matching note in
+            items-section.tsx and customer-section.tsx for the same root cause. */}
+        <Card className="flex flex-col overflow-visible border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:13.5px] xl:col-start-2 xl:row-start-1">
           <CardHeader>
             <CardTitle className="text-heading">{dict.documentForm.notesTitle}</CardTitle>
           </CardHeader>
