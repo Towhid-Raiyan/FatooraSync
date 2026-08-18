@@ -83,13 +83,13 @@ export function CustomersClient({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Input
             placeholder={dict.customers.searchPlaceholder}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-72"
+            className="sm:w-72"
           />
           <label className="flex items-center gap-2 text-sm text-body">
             <Checkbox checked={showInactive} onCheckedChange={(checked) => setShowInactive(checked === true)} />
@@ -115,54 +115,94 @@ export function CustomersClient({
             <p className="text-sm text-muted-fg">{dict.customers.noCustomersYet}</p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{dict.customers.name}</TableHead>
-                <TableHead>{dict.customers.vatId}</TableHead>
-                <TableHead>{dict.customers.crNumber}</TableHead>
-                <TableHead>{dict.customers.phone}</TableHead>
-                <TableHead>{dict.customers.address}</TableHead>
-                <TableHead className="text-right">{dict.common.actions}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            <div className="hidden overflow-x-auto md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{dict.customers.name}</TableHead>
+                    <TableHead>{dict.customers.vatId}</TableHead>
+                    <TableHead>{dict.customers.crNumber}</TableHead>
+                    <TableHead>{dict.customers.phone}</TableHead>
+                    <TableHead>{dict.customers.address}</TableHead>
+                    <TableHead className="text-right">{dict.common.actions}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((customer) => (
+                    <TableRow key={customer.id} className={!customer.isActive ? "opacity-50" : undefined}>
+                      <TableCell className="font-medium text-heading">
+                        {customer.name}
+                        {customer.isWalkIn && (
+                          <Badge variant="secondary" className="ms-2">
+                            {dict.customers.systemBadge}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>{customer.vatId ?? "—"}</TableCell>
+                      <TableCell>{customer.crNumber ?? "—"}</TableCell>
+                      <TableCell>{customer.phone ?? "—"}</TableCell>
+                      <TableCell>{customer.address ?? "—"}</TableCell>
+                      <TableCell className="text-right">
+                        {!customer.isWalkIn && canManageCatalog && (
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setDialogState({ open: true, customer })}>
+                              {dict.common.edit}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={togglingId === customer.id}
+                              onClick={() => toggleActive(customer)}
+                            >
+                              {togglingId === customer.id && <Loader2Icon className="size-3.5 animate-spin" />}
+                              {customer.isActive ? dict.common.deactivate : dict.common.reactivate}
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <ul className="divide-y divide-border-subtle md:hidden">
               {filtered.map((customer) => (
-                <TableRow key={customer.id} className={!customer.isActive ? "opacity-50" : undefined}>
-                  <TableCell className="font-medium text-heading">
+                <li key={customer.id} className={`p-4 ${!customer.isActive ? "opacity-50" : ""}`}>
+                  <div className="font-medium text-heading">
                     {customer.name}
                     {customer.isWalkIn && (
                       <Badge variant="secondary" className="ms-2">
                         {dict.customers.systemBadge}
                       </Badge>
                     )}
-                  </TableCell>
-                  <TableCell>{customer.vatId ?? "—"}</TableCell>
-                  <TableCell>{customer.crNumber ?? "—"}</TableCell>
-                  <TableCell>{customer.phone ?? "—"}</TableCell>
-                  <TableCell>{customer.address ?? "—"}</TableCell>
-                  <TableCell className="text-right">
-                    {!customer.isWalkIn && canManageCatalog && (
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setDialogState({ open: true, customer })}>
-                          {dict.common.edit}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={togglingId === customer.id}
-                          onClick={() => toggleActive(customer)}
-                        >
-                          {togglingId === customer.id && <Loader2Icon className="size-3.5 animate-spin" />}
-                          {customer.isActive ? dict.common.deactivate : dict.common.reactivate}
-                        </Button>
-                      </div>
-                    )}
-                  </TableCell>
-                </TableRow>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-fg">
+                    {customer.vatId && <span>{dict.customers.vatId}: {customer.vatId}</span>}
+                    {customer.phone && <span>{customer.phone}</span>}
+                    {customer.address && <span>{customer.address}</span>}
+                  </div>
+                  {!customer.isWalkIn && canManageCatalog && (
+                    <div className="mt-3 flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setDialogState({ open: true, customer })}>
+                        {dict.common.edit}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={togglingId === customer.id}
+                        onClick={() => toggleActive(customer)}
+                      >
+                        {togglingId === customer.id && <Loader2Icon className="size-3.5 animate-spin" />}
+                        {customer.isActive ? dict.common.deactivate : dict.common.reactivate}
+                      </Button>
+                    </div>
+                  )}
+                </li>
               ))}
-            </TableBody>
-          </Table>
+            </ul>
+          </>
         )}
       </Card>
 

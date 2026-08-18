@@ -9,7 +9,7 @@ vi.mock("@/lib/auth/config", () => ({
   auth: async () => mockSession,
 }));
 
-const VALID_PASSWORD = "Cashier1!";
+const VALID_PASSWORD = "abcd";
 
 function postRequest(body: unknown) {
   return new Request("http://localhost/api/users", { method: "POST", body: JSON.stringify(body) });
@@ -39,9 +39,21 @@ describe("/api/users", () => {
     expect(body.isActive).toBe(true);
   });
 
-  it("returns 400 for a password missing an uppercase letter", async () => {
-    const response = await POST(postRequest({ email: "weak-pw@example.com", password: "lowercase1!" }));
+  it("accepts a free-form username that doesn't look like an email", async () => {
+    const response = await POST(postRequest({ email: "frontdesk", password: VALID_PASSWORD }));
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.email).toBe("frontdesk");
+  });
+
+  it("returns 400 for a password shorter than 4 characters", async () => {
+    const response = await POST(postRequest({ email: "weak-pw@example.com", password: "abc" }));
     expect(response.status).toBe(400);
+  });
+
+  it("accepts a 4-character password with no other complexity requirements", async () => {
+    const response = await POST(postRequest({ email: "min-pw@example.com", password: "abcd" }));
+    expect(response.status).toBe(201);
   });
 
   it("returns 400 for an empty email", async () => {

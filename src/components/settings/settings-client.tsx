@@ -56,7 +56,7 @@ export function SettingsClient() {
   }
 
   return (
-    <Card className="max-w-md border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
+    <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
       <CardHeader>
         <CardTitle className="text-heading">{dict.settings.title}</CardTitle>
       </CardHeader>

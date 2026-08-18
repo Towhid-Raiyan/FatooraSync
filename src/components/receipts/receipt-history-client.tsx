@@ -99,11 +99,11 @@ export function ReceiptHistoryClient({ initial }: { initial: ReceiptsResponse })
           placeholder={dict.receiptHistory.searchPlaceholder}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-72"
+          className="w-full sm:w-72"
         />
-        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-40" />
+        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-[calc(50%-1.25rem)] sm:w-40" />
         <span className="text-sm text-muted-fg">{dict.common.to}</span>
-        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-40" />
+        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[calc(50%-1.25rem)] sm:w-40" />
       </div>
 
       {error && (
@@ -119,51 +119,68 @@ export function ReceiptHistoryClient({ initial }: { initial: ReceiptsResponse })
               {search || dateFrom || dateTo ? dict.receiptHistory.noMatching : dict.receiptHistory.noneYet}
             </p>
           </div>
+        ) : loading ? (
+          <div className="py-10 text-center text-sm text-muted-fg">{dict.common.loading}</div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{dict.receiptHistory.number}</TableHead>
-                <TableHead>{dict.receiptHistory.customer}</TableHead>
-                <TableHead>{dict.receiptHistory.date}</TableHead>
-                <TableHead className="text-right">{dict.receiptHistory.total}</TableHead>
-                <TableHead className="text-right">{dict.common.actions}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-fg">
-                    {dict.common.loading}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                data.receipts.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-mono text-xs">#{r.number}</TableCell>
-                    <TableCell>
-                      <div className="font-medium text-heading">{r.customerName}</div>
-                      {r.customerVatId && <div className="text-xs text-muted-fg">{r.customerVatId}</div>}
-                    </TableCell>
-                    <TableCell>{r.createdAt.slice(0, 10)}</TableCell>
-                    <TableCell className="text-right font-semibold text-heading">
-                      {Number(r.grandTotal).toFixed(2)} SAR
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" onClick={() => setPrintModalId(r.id)}>
-                        {dict.common.view}
-                      </Button>
-                    </TableCell>
+          <>
+            <div className="hidden overflow-x-auto md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{dict.receiptHistory.number}</TableHead>
+                    <TableHead>{dict.receiptHistory.customer}</TableHead>
+                    <TableHead>{dict.receiptHistory.date}</TableHead>
+                    <TableHead className="text-right">{dict.receiptHistory.total}</TableHead>
+                    <TableHead className="text-right">{dict.common.actions}</TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                  {data.receipts.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-mono text-xs">#{r.number}</TableCell>
+                      <TableCell>
+                        <div className="font-medium text-heading">{r.customerName}</div>
+                        {r.customerVatId && <div className="text-xs text-muted-fg">{r.customerVatId}</div>}
+                      </TableCell>
+                      <TableCell>{r.createdAt.slice(0, 10)}</TableCell>
+                      <TableCell className="text-right font-semibold text-heading">
+                        {Number(r.grandTotal).toFixed(2)} SAR
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="sm" onClick={() => setPrintModalId(r.id)}>
+                          {dict.common.view}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <ul className="divide-y divide-border-subtle md:hidden">
+              {data.receipts.map((r) => (
+                <li key={r.id} className="flex items-center justify-between gap-3 p-4">
+                  <div className="min-w-0">
+                    <div className="font-medium text-heading">
+                      <span className="font-mono text-xs text-muted-fg">#{r.number}</span> {r.customerName}
+                    </div>
+                    <div className="mt-0.5 flex gap-3 text-xs text-muted-fg">
+                      <span>{r.createdAt.slice(0, 10)}</span>
+                      <span className="font-semibold text-heading">{Number(r.grandTotal).toFixed(2)} SAR</span>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm" className="shrink-0" onClick={() => setPrintModalId(r.id)}>
+                    {dict.common.view}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </Card>
 
       {data.total > 0 && (
-        <div className="flex items-center justify-between text-sm text-muted-fg">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-fg">
           <span>{dict.common.totalMatches(data.total)}</span>
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm" disabled={page <= 1 || loading} onClick={() => goToPage(page - 1)}>

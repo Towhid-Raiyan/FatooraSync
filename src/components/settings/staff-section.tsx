@@ -11,8 +11,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useLocale } from "@/lib/i18n/language-provider";
 import { useToast } from "@/lib/toast/toast-provider";
-import { isPasswordValid } from "@/lib/auth/password-rules";
-import { PasswordChecklist } from "./password-checklist";
+import { isStaffPasswordValid } from "@/lib/auth/staff-password";
 
 interface Cashier {
   id: string;
@@ -33,6 +32,11 @@ export function StaffSection({ initialCashiers }: { initialCashiers: Cashier[] }
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [resetTarget, setResetTarget] = useState<Cashier | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetSaving, setResetSaving] = useState(false);
 
   function openDialog() {
     setEmail("");
@@ -85,10 +89,61 @@ export function StaffSection({ initialCashiers }: { initialCashiers: Cashier[] }
     }
   }
 
-  const canSubmit = email.trim() !== "" && isPasswordValid(password);
+  async function deleteCashier(cashier: Cashier) {
+    if (!window.confirm(dict.staff.deleteConfirm(cashier.email))) return;
+    setActionError(null);
+    setDeletingId(cashier.id);
+    try {
+      const response = await fetch(`/api/users/${cashier.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        setActionError(body.error ?? dict.common.somethingWentWrong);
+        return;
+      }
+      setCashiers((prev) => prev.filter((c) => c.id !== cashier.id));
+      toast.success(dict.staff.cashierDeletedToast);
+    } catch {
+      setActionError(dict.common.somethingWentWrong);
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  function openResetDialog(cashier: Cashier) {
+    setResetTarget(cashier);
+    setResetPassword("");
+    setResetError(null);
+  }
+
+  async function handleResetPassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!resetTarget) return;
+    setResetSaving(true);
+    setResetError(null);
+    try {
+      const response = await fetch(`/api/users/${resetTarget.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ password: resetPassword }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        setResetError(body.error ?? dict.common.somethingWentWrong);
+        return;
+      }
+      setResetTarget(null);
+      toast.success(dict.staff.passwordResetToast);
+    } catch {
+      setResetError(dict.common.somethingWentWrong);
+    } finally {
+      setResetSaving(false);
+    }
+  }
+
+  const canSubmit = email.trim() !== "" && isStaffPasswordValid(password);
+  const canReset = isStaffPasswordValid(resetPassword);
 
   return (
-    <Card className="max-w-md border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] p-4">
+    <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] p-4">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="font-heading text-base font-medium text-heading">{dict.staff.title}</h2>
         <Button variant="primary" size="sm" onClick={openDialog}>
@@ -105,37 +160,53 @@ export function StaffSection({ initialCashiers }: { initialCashiers: Cashier[] }
       {cashiers.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted-fg">{dict.staff.noCashiersYet}</p>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{dict.staff.email}</TableHead>
-              <TableHead className="text-right">{dict.common.actions}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {cashiers.map((cashier) => (
-              <TableRow key={cashier.id} className={!cashier.isActive ? "opacity-50" : undefined}>
-                <TableCell>
-                  {cashier.email}
-                  <Badge variant={cashier.isActive ? "secondary" : "outline"} className="ms-2">
-                    {cashier.isActive ? dict.staff.activeBadge : dict.staff.inactiveBadge}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={togglingId === cashier.id}
-                    onClick={() => toggleActive(cashier)}
-                  >
-                    {togglingId === cashier.id && <Loader2Icon className="size-3.5 animate-spin" />}
-                    {cashier.isActive ? dict.common.deactivate : dict.common.reactivate}
-                  </Button>
-                </TableCell>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{dict.staff.email}</TableHead>
+                <TableHead className="text-right">{dict.common.actions}</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {cashiers.map((cashier) => (
+                <TableRow key={cashier.id} className={!cashier.isActive ? "opacity-50" : undefined}>
+                  <TableCell>
+                    {cashier.email}
+                    <Badge variant={cashier.isActive ? "secondary" : "outline"} className="ms-2">
+                      {cashier.isActive ? dict.staff.activeBadge : dict.staff.inactiveBadge}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex flex-wrap justify-end gap-1.5">
+                      <Button variant="outline" size="sm" onClick={() => openResetDialog(cashier)}>
+                        {dict.staff.resetPassword}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={togglingId === cashier.id}
+                        onClick={() => toggleActive(cashier)}
+                      >
+                        {togglingId === cashier.id && <Loader2Icon className="size-3.5 animate-spin" />}
+                        {cashier.isActive ? dict.common.deactivate : dict.common.reactivate}
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={deletingId === cashier.id}
+                        onClick={() => deleteCashier(cashier)}
+                      >
+                        {deletingId === cashier.id && <Loader2Icon className="size-3.5 animate-spin" />}
+                        {dict.staff.delete}
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -155,7 +226,7 @@ export function StaffSection({ initialCashiers }: { initialCashiers: Cashier[] }
               <Label htmlFor="cashier-email" className={LABEL_CLASS}>
                 {dict.staff.email}
               </Label>
-              <Input id="cashier-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <Input id="cashier-email" type="text" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
 
             <div>
@@ -169,14 +240,49 @@ export function StaffSection({ initialCashiers }: { initialCashiers: Cashier[] }
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
-              <div className="mt-2">
-                <PasswordChecklist password={password} />
-              </div>
+              <p className="mt-1.5 text-xs text-muted-fg">{dict.staff.staffPasswordHint}</p>
             </div>
 
             <DialogFooter>
               <Button type="submit" variant="primary" disabled={saving || !canSubmit}>
                 {saving ? dict.common.savingEllipsis : dict.common.save}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={resetTarget !== null} onOpenChange={(open) => !open && setResetTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{dict.staff.resetPasswordDialogTitle}</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleResetPassword} className="flex flex-col gap-4">
+            {resetError && (
+              <p role="alert" className="text-xs text-red-600">
+                {resetError}
+              </p>
+            )}
+
+            <div>
+              <Label htmlFor="reset-password" className={LABEL_CLASS}>
+                {dict.staff.newPassword}
+              </Label>
+              <Input
+                id="reset-password"
+                type="password"
+                value={resetPassword}
+                onChange={(e) => setResetPassword(e.target.value)}
+                required
+                autoFocus
+              />
+              <p className="mt-1.5 text-xs text-muted-fg">{dict.staff.staffPasswordHint}</p>
+            </div>
+
+            <DialogFooter>
+              <Button type="submit" variant="primary" disabled={resetSaving || !canReset}>
+                {resetSaving ? dict.common.savingEllipsis : dict.common.save}
               </Button>
             </DialogFooter>
           </form>

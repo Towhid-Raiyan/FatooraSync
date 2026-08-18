@@ -32,7 +32,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-bg-app">
+    <div className="relative flex min-h-screen items-center justify-center bg-bg-app px-4">
       <DesertScene />
 
       <div className="absolute start-8 top-7 z-10 flex items-center gap-2 text-[15px] font-bold text-heading">

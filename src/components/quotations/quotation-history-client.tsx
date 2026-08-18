@@ -94,11 +94,11 @@ export function QuotationHistoryClient({ initial }: { initial: QuotationsRespons
           placeholder={dict.quotationHistory.searchPlaceholder}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-72"
+          className="w-full sm:w-72"
         />
-        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-40" />
+        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-[calc(50%-1.25rem)] sm:w-40" />
         <span className="text-sm text-muted-fg">{dict.common.to}</span>
-        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-40" />
+        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[calc(50%-1.25rem)] sm:w-40" />
       </div>
 
       {error && (
@@ -114,51 +114,68 @@ export function QuotationHistoryClient({ initial }: { initial: QuotationsRespons
               {search || dateFrom || dateTo ? dict.quotationHistory.noMatching : dict.quotationHistory.noneYet}
             </p>
           </div>
+        ) : loading ? (
+          <div className="py-10 text-center text-sm text-muted-fg">{dict.common.loading}</div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{dict.quotationHistory.number}</TableHead>
-                <TableHead>{dict.quotationHistory.customer}</TableHead>
-                <TableHead>{dict.quotationHistory.date}</TableHead>
-                <TableHead className="text-right">{dict.quotationHistory.total}</TableHead>
-                <TableHead className="text-right">{dict.common.actions}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-fg">
-                    {dict.common.loading}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                data.quotations.map((q) => (
-                  <TableRow key={q.id}>
-                    <TableCell className="font-mono text-xs">#{q.number}</TableCell>
-                    <TableCell>
-                      <div className="font-medium text-heading">{q.customerName}</div>
-                      {q.customerVatId && <div className="text-xs text-muted-fg">{q.customerVatId}</div>}
-                    </TableCell>
-                    <TableCell>{q.createdAt.slice(0, 10)}</TableCell>
-                    <TableCell className="text-right font-semibold text-heading">
-                      {Number(q.grandTotal).toFixed(2)} SAR
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" onClick={() => setPrintModalId(q.id)}>
-                        {dict.common.view}
-                      </Button>
-                    </TableCell>
+          <>
+            <div className="hidden overflow-x-auto md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{dict.quotationHistory.number}</TableHead>
+                    <TableHead>{dict.quotationHistory.customer}</TableHead>
+                    <TableHead>{dict.quotationHistory.date}</TableHead>
+                    <TableHead className="text-right">{dict.quotationHistory.total}</TableHead>
+                    <TableHead className="text-right">{dict.common.actions}</TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                  {data.quotations.map((q) => (
+                    <TableRow key={q.id}>
+                      <TableCell className="font-mono text-xs">#{q.number}</TableCell>
+                      <TableCell>
+                        <div className="font-medium text-heading">{q.customerName}</div>
+                        {q.customerVatId && <div className="text-xs text-muted-fg">{q.customerVatId}</div>}
+                      </TableCell>
+                      <TableCell>{q.createdAt.slice(0, 10)}</TableCell>
+                      <TableCell className="text-right font-semibold text-heading">
+                        {Number(q.grandTotal).toFixed(2)} SAR
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="sm" onClick={() => setPrintModalId(q.id)}>
+                          {dict.common.view}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <ul className="divide-y divide-border-subtle md:hidden">
+              {data.quotations.map((q) => (
+                <li key={q.id} className="flex items-center justify-between gap-3 p-4">
+                  <div className="min-w-0">
+                    <div className="font-medium text-heading">
+                      <span className="font-mono text-xs text-muted-fg">#{q.number}</span> {q.customerName}
+                    </div>
+                    <div className="mt-0.5 flex gap-3 text-xs text-muted-fg">
+                      <span>{q.createdAt.slice(0, 10)}</span>
+                      <span className="font-semibold text-heading">{Number(q.grandTotal).toFixed(2)} SAR</span>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm" className="shrink-0" onClick={() => setPrintModalId(q.id)}>
+                    {dict.common.view}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </Card>
 
       {data.total > 0 && (
-        <div className="flex items-center justify-between text-sm text-muted-fg">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-fg">
           <span>{dict.common.totalMatches(data.total)}</span>
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm" disabled={page <= 1 || loading} onClick={() => goToPage(page - 1)}>

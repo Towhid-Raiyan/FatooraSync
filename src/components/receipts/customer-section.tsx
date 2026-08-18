@@ -83,8 +83,8 @@ export function CustomerSection({ customers, draft, onDraftChange, className }: 
         <CardTitle className="text-heading">{dict.documentForm.customerSection.title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="grid grid-cols-6 gap-3">
-          <div className="relative col-span-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
+          <div className="relative xl:col-span-3">
             <Label className={LABEL_CLASS}>{dict.documentForm.customerSection.name}</Label>
             <Input
               value={draft.name}
@@ -110,11 +110,11 @@ export function CustomerSection({ customers, draft, onDraftChange, className }: 
               </div>
             )}
           </div>
-          <div className="col-span-3">
+          <div className="xl:col-span-3">
             <Label className={LABEL_CLASS}>{dict.documentForm.customerSection.address}</Label>
             <Input value={draft.address} onChange={(e) => onDraftChange({ ...draft, address: e.target.value })} />
           </div>
-          <div className="relative col-span-2">
+          <div className="relative xl:col-span-2">
             <Label className={LABEL_CLASS}>{dict.documentForm.customerSection.vatId}</Label>
             <Input
               value={draft.vatId}
@@ -140,14 +140,14 @@ export function CustomerSection({ customers, draft, onDraftChange, className }: 
               </div>
             )}
           </div>
-          <div className="col-span-2">
+          <div className="xl:col-span-2">
             <Label className={LABEL_CLASS}>{dict.documentForm.customerSection.crNumber}</Label>
             <Input
               value={draft.crNumber}
               onChange={(e) => onDraftChange({ ...draft, crNumber: e.target.value })}
             />
           </div>
-          <div className="col-span-2">
+          <div className="xl:col-span-2">
             <Label className={LABEL_CLASS}>{dict.documentForm.customerSection.phone}</Label>
             <Input value={draft.phone} onChange={(e) => onDraftChange({ ...draft, phone: e.target.value })} />
           </div>

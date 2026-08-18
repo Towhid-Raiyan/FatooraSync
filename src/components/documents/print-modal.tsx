@@ -103,7 +103,7 @@ export function PrintModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] w-full max-w-6xl sm:max-w-6xl flex-col overflow-hidden">
+      <DialogContent className="flex max-h-[90vh] w-full max-w-[calc(100%-2rem)] flex-col overflow-hidden sm:max-w-6xl">
         <DialogTitle className="sr-only">
           {kind === "receipt" ? dict.printChrome.receiptTitle : dict.printChrome.quotationTitle}
         </DialogTitle>

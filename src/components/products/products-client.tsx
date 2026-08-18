@@ -89,13 +89,13 @@ export function ProductsClient({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Input
             placeholder={dict.products.searchPlaceholder}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-72"
+            className="sm:w-72"
           />
           <label className="flex items-center gap-2 text-sm text-body">
             <Checkbox checked={showInactive} onCheckedChange={(checked) => setShowInactive(checked === true)} />
@@ -121,60 +121,107 @@ export function ProductsClient({
             <p className="text-sm text-muted-fg">{dict.products.noProductsYet}</p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{dict.products.sku}</TableHead>
-                <TableHead>{dict.products.barcode}</TableHead>
-                <TableHead>{dict.products.name}</TableHead>
-                <TableHead>{dict.products.unit}</TableHead>
-                <TableHead className="text-right">{dict.products.unitPrice}</TableHead>
-                <TableHead>{dict.products.vat}</TableHead>
-                <TableHead className="text-right">{dict.products.quantity}</TableHead>
-                <TableHead className="text-right">{dict.common.actions}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            {/* Eight columns doesn't fit a phone -- below md this becomes a
+                stacked card per product instead of a horizontally-scrolling
+                table; the real table returns at md (768px) and up. */}
+            <div className="hidden overflow-x-auto md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{dict.products.sku}</TableHead>
+                    <TableHead>{dict.products.barcode}</TableHead>
+                    <TableHead>{dict.products.name}</TableHead>
+                    <TableHead>{dict.products.unit}</TableHead>
+                    <TableHead className="text-right">{dict.products.unitPrice}</TableHead>
+                    <TableHead>{dict.products.vat}</TableHead>
+                    <TableHead className="text-right">{dict.products.quantity}</TableHead>
+                    <TableHead className="text-right">{dict.common.actions}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((product) => (
+                    <TableRow key={product.id} className={!product.isActive ? "opacity-50" : undefined}>
+                      <TableCell className="font-mono text-xs">{product.sku ?? "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{product.barcode ?? "—"}</TableCell>
+                      <TableCell className="font-medium text-heading">
+                        {product.nameEn}
+                        {product.nameAr && <div className="text-xs text-muted-fg">{product.nameAr}</div>}
+                      </TableCell>
+                      <TableCell>{unitLabels[product.unit] ?? product.unit}</TableCell>
+                      <TableCell className="text-right">{product.unitPrice}</TableCell>
+                      <TableCell>
+                        {product.vatRate === null ? (
+                          <Badge variant="secondary">{dict.products.defaultBadge}</Badge>
+                        ) : (
+                          <Badge>{product.vatRate}%</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">{product.quantity}</TableCell>
+                      <TableCell className="text-right">
+                        {canManageCatalog && (
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setDialogState({ open: true, product })}>
+                              {dict.common.edit}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={togglingId === product.id}
+                              onClick={() => toggleActive(product)}
+                            >
+                              {togglingId === product.id && <Loader2Icon className="size-3.5 animate-spin" />}
+                              {product.isActive ? dict.common.deactivate : dict.common.reactivate}
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <ul className="divide-y divide-border-subtle md:hidden">
               {filtered.map((product) => (
-                <TableRow key={product.id} className={!product.isActive ? "opacity-50" : undefined}>
-                  <TableCell className="font-mono text-xs">{product.sku ?? "—"}</TableCell>
-                  <TableCell className="font-mono text-xs">{product.barcode ?? "—"}</TableCell>
-                  <TableCell className="font-medium text-heading">
-                    {product.nameEn}
-                    {product.nameAr && <div className="text-xs text-muted-fg">{product.nameAr}</div>}
-                  </TableCell>
-                  <TableCell>{unitLabels[product.unit] ?? product.unit}</TableCell>
-                  <TableCell className="text-right">{product.unitPrice}</TableCell>
-                  <TableCell>
+                <li key={product.id} className={`p-4 ${!product.isActive ? "opacity-50" : ""}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-medium text-heading">{product.nameEn}</div>
+                      {product.nameAr && <div className="text-xs text-muted-fg">{product.nameAr}</div>}
+                    </div>
+                    <div className="shrink-0 text-right font-medium text-heading">{product.unitPrice}</div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-fg">
+                    <span className="font-mono">{product.sku ?? "—"}</span>
+                    <span>{unitLabels[product.unit] ?? product.unit}</span>
+                    <span>{dict.products.quantity}: {product.quantity}</span>
                     {product.vatRate === null ? (
                       <Badge variant="secondary">{dict.products.defaultBadge}</Badge>
                     ) : (
                       <Badge>{product.vatRate}%</Badge>
                     )}
-                  </TableCell>
-                  <TableCell className="text-right">{product.quantity}</TableCell>
-                  <TableCell className="text-right">
-                    {canManageCatalog && (
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setDialogState({ open: true, product })}>
-                          {dict.common.edit}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={togglingId === product.id}
-                          onClick={() => toggleActive(product)}
-                        >
-                          {togglingId === product.id && <Loader2Icon className="size-3.5 animate-spin" />}
-                          {product.isActive ? dict.common.deactivate : dict.common.reactivate}
-                        </Button>
-                      </div>
-                    )}
-                  </TableCell>
-                </TableRow>
+                  </div>
+                  {canManageCatalog && (
+                    <div className="mt-3 flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setDialogState({ open: true, product })}>
+                        {dict.common.edit}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={togglingId === product.id}
+                        onClick={() => toggleActive(product)}
+                      >
+                        {togglingId === product.id && <Loader2Icon className="size-3.5 animate-spin" />}
+                        {product.isActive ? dict.common.deactivate : dict.common.reactivate}
+                      </Button>
+                    </div>
+                  )}
+                </li>
               ))}
-            </TableBody>
-          </Table>
+            </ul>
+          </>
         )}
       </Card>
 

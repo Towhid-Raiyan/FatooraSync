@@ -122,7 +122,7 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
             </p>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="product-name-en" className={LABEL_CLASS}>
                 {dict.products.nameEn}
@@ -176,7 +176,7 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="product-unit" className={LABEL_CLASS}>
                 {dict.products.unit}
@@ -210,7 +210,7 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
             </div>
           </div>
 
-          <div className="grid grid-cols-2 items-end gap-3">
+          <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2">
             <label className="mb-1.5 flex items-center gap-2 text-xs text-body">
               <Checkbox
                 checked={form.useDefaultVat}

@@ -16,7 +16,7 @@ export default async function SettingsPage() {
   );
 
   return (
-    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+    <div className="mx-auto grid max-w-[900px] grid-cols-1 items-start gap-6 md:grid-cols-2">
       <SettingsClient />
       <StaffSection initialCashiers={cashiers.map((c) => ({ id: c.id, email: c.email, isActive: c.isActive }))} />
     </div>

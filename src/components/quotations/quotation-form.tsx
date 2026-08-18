@@ -188,32 +188,21 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      {/* lg:grid-rows-[auto_1fr] makes Customer and Notes (row 1) share one
-          height automatically via CSS Grid's default item stretch -- no matching
-          magic number needed. Row 2 (Items / Totals) fills the rest of the page,
-          so nothing on this page scrolls except the item rows themselves (see
-          items-section.tsx). Below `lg` the grid falls back to a single stacked
-          column and the page scrolls normally. */}
-      <div className="grid flex-1 grid-cols-1 gap-4 min-h-0 lg:grid-cols-[4fr_1fr] lg:grid-rows-[auto_1fr]">
+      {/* Below xl (1280px -- phones, and iPad Pro in portrait) this is a plain
+          stacked column in DOM/reading order: Customer, Items, Notes, Totals,
+          and the page scrolls normally like any form. xl:grid-rows-[auto_1fr]
+          switches to the desktop layout, where explicit col-start/row-start
+          placement re-arranges the same four cards into Customer+Notes on
+          row 1 (sharing one height automatically via CSS Grid's item stretch)
+          and Items+Totals filling the rest, with only the item rows
+          scrolling (see items-section.tsx). */}
+      <div className="grid flex-1 grid-cols-1 gap-4 min-h-0 xl:grid-cols-[4fr_1fr] xl:grid-rows-[auto_1fr]">
         <CustomerSection
           customers={customers}
           draft={customerDraft}
           onDraftChange={setCustomerDraft}
-          className="lg:col-start-1 lg:row-start-1"
+          className="xl:col-start-1 xl:row-start-1"
         />
-
-        <Card className="flex flex-col border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:13.5px] lg:col-start-2 lg:row-start-1">
-          <CardHeader>
-            <CardTitle className="text-heading">{dict.documentForm.notesTitle}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-1 flex-col">
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full flex-1 rounded-lg border border-input bg-transparent p-2.5 text-sm"
-            />
-          </CardContent>
-        </Card>
 
         <ItemsSection
           products={products}
@@ -230,10 +219,23 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
           }
           onTotalChange={handleTotalChange}
           onOpenQuickCreate={() => setQuickCreateOpen(true)}
-          className="min-h-0 lg:col-start-1 lg:row-start-2"
+          className="min-h-0 xl:col-start-1 xl:row-start-2"
         />
 
-        <div className="min-h-0 lg:col-start-2 lg:row-start-2">
+        <Card className="flex flex-col border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:13.5px] xl:col-start-2 xl:row-start-1">
+          <CardHeader>
+            <CardTitle className="text-heading">{dict.documentForm.notesTitle}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-1 flex-col">
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full flex-1 rounded-lg border border-input bg-transparent p-2.5 text-sm"
+            />
+          </CardContent>
+        </Card>
+
+        <div className="min-h-0 xl:col-start-2 xl:row-start-2">
           <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:18.5px]">
             <CardHeader>
               <CardTitle className="text-heading">{dict.documentForm.totals.title}</CardTitle>

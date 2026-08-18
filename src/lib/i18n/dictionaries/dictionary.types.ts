@@ -174,6 +174,14 @@ export interface Dictionary {
     };
     cashierAddedToast: string;
     statusUpdatedToast: string;
+    resetPassword: string;
+    resetPasswordDialogTitle: string;
+    newPassword: string;
+    staffPasswordHint: string;
+    passwordResetToast: string;
+    delete: string;
+    deleteConfirm: (identifier: string) => string;
+    cashierDeletedToast: string;
   };
   billing: {
     blockedTitle: string;
@@ -192,5 +200,6 @@ export interface Dictionary {
     confirmLine: string;
     removeItem: string;
     close: string;
+    openMenu: string;
   };
 }
