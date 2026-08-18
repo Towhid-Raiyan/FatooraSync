@@ -16,7 +16,14 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: false,
-    exclude: ["**/node_modules/**", "**/.worktrees/**", "**/.next/**"],
+    // `.worktrees/` is this project's own manual-fallback worktree convention;
+    // `.claude/worktrees/` is where the harness's native worktree tool creates
+    // them. Without excluding both, running the suite from the repo root while
+    // any harness-created worktree exists re-runs its nested copy of every test
+    // concurrently against the same shared dev database as this run -- producing
+    // unique-constraint collisions that look like real failures but are really
+    // just the same test racing itself.
+    exclude: ["**/node_modules/**", "**/.worktrees/**", "**/.claude/worktrees/**", "**/.next/**"],
     server: {
       deps: {
         inline: [/next-auth/, /@auth\/core/],
