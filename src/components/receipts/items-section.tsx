@@ -149,7 +149,13 @@ export function ItemsSection({
       <CardHeader className="shrink-0">
         <CardTitle className="text-heading">{dict.documentForm.itemsSection.title}</CardTitle>
       </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 flex-col space-y-3">
+      {/* flex-1/min-h-0 only apply at xl+ (desktop), where the outer grid stretches
+          this card to fill row 2's full height and only the rows below scroll. Below
+          xl the card isn't stretched at all -- without the xl: prefix here, flex-1
+          on a card with no imposed height was quietly starving the rows list of any
+          usable height, so newly added rows rendered into a near-zero-height nested
+          scroll box instead of growing the card. */}
+      <CardContent className="flex flex-col space-y-3 xl:min-h-0 xl:flex-1">
         <div className="flex shrink-0 gap-2">
           <div className="relative flex-1">
             <Input
@@ -211,7 +217,7 @@ export function ItemsSection({
           // the table fits without needing horizontal scroll for realistic data,
           // which makes the sticky behavior both unnecessary and actively harmful --
           // a plain in-flow column has no such overlap risk.
-          <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-border-subtle">
+          <div className="rounded-lg border border-border-subtle xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
             <Table>
               <TableHeader>
                 <TableRow>

@@ -214,7 +214,14 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
           row 1 (sharing one height automatically via CSS Grid's item stretch)
           and Items+Totals filling the rest, with only the item rows
           scrolling (see items-section.tsx). */}
-      <div className="grid flex-1 grid-cols-1 gap-4 min-h-0 xl:grid-cols-[4fr_1fr] xl:grid-rows-[auto_1fr]">
+      {/* content-start: below xl the 4 cards are auto-height implicit rows, but
+          the grid itself is stretched (flex-1) to fill the page -- without this,
+          Grid's default align-content:stretch was distributing that leftover
+          height back into each row, inflating the Items card (and everything
+          else) taller than its actual content and starving the item rows of
+          usable height inside it. Harmless at xl+: the explicit 1fr row there
+          already consumes all leftover space on its own. */}
+      <div className="grid flex-1 content-start grid-cols-1 gap-4 min-h-0 xl:grid-cols-[4fr_1fr] xl:grid-rows-[auto_1fr]">
         <CustomerSection
           customers={customers}
           draft={customerDraft}
@@ -237,7 +244,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
           }
           onTotalChange={handleTotalChange}
           onOpenQuickCreate={() => setQuickCreateOpen(true)}
-          className="min-h-0 xl:col-start-1 xl:row-start-2"
+          className="xl:col-start-1 xl:row-start-2 xl:min-h-0"
         />
 
         <Card className="flex flex-col border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:13.5px] xl:col-start-2 xl:row-start-1">
@@ -253,7 +260,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
           </CardContent>
         </Card>
 
-        <div className="min-h-0 xl:col-start-2 xl:row-start-2">
+        <div className="xl:col-start-2 xl:row-start-2 xl:min-h-0">
           <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:18.5px]">
             <CardHeader>
               <CardTitle className="text-heading">{dict.documentForm.totals.title}</CardTitle>
