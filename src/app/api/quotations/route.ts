@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/client";
-import { round2, calculateLine, calculateDocumentTotals } from "@/lib/receipts/calculate-totals";
+import { round2, round3, calculateLine, calculateDocumentTotals } from "@/lib/receipts/calculate-totals";
 import { withTenant } from "@/lib/db/tenant-context";
 import { PAGE_SIZE } from "@/lib/receipts/constants";
 import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     // unitPrice is the one field a cashier can override at the point of quoting;
     // productName/vatRate are always the server's own fresh read.
     const unitPriceOverride =
-      line.unitPrice === undefined || line.unitPrice === null ? null : round2(Number(line.unitPrice));
+      line.unitPrice === undefined || line.unitPrice === null ? null : round3(Number(line.unitPrice));
     if (typeof line.productId !== "string" || !Number.isFinite(quantity) || quantity <= 0) {
       return NextResponse.json({ error: "Each item must have a positive quantity" }, { status: 400 });
     }

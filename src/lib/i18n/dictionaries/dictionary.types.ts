@@ -180,6 +180,12 @@ export interface Dictionary {
     blockedMessage: string;
     signOut: string;
   };
+  barcodeScanner: {
+    scanWithCamera: string;
+    title: string;
+    hint: string;
+    cameraError: string;
+  };
   a11y: {
     language: string;
     comingSoon: string;

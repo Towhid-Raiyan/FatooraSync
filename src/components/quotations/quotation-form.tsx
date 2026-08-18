@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from "react";
 import type { Customer } from "@prisma/client";
+import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import { PrintModal } from "@/components/documents/print-modal";
 import type { SerializedProduct } from "@/components/products/products-client";
-import { round2, calculateLine, calculateDocumentTotals, deriveUnitPriceFromTotal } from "@/lib/receipts/calculate-totals";
+import { round3, calculateLine, calculateDocumentTotals, deriveUnitPriceFromTotal } from "@/lib/receipts/calculate-totals";
 import { useLocale } from "@/lib/i18n/language-provider";
 import { useToast } from "@/lib/toast/toast-provider";
 import { CustomerSection, type CustomerDraft } from "@/components/receipts/customer-section";
@@ -41,7 +42,7 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
     () =>
       lines.map((line) =>
         calculateLine({
-          unitPrice: round2(Number(line.unitPrice)),
+          unitPrice: round3(Number(line.unitPrice)),
           quantity: Number(line.quantity),
           vatRate: Number(line.vatRate ?? defaultVatRate),
           discount: Number(line.discount),
@@ -51,23 +52,35 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
   );
   const documentTotals = useMemo(() => calculateDocumentTotals(lineTotals), [lineTotals]);
 
+  // Selecting the same product twice (e.g. scanning its barcode again) bumps
+  // the existing row's quantity instead of adding a duplicate row -- a second
+  // line for the same product isn't a meaningful distinction to a cashier, and
+  // duplicate rows make the quotation harder to scan at a glance.
   function addLine(product: SerializedProduct) {
-    setLines((prev) => [
-      ...prev,
-      {
-        key: `${product.id}-${prev.length}-${Date.now()}`,
-        productId: product.id,
-        sku: product.sku,
-        productName: product.nameEn,
-        productNameAr: product.nameAr,
-        unit: product.unit,
-        quantity: "1",
-        unitPrice: product.unitPrice,
-        discount: "0",
-        vatRate: product.vatRate,
-        stockAtAdd: product.quantity,
-      },
-    ]);
+    setLines((prev) => {
+      const existing = prev.find((line) => line.productId === product.id);
+      if (existing) {
+        return prev.map((line) =>
+          line.key === existing.key ? { ...line, quantity: String(Number(line.quantity) + 1) } : line
+        );
+      }
+      return [
+        ...prev,
+        {
+          key: `${product.id}-${prev.length}-${Date.now()}`,
+          productId: product.id,
+          sku: product.sku,
+          productName: product.nameEn,
+          productNameAr: product.nameAr,
+          unit: product.unit,
+          quantity: "1",
+          unitPrice: product.unitPrice,
+          discount: "0",
+          vatRate: product.vatRate,
+          stockAtAdd: product.quantity,
+        },
+      ];
+    });
   }
 
   function handleQuickCreateSaved(product: SerializedProduct) {
@@ -95,7 +108,7 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
           discount: Number(line.discount),
           vatRate,
         });
-        return { ...line, unitPrice: unitPrice.toFixed(2) };
+        return { ...line, unitPrice: unitPrice.toFixed(3) };
       })
     );
   }
@@ -174,76 +187,99 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[4fr_1fr]">
-      <CustomerSection customers={customers} draft={customerDraft} onDraftChange={setCustomerDraft} />
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      {/* lg:grid-rows-[auto_1fr] makes Customer and Notes (row 1) share one
+          height automatically via CSS Grid's default item stretch -- no matching
+          magic number needed. Row 2 (Items / Totals) fills the rest of the page,
+          so nothing on this page scrolls except the item rows themselves (see
+          items-section.tsx). Below `lg` the grid falls back to a single stacked
+          column and the page scrolls normally. */}
+      <div className="grid flex-1 grid-cols-1 gap-4 min-h-0 lg:grid-cols-[4fr_1fr] lg:grid-rows-[auto_1fr]">
+        <CustomerSection
+          customers={customers}
+          draft={customerDraft}
+          onDraftChange={setCustomerDraft}
+          className="lg:col-start-1 lg:row-start-1"
+        />
 
-      <Card className="flex flex-col border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:13.5px]">
-        <CardHeader>
-          <CardTitle className="text-heading">{dict.documentForm.notesTitle}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-1 flex-col">
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            className="w-full flex-1 rounded-lg border border-input bg-transparent p-2.5 text-sm"
-          />
-        </CardContent>
-      </Card>
+        <Card className="flex flex-col border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:13.5px] lg:col-start-2 lg:row-start-1">
+          <CardHeader>
+            <CardTitle className="text-heading">{dict.documentForm.notesTitle}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-1 flex-col">
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full flex-1 rounded-lg border border-input bg-transparent p-2.5 text-sm"
+            />
+          </CardContent>
+        </Card>
 
-      <ItemsSection
-        products={products}
-        lines={lines}
-        lineTotals={lineTotals}
-        onAddLine={addLine}
-        onRemoveLine={(key) => setLines((prev) => prev.filter((l) => l.key !== key))}
-        onQuantityChange={(key, quantity) =>
-          setLines((prev) => prev.map((l) => (l.key === key ? { ...l, quantity } : l)))
-        }
-        onUnitPriceChange={handleUnitPriceChange}
-        onDiscountChange={(key, discount) =>
-          setLines((prev) => prev.map((l) => (l.key === key ? { ...l, discount } : l)))
-        }
-        onTotalChange={handleTotalChange}
-        onOpenQuickCreate={() => setQuickCreateOpen(true)}
-      />
+        <ItemsSection
+          products={products}
+          lines={lines}
+          lineTotals={lineTotals}
+          onAddLine={addLine}
+          onRemoveLine={(key) => setLines((prev) => prev.filter((l) => l.key !== key))}
+          onQuantityChange={(key, quantity) =>
+            setLines((prev) => prev.map((l) => (l.key === key ? { ...l, quantity } : l)))
+          }
+          onUnitPriceChange={handleUnitPriceChange}
+          onDiscountChange={(key, discount) =>
+            setLines((prev) => prev.map((l) => (l.key === key ? { ...l, discount } : l)))
+          }
+          onTotalChange={handleTotalChange}
+          onOpenQuickCreate={() => setQuickCreateOpen(true)}
+          className="min-h-0 lg:col-start-1 lg:row-start-2"
+        />
 
-      <Card className="sticky top-4 self-start border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:18.5px]">
-        <CardHeader>
-          <CardTitle className="text-heading">{dict.documentForm.totals.title}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {error && (
-            <p role="alert" className="text-xs text-red-600">
-              {error}
-            </p>
-          )}
-          <div className="flex justify-between text-sm text-body">
-            <span>{dict.documentForm.totals.subtotal}</span>
-            <span>{documentTotals.subtotal.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-sm text-body">
-            <span>{dict.documentForm.totals.totalVat}</span>
-            <span>{documentTotals.vatTotal.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-lg font-bold text-heading">
-            <span>{dict.documentForm.totals.grandTotal}</span>
-            <span>{documentTotals.grandTotal.toFixed(2)}</span>
-          </div>
-          <Button
-            type="button"
-            variant="primary"
-            className="w-full"
-            disabled={saving}
-            onClick={() => handleSave(true)}
-          >
-            {saving ? dict.common.savingEllipsis : dict.documentForm.totals.savePrint}
-          </Button>
-          <Button type="button" variant="outline" className="w-full" disabled={saving} onClick={() => handleSave(false)}>
-            {dict.common.save}
-          </Button>
-        </CardContent>
-      </Card>
+        <div className="min-h-0 lg:col-start-2 lg:row-start-2">
+          <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:18.5px]">
+            <CardHeader>
+              <CardTitle className="text-heading">{dict.documentForm.totals.title}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {error && (
+                <p role="alert" className="text-xs text-red-600">
+                  {error}
+                </p>
+              )}
+              <div className="flex justify-between text-sm text-body">
+                <span>{dict.documentForm.totals.subtotal}</span>
+                <span>{documentTotals.subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm text-body">
+                <span>{dict.documentForm.totals.totalVat}</span>
+                <span>{documentTotals.vatTotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-lg font-bold text-heading">
+                <span>{dict.documentForm.totals.grandTotal}</span>
+                <span>{documentTotals.grandTotal.toFixed(2)}</span>
+              </div>
+              <Button
+                type="button"
+                variant="primary"
+                className="w-full"
+                disabled={saving}
+                onClick={() => handleSave(true)}
+              >
+                {saving && <Loader2Icon className="size-3.5 animate-spin" />}
+                {saving ? dict.common.savingEllipsis : dict.documentForm.totals.savePrint}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={saving}
+                onClick={() => handleSave(false)}
+              >
+                {saving && <Loader2Icon className="size-3.5 animate-spin" />}
+                {saving ? dict.common.savingEllipsis : dict.common.save}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       <ProductFormDialog
         open={quickCreateOpen}

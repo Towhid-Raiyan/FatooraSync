@@ -2,6 +2,7 @@
 
 import { signIn } from "next-auth/react";
 import { useState } from "react";
+import { Loader2Icon } from "lucide-react";
 import { DesertScene } from "@/components/desert-scene";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,14 +14,20 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [signingIn, setSigningIn] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setSigningIn(true);
+    setError(null);
     const result = await signIn("credentials", { email, password, redirect: false });
     if (result?.error) {
       setError(dict.login.invalidCredentials);
+      setSigningIn(false);
       return;
     }
+    // Left signingIn=true deliberately -- the loader stays visible through this
+    // full navigation instead of flashing back to idle just before the page unloads.
     window.location.href = "/";
   }
 
@@ -74,7 +81,8 @@ export default function LoginPage() {
           </p>
         )}
 
-        <Button type="submit" variant="primary" className="w-full">
+        <Button type="submit" variant="primary" className="w-full" disabled={signingIn}>
+          {signingIn && <Loader2Icon className="size-3.5 animate-spin" />}
           {dict.login.signIn}
         </Button>
 

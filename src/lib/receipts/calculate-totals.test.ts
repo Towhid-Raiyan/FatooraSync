@@ -1,11 +1,19 @@
 import { describe, it, expect } from "vitest";
-import { round2, calculateLine, calculateDocumentTotals, deriveUnitPriceFromTotal } from "./calculate-totals";
+import { round2, round3, calculateLine, calculateDocumentTotals, deriveUnitPriceFromTotal } from "./calculate-totals";
 
 describe("round2", () => {
   it("rounds to 2 decimal places", () => {
     expect(round2(10.005)).toBe(10.01);
     expect(round2(10.004)).toBe(10);
     expect(round2(10)).toBe(10);
+  });
+});
+
+describe("round3", () => {
+  it("rounds to 3 decimal places", () => {
+    expect(round3(10.0005)).toBe(10.001);
+    expect(round3(10.0004)).toBe(10);
+    expect(round3(10)).toBe(10);
   });
 });
 
@@ -90,20 +98,20 @@ describe("deriveUnitPriceFromTotal", () => {
     expect(reproduced).toBe(115);
   });
 
-  it("finds a unit price no worse than any other cent-precision candidate nearby, even when no price reproduces the target exactly", () => {
+  it("finds a unit price no worse than any other thousandth-precision candidate nearby, even when no price reproduces the target exactly", () => {
     // Chained rounding in calculateLine (raw subtotal, discounted subtotal, VAT)
-    // means some totals simply aren't reachable by any cent-precision price at a
-    // given quantity -- e.g. nothing at qty 3 / 15% VAT reproduces exactly 100.
-    // What the nearest-cent search guarantees isn't universal exactness, but that
-    // no other candidate in its search window does strictly better.
+    // means some totals simply aren't reachable by any thousandth-precision price
+    // at a given quantity. What the nearest-thousandth search guarantees isn't
+    // universal exactness, but that no other candidate in its search window does
+    // strictly better.
     for (const quantity of [3, 6, 7]) {
       for (const lineTotal of [100, 50, 33, 25]) {
         const unitPrice = deriveUnitPriceFromTotal({ lineTotal, quantity, discount: 0, vatRate: 15 });
         const achievedDiff = Math.abs(
           calculateLine({ unitPrice, quantity, vatRate: 15, discount: 0 }).lineTotal - lineTotal
         );
-        for (let cents = -20; cents <= 20; cents++) {
-          const candidate = round2(unitPrice + cents / 100);
+        for (let thousandths = -20; thousandths <= 20; thousandths++) {
+          const candidate = round3(unitPrice + thousandths / 1000);
           if (candidate < 0) continue;
           const candidateDiff = Math.abs(
             calculateLine({ unitPrice: candidate, quantity, vatRate: 15, discount: 0 }).lineTotal - lineTotal
@@ -112,5 +120,15 @@ describe("deriveUnitPriceFromTotal", () => {
         }
       }
     }
+  });
+
+  it("round-trips exactly at 5 units / 75.00 target / 15% VAT, which no 2dp unit price can reproduce", () => {
+    // The motivating bug: at cent precision the best candidate (13.04) forward-
+    // computes to 74.98, a 2-cent gap. A thousandth-precision price (13.043)
+    // closes it exactly.
+    const unitPrice = deriveUnitPriceFromTotal({ lineTotal: 75, quantity: 5, discount: 0, vatRate: 15 });
+    expect(unitPrice).toBe(13.043);
+    const { lineTotal: reproduced } = calculateLine({ unitPrice, quantity: 5, vatRate: 15, discount: 0 });
+    expect(reproduced).toBe(75);
   });
 });

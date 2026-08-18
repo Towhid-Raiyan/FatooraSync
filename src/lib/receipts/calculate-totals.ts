@@ -2,6 +2,16 @@ export function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+// Unit price alone carries an extra decimal (thousandths) so a typed line
+// Total can round-trip back to an exact unit price: at 2dp, back-solving a
+// unit price from a target total often can't reproduce that total exactly
+// (e.g. 5 units, 75.00 target, 15% VAT -> best 2dp candidate forward-computes
+// to 74.98). Every other money value (line/document subtotal, VAT, total)
+// stays at round2 -- customers still see a normal 2-decimal invoice.
+export function round3(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
+
 export interface LineInput {
   unitPrice: number;
   quantity: number;
@@ -57,20 +67,20 @@ export function deriveUnitPriceFromTotal(input: UnitPriceFromTotalInput): number
   if (!(input.quantity > 0)) return 0;
   const lineSubtotal = input.lineTotal / (1 + input.vatRate / 100);
   const rawSubtotal = lineSubtotal + input.discount;
-  const estimate = round2(Math.max(0, rawSubtotal / input.quantity));
+  const estimate = round3(Math.max(0, rawSubtotal / input.quantity));
 
   // The algebra above is exact in continuous math, but `calculateLine` rounds at
   // three separate points (raw subtotal, discounted subtotal, VAT), so forward-
   // calculating from the algebraic estimate doesn't always reproduce the exact
-  // target total. Search a small neighborhood of cent-precision candidates around
-  // the estimate for the one whose forward calculation comes closest -- this
-  // keeps the function a true (nearest-cent) inverse of `calculateLine` rather
-  // than just its continuous-math approximation.
+  // target total. Search a small neighborhood of thousandths-precision candidates
+  // around the estimate for the one whose forward calculation comes closest --
+  // this keeps the function a true (nearest-thousandth) inverse of `calculateLine`
+  // rather than just its continuous-math approximation.
   let best = estimate;
   let bestDiff = Math.abs(forwardTotal(estimate, input) - input.lineTotal);
-  for (let cents = -5; cents <= 5; cents++) {
-    if (cents === 0) continue;
-    const candidate = round2(estimate + cents / 100);
+  for (let thousandths = -5; thousandths <= 5; thousandths++) {
+    if (thousandths === 0) continue;
+    const candidate = round3(estimate + thousandths / 1000);
     if (candidate < 0) continue;
     const diff = Math.abs(forwardTotal(candidate, input) - input.lineTotal);
     if (diff < bestDiff) {

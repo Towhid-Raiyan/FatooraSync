@@ -182,6 +182,12 @@ export const ar: Dictionary = {
     blockedMessage: "تم إيقاف وصول متجرك إلى FatooraSync مؤقتاً. تواصل معنا لحل هذا الأمر والعودة إلى العمل.",
     signOut: "تسجيل الخروج",
   },
+  barcodeScanner: {
+    scanWithCamera: "المسح بالكاميرا",
+    title: "مسح الباركود",
+    hint: "وجّه الكاميرا نحو الباركود",
+    cameraError: "تعذّر الوصول إلى الكاميرا. تحقق من الأذونات وحاول مرة أخرى، أو أدخل الباركود يدوياً.",
+  },
   a11y: {
     language: "اللغة",
     comingSoon: "قريباً",

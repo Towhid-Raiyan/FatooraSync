@@ -1,16 +1,18 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { Check, X } from "lucide-react";
+import { useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { Camera, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { getUnitLabels } from "@/components/products/product-form-dialog";
+import { BarcodeScannerModal } from "@/components/barcode-scanner-modal";
 import type { SerializedProduct } from "@/components/products/products-client";
 import type { LineTotals } from "@/lib/receipts/calculate-totals";
 import { useLocale } from "@/lib/i18n/language-provider";
+import { cn } from "@/lib/utils";
 
 export interface ReceiptLine {
   key: string;
@@ -37,6 +39,7 @@ interface ItemsSectionProps {
   onDiscountChange: (key: string, discount: string) => void;
   onTotalChange: (key: string, total: string) => void;
   onOpenQuickCreate: () => void;
+  className?: string;
 }
 
 export function ItemsSection({
@@ -50,10 +53,12 @@ export function ItemsSection({
   onDiscountChange,
   onTotalChange,
   onOpenQuickCreate,
+  className,
 }: ItemsSectionProps) {
   const { dict } = useLocale();
   const unitLabels = getUnitLabels(dict);
   const [search, setSearch] = useState("");
+  const [scannerOpen, setScannerOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Editing Total is a reverse calculation (it back-solves Unit Price), so the
@@ -80,6 +85,36 @@ export function ItemsSection({
     setSearch("");
   }
 
+  // A physical USB/Bluetooth scanner "types" the barcode into whatever input is
+  // focused and ends with Enter -- no library needed for that half of scanning.
+  // On Enter, prefer an exact barcode match (what a real scan produces); a
+  // single fuzzy match (e.g. an SKU typed and confirmed by hand) is also
+  // accepted so Enter doesn't feel dead when there's only one candidate.
+  function handleSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const query = search.trim().toLowerCase();
+    if (!query) return;
+    const exactBarcode = products.find((p) => (p.barcode ?? "").toLowerCase() === query);
+    if (exactBarcode) {
+      handleSelect(exactBarcode);
+    } else if (filtered.length === 1) {
+      handleSelect(filtered[0]);
+    }
+  }
+
+  // Camera scan: same exact-barcode-first resolution as the physical scanner.
+  // If nothing matches, drop the code into the search field so the cashier can
+  // see what was scanned and search manually instead of it silently vanishing.
+  function handleBarcodeDetected(code: string) {
+    const match = products.find((p) => (p.barcode ?? "").toLowerCase() === code.trim().toLowerCase());
+    if (match) {
+      handleSelect(match);
+    } else {
+      setSearch(code);
+    }
+  }
+
   // Only commits if the draft actually differs from what the field was seeded
   // with on focus. Without this check, simply tabbing through a Total cell with
   // no edit still round-trips through the back-calculation -- and because
@@ -99,18 +134,24 @@ export function ItemsSection({
   }
 
   return (
-    <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:18.5px]">
-      <CardHeader>
+    <Card
+      className={cn(
+        "flex flex-col border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:18.5px]",
+        className
+      )}
+    >
+      <CardHeader className="shrink-0">
         <CardTitle className="text-heading">{dict.documentForm.itemsSection.title}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex gap-2">
+      <CardContent className="flex min-h-0 flex-1 flex-col space-y-3">
+        <div className="flex shrink-0 gap-2">
           <div className="relative flex-1">
             <Input
               ref={searchInputRef}
               placeholder={dict.documentForm.itemsSection.searchPlaceholder}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
               autoFocus
             />
             {search.trim() && (
@@ -133,25 +174,38 @@ export function ItemsSection({
               </div>
             )}
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label={dict.barcodeScanner.scanWithCamera}
+            title={dict.barcodeScanner.scanWithCamera}
+            className="shrink-0"
+            onClick={() => setScannerOpen(true)}
+          >
+            <Camera className="size-4" />
+          </Button>
           <Button type="button" variant="outline" size="sm" onClick={onOpenQuickCreate} className="shrink-0">
             {dict.common.addProduct}
           </Button>
         </div>
 
         {lines.length > 0 && (
-          // `overflow-y-auto` bounds the card's height (the "increase Items height"
-          // request just below); horizontal scroll is the Table component's own
-          // built-in behavior (its internal wrapper is `overflow-x-auto`) for when
-          // the row's columns don't all fit. Actions used to be `sticky right-0` to
-          // stay visible during that scroll, but `position: sticky` overlaps
-          // whatever's underneath it unconditionally -- even when the table isn't
-          // actually scrolled, it still floated on top of the tail end of the Total
-          // column, hiding it. The column widths below (plus the wider Items/
-          // Customer split in receipt-form.tsx/quotation-form.tsx) are sized so the
-          // table fits without needing horizontal scroll for realistic data, which
-          // makes the sticky behavior both unnecessary and actively harmful -- a
-          // plain in-flow column has no such overlap risk.
-          <div className="max-h-[425px] overflow-y-auto rounded-lg border border-border-subtle">
+          // `flex-1 min-h-0 overflow-y-auto` makes this the only scrolling region on
+          // the whole page: the card fills the grid row assigned to it in
+          // receipt-form.tsx/quotation-form.tsx, the search bar and Add Product
+          // button above stay fixed (`shrink-0`), and only these rows scroll.
+          // Horizontal scroll is the Table component's own built-in behavior (its
+          // internal wrapper is `overflow-x-auto`) for when the row's columns don't
+          // all fit. Actions used to be `sticky right-0` to stay visible during that
+          // scroll, but `position: sticky` overlaps whatever's underneath it
+          // unconditionally -- even when the table isn't actually scrolled, it still
+          // floated on top of the tail end of the Total column, hiding it. The
+          // column widths below (plus the wider Items/Customer split) are sized so
+          // the table fits without needing horizontal scroll for realistic data,
+          // which makes the sticky behavior both unnecessary and actively harmful --
+          // a plain in-flow column has no such overlap risk.
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-border-subtle">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -206,7 +260,7 @@ export function ItemsSection({
                       <TableCell className="text-right">
                         <Input
                           type="number"
-                          step="0.01"
+                          step="0.001"
                           min="0"
                           value={line.unitPrice}
                           onChange={(e) => onUnitPriceChange(line.key, e.target.value)}
@@ -274,6 +328,8 @@ export function ItemsSection({
           </div>
         )}
       </CardContent>
+
+      <BarcodeScannerModal open={scannerOpen} onOpenChange={setScannerOpen} onDetected={handleBarcodeDetected} />
     </Card>
   );
 }

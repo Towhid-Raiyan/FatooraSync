@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Camera } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { BarcodeScannerModal } from "@/components/barcode-scanner-modal";
 import { useLocale } from "@/lib/i18n/language-provider";
 import type { Dictionary } from "@/lib/i18n/dictionaries/dictionary.types";
 import type { SerializedProduct } from "./products-client";
@@ -50,6 +52,7 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -147,11 +150,30 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
             <Label htmlFor="product-barcode" className={LABEL_CLASS}>
               {dict.products.barcode}
             </Label>
-            <Input
-              id="product-barcode"
-              value={form.barcode}
-              onChange={(e) => setForm({ ...form, barcode: e.target.value })}
-            />
+            <div className="flex gap-2">
+              {/* A physical USB/Bluetooth scanner just types into this field like a
+                  keyboard and ends with Enter -- the value is already correct by the
+                  time Enter fires, so all that's needed here is stopping that Enter
+                  from submitting the whole form before the rest of it is filled in. */}
+              <Input
+                id="product-barcode"
+                value={form.barcode}
+                onChange={(e) => setForm({ ...form, barcode: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.preventDefault();
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label={dict.barcodeScanner.scanWithCamera}
+                title={dict.barcodeScanner.scanWithCamera}
+                onClick={() => setScannerOpen(true)}
+              >
+                <Camera className="size-4" />
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -235,6 +257,12 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <BarcodeScannerModal
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        onDetected={(code) => setForm((prev) => ({ ...prev, barcode: code }))}
+      />
     </Dialog>
   );
 }

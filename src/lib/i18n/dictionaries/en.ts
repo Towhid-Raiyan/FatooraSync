@@ -182,6 +182,12 @@ export const en: Dictionary = {
     blockedMessage: "Your shop's access to FatooraSync is currently paused. Contact us to resolve this and get back to work.",
     signOut: "Sign Out",
   },
+  barcodeScanner: {
+    scanWithCamera: "Scan with camera",
+    title: "Scan Barcode",
+    hint: "Point your camera at a barcode",
+    cameraError: "Couldn't access the camera. Check permissions and try again, or enter the barcode manually.",
+  },
   a11y: {
     language: "Language",
     comingSoon: "Coming soon",

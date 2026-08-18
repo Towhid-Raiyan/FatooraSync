@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/client";
-import { round2, calculateLine, calculateDocumentTotals } from "@/lib/receipts/calculate-totals";
+import { round2, round3, calculateLine, calculateDocumentTotals } from "@/lib/receipts/calculate-totals";
 import { computeInvoiceHash, GENESIS_HASH } from "@/lib/zatca/hash-chain";
 import { buildZatcaQrPayload } from "@/lib/zatca/qr-payload";
 import { withTenant } from "@/lib/db/tenant-context";
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     // line (a $0 total). Falling back to the catalog price for `""` would silently
     // save a different amount than what was shown on screen before saving.
     const unitPriceOverride =
-      line.unitPrice === undefined || line.unitPrice === null ? null : round2(Number(line.unitPrice));
+      line.unitPrice === undefined || line.unitPrice === null ? null : round3(Number(line.unitPrice));
     if (typeof line.productId !== "string" || !Number.isFinite(quantity) || quantity <= 0) {
       return NextResponse.json({ error: "Each item must have a positive quantity" }, { status: 400 });
     }
