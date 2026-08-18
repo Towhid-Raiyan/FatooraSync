@@ -74,17 +74,29 @@ export function AdminSidebar({
         </div>
       ))}
 
-      <div className="mt-auto flex items-center gap-2.5 border-t border-neutral-200 px-4 py-3">
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-green-950 text-[11px] font-bold text-white">
-          {role === "CTO" ? "CT" : "DV"}
+      <div className="mt-auto border-t border-neutral-200">
+        <Link
+          href="/admin/settings"
+          className={`flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium ${
+            isActive("/admin/settings")
+              ? "bg-green-50 text-green-950"
+              : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900"
+          }`}
+        >
+          Settings
+        </Link>
+        <div className="flex items-center gap-2.5 border-t border-neutral-200 px-4 py-3">
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-green-950 text-[11px] font-bold text-white">
+            {role === "CTO" ? "CT" : "DV"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[12px] font-semibold text-neutral-900">{email}</div>
+            <div className="text-[10px] font-bold text-green-800">{role}</div>
+          </div>
+          <form action={signOutAction}>
+            <SignOutButton />
+          </form>
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[12px] font-semibold text-neutral-900">{email}</div>
-          <div className="text-[10px] font-bold text-green-800">{role}</div>
-        </div>
-        <form action={signOutAction}>
-          <SignOutButton />
-        </form>
       </div>
     </div>
   );
