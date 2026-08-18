@@ -75,7 +75,10 @@ export function CustomerSection({ customers, draft, onDraftChange, className }: 
   return (
     <Card
       className={cn(
-        "border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:13.5px]",
+        // See the matching note in items-section.tsx: overriding Card's default
+        // overflow-hidden so the Name/VAT suggestion dropdowns aren't clipped to
+        // this card's own (often short, especially on mobile) height.
+        "overflow-visible border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:13.5px]",
         className
       )}
     >

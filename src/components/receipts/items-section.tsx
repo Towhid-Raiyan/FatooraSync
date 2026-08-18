@@ -136,7 +136,13 @@ export function ItemsSection({
   return (
     <Card
       className={cn(
-        "flex flex-col border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:18.5px]",
+        // Card's own base classes default to overflow-hidden (needed elsewhere to
+        // clip a card's own rounded corners). That also clips this card's search
+        // results dropdown to the card's own height -- fine on desktop where the
+        // card is tall, but on mobile the card starts short (no items yet) and the
+        // dropdown got cut off mid-list. Overriding to visible lets it draw over
+        // whatever's below, which is the point of an absolutely-positioned popover.
+        "flex flex-col overflow-visible border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)] [--card-spacing:18.5px]",
         className
       )}
     >
