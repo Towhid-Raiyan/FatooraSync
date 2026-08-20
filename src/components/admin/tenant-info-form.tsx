@@ -124,7 +124,7 @@ export function TenantInfoForm({ tenantId, initial }: { tenantId: string; initia
     <div className="rounded-xl border border-neutral-200 bg-white p-5">
       <p className="mb-4 text-[13px] font-bold text-neutral-900">Business info</p>
 
-      <div className="mb-3.5 grid grid-cols-2 gap-3.5">
+      <div className="mb-3.5 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
         <EditField label="Legal name" value={fields.legalName} onChange={(v) => setFields((f) => ({ ...f, legalName: v }))} />
         <EditField label="VAT number" value={fields.vatNumber} onChange={(v) => setFields((f) => ({ ...f, vatNumber: v }))} mono />
         <EditField

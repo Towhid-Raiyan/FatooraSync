@@ -74,7 +74,7 @@ export function TenantCreateForm() {
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl rounded-xl border border-neutral-200 bg-white p-6">
       <p className="mb-4 text-[11px] font-bold uppercase tracking-wide text-neutral-400">Business details</p>
-      <div className="mb-3.5 grid grid-cols-2 gap-3.5">
+      <div className="mb-3.5 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
         <Field label="Legal name" name="legalName" required />
         <Field label="VAT number" name="vatNumber" required mono />
         <Field label="Trade name (English)" name="tradeNameEn" required />
@@ -85,7 +85,7 @@ export function TenantCreateForm() {
       <Field label="Address" name="address" />
 
       <p className="mb-4 mt-6 text-[11px] font-bold uppercase tracking-wide text-neutral-400">Owner account</p>
-      <div className="mb-1 grid grid-cols-2 gap-3.5">
+      <div className="mb-1 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
         <div>
           <Field label="Owner email" name="ownerEmail" type="email" required />
           <p className="mt-1.5 text-[11px] text-neutral-400">

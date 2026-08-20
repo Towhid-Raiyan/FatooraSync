@@ -2,7 +2,7 @@ import { RoadmapCard } from "@/components/admin/roadmap-card";
 
 export default function AdminAuditPage() {
   return (
-    <div className="px-7 py-8">
+    <div className="px-4 py-6 sm:px-7 sm:py-8">
       <RoadmapCard
         title="Audit Log"
         blurb="The log itself is already being written (every billing change, every client created) — this is just the screen to browse it:"

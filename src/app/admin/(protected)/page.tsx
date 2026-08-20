@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/db/client";
 import { StatusPill } from "@/components/admin/status-pill";
 import { ClickableRow } from "@/components/admin/clickable-row";
@@ -24,11 +25,11 @@ export default async function AdminDashboardPage() {
   const recent = tenants.slice(0, 5);
 
   return (
-    <div className="mx-auto max-w-4xl px-7 py-8">
+    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-7 sm:py-8">
       <h1 className="text-xl font-bold text-neutral-900">Overview</h1>
       <p className="mb-6 text-sm text-neutral-500">Where the business stands right now</p>
 
-      <div className="mb-7 grid grid-cols-4 gap-3.5">
+      <div className="mb-7 grid grid-cols-2 gap-3.5 sm:grid-cols-4">
         <div className="rounded-xl border border-neutral-200 bg-white p-4">
           <div className="text-2xl font-extrabold text-neutral-900">{total}</div>
           <div className="text-[11.5px] font-semibold text-neutral-500">Total clients</div>
@@ -74,19 +75,37 @@ export default async function AdminDashboardPage() {
           {recent.length === 0 ? (
             <p className="py-8 text-center text-xs text-neutral-400">No clients yet.</p>
           ) : (
-            <table className="w-full text-[13px]">
-              <tbody>
+            <>
+              <div className="hidden md:block">
+                <table className="w-full text-[13px]">
+                  <tbody>
+                    {recent.map((t) => (
+                      <ClickableRow key={t.id} href={`/admin/tenants/${t.id}`}>
+                        <td className="px-4 py-3 font-semibold text-neutral-900">{t.tradeNameEn}</td>
+                        <td className="px-4 py-3">
+                          <StatusPill status={t.billingStatus} />
+                        </td>
+                        <td className="px-4 py-3 text-neutral-500">{t.createdAt.toLocaleDateString()}</td>
+                      </ClickableRow>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <ul className="divide-y divide-neutral-100 md:hidden">
                 {recent.map((t) => (
-                  <ClickableRow key={t.id} href={`/admin/tenants/${t.id}`}>
-                    <td className="px-4 py-3 font-semibold text-neutral-900">{t.tradeNameEn}</td>
-                    <td className="px-4 py-3">
-                      <StatusPill status={t.billingStatus} />
-                    </td>
-                    <td className="px-4 py-3 text-neutral-500">{t.createdAt.toLocaleDateString()}</td>
-                  </ClickableRow>
+                  <li key={t.id}>
+                    <Link href={`/admin/tenants/${t.id}`} className="flex items-center justify-between gap-3 px-4 py-3">
+                      <span className="min-w-0 truncate font-semibold text-neutral-900">{t.tradeNameEn}</span>
+                      <span className="flex shrink-0 items-center gap-2.5">
+                        <StatusPill status={t.billingStatus} />
+                        <span className="text-[12px] text-neutral-400">{t.createdAt.toLocaleDateString()}</span>
+                      </span>
+                    </Link>
+                  </li>
                 ))}
-              </tbody>
-            </table>
+              </ul>
+            </>
           )}
         </div>
       </div>

@@ -27,15 +27,15 @@ export default async function AdminTenantsPage() {
   }));
 
   return (
-    <div className="mx-auto max-w-5xl px-7 py-8">
-      <div className="mb-6 flex items-end justify-between">
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-7 sm:py-8">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-neutral-900">Clients</h1>
           <p className="text-sm text-neutral-500">Every shop running on FatooraSync</p>
         </div>
         <Link
           href="/admin/tenants/new"
-          className="rounded-lg bg-green-800 px-4 py-2 text-[13px] font-semibold text-white hover:bg-green-700"
+          className="self-start rounded-lg bg-green-800 px-4 py-2 text-[13px] font-semibold text-white hover:bg-green-700 sm:self-auto"
         >
           + New Client
         </Link>

@@ -3,7 +3,7 @@ import { TenantCreateForm } from "@/components/admin/tenant-create-form";
 
 export default function AdminNewTenantPage() {
   return (
-    <div className="mx-auto max-w-2xl px-7 py-8">
+    <div className="mx-auto max-w-2xl px-4 py-6 sm:px-7 sm:py-8">
       <div className="mb-1 text-xs text-neutral-400">
         <Link href="/admin/tenants" className="hover:text-green-800">
           Clients

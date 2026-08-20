@@ -29,7 +29,7 @@ export default async function AdminTenantDetailPage({ params }: { params: Promis
   if (!tenant) notFound();
 
   return (
-    <div className="mx-auto max-w-4xl px-7 py-8">
+    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-7 sm:py-8">
       <Link
         href="/admin/tenants"
         className="mb-3 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-neutral-500 hover:text-green-800"
@@ -41,7 +41,7 @@ export default async function AdminTenantDetailPage({ params }: { params: Promis
         <StatusPill status={tenant.billingStatus} />
       </div>
 
-      <div className="grid grid-cols-[1fr_1.4fr] gap-5">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_1.4fr]">
         <TenantInfoForm
           tenantId={tenant.id}
           initial={{

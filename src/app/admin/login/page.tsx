@@ -27,8 +27,8 @@ export default async function AdminLoginPage({
   }
 
   return (
-    <div dir="ltr" className="flex min-h-screen items-center justify-center bg-neutral-50">
-      <form action={handleLogin} className="w-[340px] rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
+    <div dir="ltr" className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
+      <form action={handleLogin} className="w-full max-w-[340px] rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
         <div className="mb-6 flex flex-col items-center">
           <div className="mb-3 flex size-11 items-center justify-center rounded-xl bg-green-950 text-sm font-extrabold text-white">
             FS
