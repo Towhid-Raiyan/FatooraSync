@@ -19,6 +19,7 @@ export default async function NewQuotationPage() {
     unitPrice: p.unitPrice.toString(),
     vatRate: p.vatRate?.toString() ?? null,
     quantity: p.quantity.toString(),
+    lowStockThreshold: p.lowStockThreshold?.toString() ?? null,
   }));
 
   return (

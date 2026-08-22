@@ -9,6 +9,7 @@ import { buildZatcaQrPayload } from "@/lib/zatca/qr-payload";
 import { withTenant } from "@/lib/db/tenant-context";
 import { PAGE_SIZE } from "@/lib/receipts/constants";
 import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
+import { applyStockMovement } from "@/lib/inventory/apply-stock-movement";
 
 class ReceiptError extends Error {
   status: number;
@@ -27,10 +28,11 @@ interface RawLine {
 
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session?.user?.tenantId) {
+  if (!session?.user?.tenantId || !session.user.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const tenantId = session.user.tenantId;
+  const userId = session.user.id;
   const blocked = await assertTenantAccess(tenantId);
   if (blocked) return blocked;
   const body = await request.json();
@@ -299,9 +301,13 @@ export async function POST(request: Request) {
       });
 
       for (const line of resolvedLines) {
-        await txn.product.update({
-          where: { id: line.productId },
-          data: { quantity: { decrement: line.quantity } },
+        await applyStockMovement(txn, {
+          tenantId,
+          productId: line.productId,
+          type: "SALE",
+          quantityDelta: -line.quantity,
+          createdByUserId: userId,
+          documentId: created.id,
         });
       }
 

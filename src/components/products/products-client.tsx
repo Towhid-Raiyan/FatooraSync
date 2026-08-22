@@ -13,11 +13,16 @@ import { useLocale } from "@/lib/i18n/language-provider";
 import { useToast } from "@/lib/toast/toast-provider";
 import { ProductFormDialog, getUnitLabels } from "./product-form-dialog";
 
-export type SerializedProduct = Omit<Product, "unitPrice" | "vatRate" | "quantity"> & {
+export type SerializedProduct = Omit<Product, "unitPrice" | "vatRate" | "quantity" | "lowStockThreshold"> & {
   unitPrice: string;
   vatRate: string | null;
   quantity: string;
+  lowStockThreshold: string | null;
 };
+
+function isLowStock(product: SerializedProduct): boolean {
+  return product.lowStockThreshold !== null && Number(product.quantity) <= Number(product.lowStockThreshold);
+}
 
 export function ProductsClient({
   initialProducts,
@@ -157,7 +162,16 @@ export function ProductsClient({
                           <Badge>{product.vatRate}%</Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">{product.quantity}</TableCell>
+                      <TableCell className="text-right">
+                        <span className="inline-flex items-center gap-1.5">
+                          {product.quantity}
+                          {isLowStock(product) && (
+                            <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                              {dict.inventory.lowStockBadge}
+                            </span>
+                          )}
+                        </span>
+                      </TableCell>
                       <TableCell className="text-right">
                         {canManageCatalog && (
                           <div className="flex justify-end gap-2">
@@ -195,7 +209,14 @@ export function ProductsClient({
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-fg">
                     <span className="font-mono">{product.sku ?? "—"}</span>
                     <span>{unitLabels[product.unit] ?? product.unit}</span>
-                    <span>{dict.products.quantity}: {product.quantity}</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      {dict.products.quantity}: {product.quantity}
+                      {isLowStock(product) && (
+                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                          {dict.inventory.lowStockBadge}
+                        </span>
+                      )}
+                    </span>
                     {product.vatRate === null ? (
                       <Badge variant="secondary">{dict.products.defaultBadge}</Badge>
                     ) : (

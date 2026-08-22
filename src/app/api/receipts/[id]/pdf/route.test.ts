@@ -8,7 +8,8 @@ import { GET } from "./route";
 let tenantId: string;
 let otherTenantId: string;
 let receiptId: string;
-let mockSession: { user: { tenantId: string } } | null = null;
+let userId: string;
+let mockSession: { user: { tenantId: string; id: string } } | null = null;
 
 vi.mock("@/lib/auth/config", () => ({
   auth: async () => mockSession,
@@ -20,7 +21,11 @@ describe("GET /api/receipts/[id]/pdf", () => {
       data: { legalName: "PDF Test Co", tradeNameEn: "PDF Test Shop", tradeNameAr: "متجر بي دي إف", vatNumber: "300000000000488" },
     });
     tenantId = tenant.id;
-    mockSession = { user: { tenantId } };
+    const user = await prisma.user.create({
+      data: { tenantId, email: `receipts-pdf-route-test+${Date.now()}@example.com`, passwordHash: "test-hash" },
+    });
+    userId = user.id;
+    mockSession = { user: { tenantId, id: userId } };
     await prisma.settings.create({ data: { tenantId, defaultVatRate: 15 } });
     await withTenant(tenantId, (tx) =>
       tx.customer.create({ data: { name: "Walk-in Customer", isWalkIn: true } as Prisma.CustomerUncheckedCreateInput })
@@ -49,10 +54,12 @@ describe("GET /api/receipts/[id]/pdf", () => {
   }, 30000);
 
   afterAll(async () => {
+    await prisma.stockMovement.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
     await prisma.documentLine.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
     await prisma.document.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
     await prisma.customer.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
     await prisma.product.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
+    await prisma.user.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
     await prisma.settings.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
     await prisma.tenant.deleteMany({ where: { id: { in: [tenantId, otherTenantId] } } });
     await prisma.$disconnect();
@@ -75,12 +82,12 @@ describe("GET /api/receipts/[id]/pdf", () => {
   });
 
   it("returns 404 for a receipt belonging to another tenant", { timeout: 30000 }, async () => {
-    mockSession = { user: { tenantId: otherTenantId } };
+    mockSession = { user: { tenantId: otherTenantId, id: userId } };
     try {
       const response = await GET(pdfRequest(), { params: Promise.resolve({ id: receiptId }) });
       expect(response.status).toBe(404);
     } finally {
-      mockSession = { user: { tenantId } };
+      mockSession = { user: { tenantId, id: userId } };
     }
   });
 
@@ -98,7 +105,7 @@ describe("GET /api/receipts/[id]/pdf", () => {
       const response = await GET(pdfRequest(), { params: Promise.resolve({ id: receiptId }) });
       expect(response.status).toBe(401);
     } finally {
-      mockSession = { user: { tenantId } };
+      mockSession = { user: { tenantId, id: userId } };
     }
   });
 

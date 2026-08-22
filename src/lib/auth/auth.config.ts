@@ -20,15 +20,20 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     jwt: ({ token, user }) => {
       if (user) {
-        const typedUser = user as { tenantId: string; role: string };
+        const typedUser = user as { id: string; tenantId: string; role: string };
+        token.id = typedUser.id;
         token.tenantId = typedUser.tenantId;
         token.role = typedUser.role;
       }
       return token;
     },
+    // Auth.js's base `session` object passed in here does not carry `.id` by
+    // default in this JWT-strategy, no-adapter setup (confirmed empirically --
+    // it's absent from the real session response, not just untyped) -- it has
+    // to be copied through from the token explicitly, same as tenantId/role.
     session: ({ session, token }) => ({
       ...session,
-      user: { ...session.user, tenantId: token.tenantId as string, role: token.role as string },
+      user: { ...session.user, id: token.id as string, tenantId: token.tenantId as string, role: token.role as string },
     }),
   },
 };

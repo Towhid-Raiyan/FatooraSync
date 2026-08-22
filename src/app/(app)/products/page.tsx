@@ -20,6 +20,7 @@ export default async function ProductsPage() {
     unitPrice: p.unitPrice.toString(),
     vatRate: p.vatRate?.toString() ?? null,
     quantity: p.quantity.toString(),
+    lowStockThreshold: p.lowStockThreshold?.toString() ?? null,
   }));
 
   return <ProductsClient initialProducts={serialized} canManageCatalog={canManageCatalog} />;

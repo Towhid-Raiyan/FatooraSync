@@ -42,6 +42,7 @@ const EMPTY_FORM = {
   useDefaultVat: true,
   vatRate: "",
   quantity: "0",
+  lowStockThreshold: "",
 };
 
 const LABEL_CLASS = "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wider text-muted-fg";
@@ -67,6 +68,7 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
               useDefaultVat: product.vatRate === null,
               vatRate: product.vatRate ?? "",
               quantity: product.quantity,
+              lowStockThreshold: product.lowStockThreshold ?? "",
             }
           : EMPTY_FORM
       );
@@ -90,6 +92,7 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
       unitPrice: form.unitPrice,
       vatRate: form.useDefaultVat ? null : form.vatRate,
       quantity: form.quantity,
+      lowStockThreshold: form.lowStockThreshold,
     };
 
     try {
@@ -236,18 +239,34 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
             )}
           </div>
 
-          <div>
-            <Label htmlFor="product-quantity" className={LABEL_CLASS}>
-              {dict.products.quantity}
-            </Label>
-            <Input
-              id="product-quantity"
-              type="number"
-              step="0.001"
-              min="0"
-              value={form.quantity}
-              onChange={(e) => setForm({ ...form, quantity: e.target.value })}
-            />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="product-quantity" className={LABEL_CLASS}>
+                {dict.products.quantity}
+              </Label>
+              <Input
+                id="product-quantity"
+                type="number"
+                step="0.001"
+                min="0"
+                value={form.quantity}
+                onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="product-low-stock-threshold" className={LABEL_CLASS}>
+                {dict.inventory.lowStockThreshold}
+              </Label>
+              <Input
+                id="product-low-stock-threshold"
+                type="number"
+                step="0.001"
+                min="0"
+                value={form.lowStockThreshold}
+                onChange={(e) => setForm({ ...form, lowStockThreshold: e.target.value })}
+              />
+              <p className="mt-1 text-[11px] text-muted-fg">{dict.inventory.lowStockThresholdHint}</p>
+            </div>
           </div>
 
           <DialogFooter>

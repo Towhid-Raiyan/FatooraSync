@@ -10,7 +10,9 @@ let otherTenantId: string;
 let productId: string;
 let productWithVatOverrideId: string;
 let otherTenantProductId: string;
-let mockSession: { user: { tenantId: string } } | null = null;
+let userId: string;
+let otherUserId: string;
+let mockSession: { user: { tenantId: string; id: string } } | null = null;
 
 vi.mock("@/lib/auth/config", () => ({
   auth: async () => mockSession,
@@ -26,7 +28,11 @@ describe("/api/receipts", () => {
       data: { legalName: "Receipts Test Co", tradeNameEn: "Receipts Test Shop", vatNumber: "300000000000105" },
     });
     tenantId = tenant.id;
-    mockSession = { user: { tenantId } };
+    const user = await prisma.user.create({
+      data: { tenantId, email: `receipts-route-test+${Date.now()}@example.com`, passwordHash: "test-hash" },
+    });
+    userId = user.id;
+    mockSession = { user: { tenantId, id: userId } };
     await prisma.settings.create({ data: { tenantId, defaultVatRate: 15 } });
 
     await withTenant(tenantId, (tx) =>
@@ -51,6 +57,10 @@ describe("/api/receipts", () => {
       data: { legalName: "Other Receipts Co", tradeNameEn: "Other Receipts Shop", vatNumber: "300000000000112" },
     });
     otherTenantId = otherTenant.id;
+    const otherUser = await prisma.user.create({
+      data: { tenantId: otherTenantId, email: `receipts-route-test-other+${Date.now()}@example.com`, passwordHash: "test-hash" },
+    });
+    otherUserId = otherUser.id;
     await prisma.settings.create({ data: { tenantId: otherTenantId, defaultVatRate: 15 } });
     const otherProduct = await withTenant(otherTenantId, (tx) =>
       tx.product.create({ data: { nameEn: "Other Tenant Product", unitPrice: 1, quantity: 10 } as Prisma.ProductUncheckedCreateInput })
@@ -59,10 +69,12 @@ describe("/api/receipts", () => {
   });
 
   afterAll(async () => {
+    await prisma.stockMovement.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
     await prisma.documentLine.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
     await prisma.document.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
     await prisma.customer.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
     await prisma.product.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
+    await prisma.user.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
     await prisma.settings.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
     await prisma.tenant.deleteMany({ where: { id: { in: [tenantId, otherTenantId] } } });
     await prisma.$disconnect();
@@ -325,7 +337,7 @@ describe("/api/receipts", () => {
     );
     expect(before).toBeNull();
 
-    mockSession = { user: { tenantId: otherTenantId } };
+    mockSession = { user: { tenantId: otherTenantId, id: otherUserId } };
     try {
       const response = await POST(
         postRequest({
@@ -343,7 +355,7 @@ describe("/api/receipts", () => {
       expect(walkIn?.name).toBe("Walk-in Customer");
       expect(body.customerId).toBe(walkIn?.id);
     } finally {
-      mockSession = { user: { tenantId } };
+      mockSession = { user: { tenantId, id: userId } };
     }
   });
 
@@ -419,7 +431,7 @@ describe("/api/receipts", () => {
       );
       expect(response.status).toBe(401);
     } finally {
-      mockSession = { user: { tenantId } };
+      mockSession = { user: { tenantId, id: userId } };
     }
   });
 
@@ -438,6 +450,7 @@ describe("/api/receipts", () => {
   describe("GET /api/receipts", () => {
     let historyTenantId: string;
     let historyProductId: string;
+    let historyUserId: string;
     const createdReceiptIds: string[] = [];
 
     beforeAll(async () => {
@@ -461,7 +474,12 @@ describe("/api/receipts", () => {
       );
       historyProductId = product.id;
 
-      mockSession = { user: { tenantId: historyTenantId } };
+      const historyUser = await prisma.user.create({
+        data: { tenantId: historyTenantId, email: `receipts-route-history+${Date.now()}@example.com`, passwordHash: "test-hash" },
+      });
+      historyUserId = historyUser.id;
+
+      mockSession = { user: { tenantId: historyTenantId, id: historyUserId } };
       // 15 receipts for historyCustomerId, backdated one day apart, oldest first
       for (let i = 0; i < 15; i++) {
         const res = await POST(
@@ -475,14 +493,16 @@ describe("/api/receipts", () => {
         const backdated = new Date(Date.now() - (15 - i) * 24 * 60 * 60 * 1000);
         await prisma.document.update({ where: { id: body.id }, data: { createdAt: backdated } });
       }
-      mockSession = { user: { tenantId } };
+      mockSession = { user: { tenantId, id: userId } };
     }, 120000);
 
     afterAll(async () => {
+      await prisma.stockMovement.deleteMany({ where: { tenantId: historyTenantId } });
       await prisma.documentLine.deleteMany({ where: { tenantId: historyTenantId } });
       await prisma.document.deleteMany({ where: { tenantId: historyTenantId } });
       await prisma.customer.deleteMany({ where: { tenantId: historyTenantId } });
       await prisma.product.deleteMany({ where: { tenantId: historyTenantId } });
+      await prisma.user.deleteMany({ where: { tenantId: historyTenantId } });
       await prisma.settings.deleteMany({ where: { tenantId: historyTenantId } });
       await prisma.tenant.delete({ where: { id: historyTenantId } });
     });
@@ -492,7 +512,7 @@ describe("/api/receipts", () => {
     }
 
     it("returns the first page (10 rows) newest-first, with the true total", { timeout: 30000 }, async () => {
-      mockSession = { user: { tenantId: historyTenantId } };
+      mockSession = { user: { tenantId: historyTenantId, id: historyUserId } };
       try {
         const response = await GET(historyRequest(""));
         expect(response.status).toBe(200);
@@ -505,12 +525,12 @@ describe("/api/receipts", () => {
         expect(body.receipts[0].id).toBe(createdReceiptIds[14]);
         expect(body.receipts[9].id).toBe(createdReceiptIds[5]);
       } finally {
-        mockSession = { user: { tenantId } };
+        mockSession = { user: { tenantId, id: userId } };
       }
     });
 
     it("returns the second page with the remaining rows", { timeout: 30000 }, async () => {
-      mockSession = { user: { tenantId: historyTenantId } };
+      mockSession = { user: { tenantId: historyTenantId, id: historyUserId } };
       try {
         const response = await GET(historyRequest("?page=2"));
         const body = await response.json();
@@ -518,12 +538,12 @@ describe("/api/receipts", () => {
         expect(body.total).toBe(15);
         expect(body.receipts[4].id).toBe(createdReceiptIds[0]);
       } finally {
-        mockSession = { user: { tenantId } };
+        mockSession = { user: { tenantId, id: userId } };
       }
     });
 
     it("returns an empty page (not an error) for a page number past the end", { timeout: 30000 }, async () => {
-      mockSession = { user: { tenantId: historyTenantId } };
+      mockSession = { user: { tenantId: historyTenantId, id: historyUserId } };
       try {
         const response = await GET(historyRequest("?page=99"));
         expect(response.status).toBe(200);
@@ -531,7 +551,7 @@ describe("/api/receipts", () => {
         expect(body.receipts).toEqual([]);
         expect(body.total).toBe(15);
       } finally {
-        mockSession = { user: { tenantId } };
+        mockSession = { user: { tenantId, id: userId } };
       }
     });
 
@@ -543,7 +563,7 @@ describe("/api/receipts", () => {
       // chosen so that (page - 1) * PAGE_SIZE genuinely exceeds that 64-bit
       // limit pre-fix; a smaller value like 999999999999 does not actually
       // overflow `skip` and would let this test pass even without the clamp.
-      mockSession = { user: { tenantId: historyTenantId } };
+      mockSession = { user: { tenantId: historyTenantId, id: historyUserId } };
       try {
         const response = await GET(historyRequest("?page=1000000000000000000"));
         expect(response.status).toBe(200);
@@ -551,12 +571,12 @@ describe("/api/receipts", () => {
         expect(body.receipts).toEqual([]);
         expect(body.total).toBe(15);
       } finally {
-        mockSession = { user: { tenantId } };
+        mockSession = { user: { tenantId, id: userId } };
       }
     });
 
     it("searches by exact receipt number", { timeout: 30000 }, async () => {
-      mockSession = { user: { tenantId: historyTenantId } };
+      mockSession = { user: { tenantId: historyTenantId, id: historyUserId } };
       try {
         const first = await GET(historyRequest(""));
         const firstBody = await first.json();
@@ -565,30 +585,30 @@ describe("/api/receipts", () => {
         const body = await response.json();
         expect(body.receipts.every((r: { number: number }) => r.number === targetNumber)).toBe(true);
       } finally {
-        mockSession = { user: { tenantId } };
+        mockSession = { user: { tenantId, id: userId } };
       }
     });
 
     it("searches by customer name substring, case-insensitively", { timeout: 30000 }, async () => {
-      mockSession = { user: { tenantId: historyTenantId } };
+      mockSession = { user: { tenantId: historyTenantId, id: historyUserId } };
       try {
         const response = await GET(historyRequest("?search=history cust"));
         const body = await response.json();
         expect(body.total).toBe(15);
         expect(body.receipts.every((r: { customerName: string }) => r.customerName === "History Customer")).toBe(true);
       } finally {
-        mockSession = { user: { tenantId } };
+        mockSession = { user: { tenantId, id: userId } };
       }
     });
 
     it("searches by VAT ID substring", { timeout: 30000 }, async () => {
-      mockSession = { user: { tenantId: historyTenantId } };
+      mockSession = { user: { tenantId: historyTenantId, id: historyUserId } };
       try {
         const response = await GET(historyRequest("?search=000457"));
         const body = await response.json();
         expect(body.total).toBe(15);
       } finally {
-        mockSession = { user: { tenantId } };
+        mockSession = { user: { tenantId, id: userId } };
       }
     });
 
@@ -598,7 +618,7 @@ describe("/api/receipts", () => {
       // 300000000000457 exceeds Postgres INT4's max (2,147,483,647), so an
       // unclamped parse would be handed to Prisma as an exact `number` filter and
       // throw -- this must fall through to the vatId `contains` match instead.
-      mockSession = { user: { tenantId: historyTenantId } };
+      mockSession = { user: { tenantId: historyTenantId, id: historyUserId } };
       try {
         const response = await GET(historyRequest("?search=300000000000457"));
         expect(response.status).toBe(200);
@@ -610,24 +630,24 @@ describe("/api/receipts", () => {
         ).toBe(true);
         expect(body.receipts.every((r: { grandTotal: string }) => r.grandTotal === "11.5")).toBe(true);
       } finally {
-        mockSession = { user: { tenantId } };
+        mockSession = { user: { tenantId, id: userId } };
       }
     });
 
     it("returns an empty result for a search matching neither a number nor any customer", { timeout: 30000 }, async () => {
-      mockSession = { user: { tenantId: historyTenantId } };
+      mockSession = { user: { tenantId: historyTenantId, id: historyUserId } };
       try {
         const response = await GET(historyRequest("?search=zzz-no-match-zzz"));
         const body = await response.json();
         expect(body.total).toBe(0);
         expect(body.receipts).toEqual([]);
       } finally {
-        mockSession = { user: { tenantId } };
+        mockSession = { user: { tenantId, id: userId } };
       }
     });
 
     it("filters by date range inclusively, excluding just outside either end", { timeout: 30000 }, async () => {
-      mockSession = { user: { tenantId: historyTenantId } };
+      mockSession = { user: { tenantId: historyTenantId, id: historyUserId } };
       try {
         // receipt index 10 was backdated to (today - 5 days); index 9 to (today - 6 days)
         const targetDate = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -636,20 +656,20 @@ describe("/api/receipts", () => {
         expect(body.total).toBe(1);
         expect(body.receipts[0].id).toBe(createdReceiptIds[10]);
       } finally {
-        mockSession = { user: { tenantId } };
+        mockSession = { user: { tenantId, id: userId } };
       }
     });
 
     it("never returns another tenant's receipts, even when a search term matches their customer", { timeout: 30000 }, async () => {
       // tenantId's own beforeAll created a "Fresh Customer" earlier in this file;
       // searching for it while scoped to historyTenantId must find nothing
-      mockSession = { user: { tenantId: historyTenantId } };
+      mockSession = { user: { tenantId: historyTenantId, id: historyUserId } };
       try {
         const response = await GET(historyRequest("?search=Fresh Customer"));
         const body = await response.json();
         expect(body.total).toBe(0);
       } finally {
-        mockSession = { user: { tenantId } };
+        mockSession = { user: { tenantId, id: userId } };
       }
     });
 
@@ -659,7 +679,7 @@ describe("/api/receipts", () => {
         const response = await GET(historyRequest(""));
         expect(response.status).toBe(401);
       } finally {
-        mockSession = { user: { tenantId } };
+        mockSession = { user: { tenantId, id: userId } };
       }
     });
   });

@@ -54,6 +54,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     data.quantity = quantity;
   }
 
+  if (body.lowStockThreshold !== undefined) {
+    if (body.lowStockThreshold === null || body.lowStockThreshold === "") {
+      data.lowStockThreshold = null;
+    } else {
+      const lowStockThreshold = Number(body.lowStockThreshold);
+      if (!Number.isFinite(lowStockThreshold) || lowStockThreshold < 0) {
+        return NextResponse.json({ error: "Low stock threshold must be zero or more" }, { status: 400 });
+      }
+      data.lowStockThreshold = lowStockThreshold;
+    }
+  }
+
   if (body.vatRate !== undefined) {
     if (body.vatRate === null || body.vatRate === "") {
       data.vatRate = null;

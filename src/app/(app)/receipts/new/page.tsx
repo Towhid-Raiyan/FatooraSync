@@ -22,6 +22,7 @@ export default async function NewReceiptPage() {
     unitPrice: p.unitPrice.toString(),
     vatRate: p.vatRate?.toString() ?? null,
     quantity: p.quantity.toString(),
+    lowStockThreshold: p.lowStockThreshold?.toString() ?? null,
   }));
 
   return (

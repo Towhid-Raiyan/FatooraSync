@@ -63,6 +63,14 @@ export async function POST(request: Request) {
     }
   }
 
+  let lowStockThreshold: number | null = null;
+  if (body.lowStockThreshold !== undefined && body.lowStockThreshold !== null && body.lowStockThreshold !== "") {
+    lowStockThreshold = Number(body.lowStockThreshold);
+    if (!Number.isFinite(lowStockThreshold) || lowStockThreshold < 0) {
+      return NextResponse.json({ error: "Low stock threshold must be zero or more" }, { status: 400 });
+    }
+  }
+
   const unit: Unit = VALID_UNITS.includes(body.unit) ? body.unit : "PIECE";
   const barcode = typeof body.barcode === "string" ? body.barcode.trim() || null : null;
   // sku is intentionally never read from the request body -- it's always
@@ -86,6 +94,7 @@ export async function POST(request: Request) {
           unitPrice,
           vatRate,
           quantity,
+          lowStockThreshold,
         } as Prisma.ProductUncheckedCreateInput,
       });
     });
