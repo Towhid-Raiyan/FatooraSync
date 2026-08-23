@@ -36,6 +36,7 @@ export async function GET(request: Request) {
         product: { select: { nameEn: true, nameAr: true, sku: true } },
         supplier: { select: { name: true } },
         createdByUser: { select: { email: true } },
+        purchaseReceipt: { select: { number: true } },
       },
     })
   );
@@ -142,6 +143,7 @@ export async function POST(request: Request) {
         product: { select: { nameEn: true, nameAr: true, sku: true } },
         supplier: { select: { name: true } },
         createdByUser: { select: { email: true } },
+        purchaseReceipt: { select: { number: true } },
       },
     })
   );

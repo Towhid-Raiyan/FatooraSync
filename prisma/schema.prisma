@@ -19,6 +19,7 @@ enum Unit {
   BOX
   CARTON
   LITER
+  DOZEN
 }
 
 enum PrintFormat {
@@ -57,33 +58,41 @@ enum StockAdjustmentReason {
   OTHER
 }
 
-model Tenant {
-  id                     String        @id @default(uuid())
-  legalName              String
-  tradeNameEn            String
-  tradeNameAr            String?
-  vatNumber              String
-  crNumber               String?
-  address                String?
-  phone                  String?
-  defaultLocale          String        @default("ar")
-  createdAt              DateTime      @default(now())
-  nextProductSkuNumber   Int           @default(1)
-  nextSalesReceiptNumber Int           @default(1)
-  nextQuotationNumber    Int           @default(1)
-  lastSalesReceiptHash   String?
-  billingStatus          BillingStatus @default(TRIALING)
-  trialEndsAt            DateTime?
-  featureFlags           Json          @default("{}")
+enum PaymentMethod {
+  CASH
+  CREDIT
+}
 
-  users          User[]
-  settings       Settings?
-  customers      Customer[]
-  products       Product[]
-  documents      Document[]
-  documentLines  DocumentLine[]
-  suppliers      Supplier[]
-  stockMovements StockMovement[]
+model Tenant {
+  id                        String        @id @default(uuid())
+  legalName                 String
+  tradeNameEn               String
+  tradeNameAr               String?
+  vatNumber                 String
+  crNumber                  String?
+  address                   String?
+  phone                     String?
+  defaultLocale             String        @default("ar")
+  createdAt                 DateTime      @default(now())
+  nextProductSkuNumber      Int           @default(1)
+  nextSalesReceiptNumber    Int           @default(1)
+  nextQuotationNumber       Int           @default(1)
+  nextPurchaseReceiptNumber Int           @default(1)
+  lastSalesReceiptHash      String?
+  billingStatus             BillingStatus @default(TRIALING)
+  trialEndsAt               DateTime?
+  featureFlags              Json          @default("{}")
+
+  users                User[]
+  settings             Settings?
+  customers            Customer[]
+  products             Product[]
+  documents            Document[]
+  documentLines        DocumentLine[]
+  suppliers            Supplier[]
+  stockMovements       StockMovement[]
+  purchaseReceipts     PurchaseReceipt[]
+  purchaseReceiptLines PurchaseReceiptLine[]
 }
 
 model Settings {
@@ -178,8 +187,9 @@ model Product {
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
 
-  lines          DocumentLine[]
-  stockMovements StockMovement[]
+  lines                DocumentLine[]
+  stockMovements       StockMovement[]
+  purchaseReceiptLines PurchaseReceiptLine[]
 
   @@unique([tenantId, sku])
   @@unique([tenantId, barcode])
@@ -238,13 +248,65 @@ model Supplier {
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
   name      String
+  vatId     String?
+  crNumber  String?
   phone     String?
   address   String?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
+  stockMovements   StockMovement[]
+  purchaseReceipts PurchaseReceipt[]
+
+  @@index([tenantId])
+}
+
+// The purchase-side twin of Document/DocumentLine: one purchase receipt per
+// delivery, however many products it contains, saved as a single record --
+// mirrors how a Sales Receipt bundles multiple lines under one document
+// rather than requiring one save per product. Never submitted to ZATCA (that
+// only applies to outgoing sales invoices) -- this is purely the business's
+// own purchasing/input-VAT record.
+model PurchaseReceipt {
+  id                    String        @id @default(uuid())
+  tenantId              String
+  tenant                Tenant        @relation(fields: [tenantId], references: [id])
+  number                Int
+  supplierReceiptNumber String?
+  supplierId            String
+  supplier              Supplier      @relation(fields: [supplierId], references: [id])
+  purchaseDate          DateTime
+  paymentMethod         PaymentMethod
+  subtotal              Decimal       @db.Decimal(12, 2)
+  vatTotal              Decimal       @db.Decimal(12, 2)
+  grandTotal            Decimal       @db.Decimal(12, 2)
+  createdAt             DateTime      @default(now())
+
+  lines          PurchaseReceiptLine[]
   stockMovements StockMovement[]
 
+  @@unique([tenantId, number])
+  @@index([tenantId, purchaseDate])
+}
+
+model PurchaseReceiptLine {
+  id                String          @id @default(uuid())
+  tenantId          String
+  tenant            Tenant          @relation(fields: [tenantId], references: [id])
+  purchaseReceiptId String
+  purchaseReceipt   PurchaseReceipt @relation(fields: [purchaseReceiptId], references: [id])
+  productId         String
+  product           Product         @relation(fields: [productId], references: [id])
+  productName       String
+  unit              Unit
+  quantity          Decimal         @db.Decimal(12, 3)
+  unitPrice         Decimal         @db.Decimal(12, 3)
+  vatRate           Decimal         @db.Decimal(5, 2)
+  lineSubtotal      Decimal         @db.Decimal(12, 2)
+  lineVat           Decimal         @db.Decimal(12, 2)
+  lineTotal         Decimal         @db.Decimal(12, 2)
+
+  @@index([purchaseReceiptId])
   @@index([tenantId])
 }
 
@@ -255,24 +317,26 @@ model Supplier {
 // src/lib/inventory/apply-stock-movement.ts, the only code path allowed to
 // write to either.
 model StockMovement {
-  id              String                 @id @default(uuid())
-  tenantId        String
-  tenant          Tenant                 @relation(fields: [tenantId], references: [id])
-  productId       String
-  product         Product                @relation(fields: [productId], references: [id])
-  type            StockMovementType
-  quantityDelta   Decimal                @db.Decimal(12, 3)
-  quantityAfter   Decimal                @db.Decimal(12, 3)
-  reason          StockAdjustmentReason?
-  note            String?
-  unitCost        Decimal?               @db.Decimal(12, 2)
-  supplierId      String?
-  supplier        Supplier?              @relation(fields: [supplierId], references: [id])
-  documentId      String?
-  document        Document?              @relation(fields: [documentId], references: [id])
-  createdByUserId String
-  createdByUser   User                   @relation(fields: [createdByUserId], references: [id])
-  createdAt       DateTime               @default(now())
+  id                String                 @id @default(uuid())
+  tenantId          String
+  tenant            Tenant                 @relation(fields: [tenantId], references: [id])
+  productId         String
+  product           Product                @relation(fields: [productId], references: [id])
+  type              StockMovementType
+  quantityDelta     Decimal                @db.Decimal(12, 3)
+  quantityAfter     Decimal                @db.Decimal(12, 3)
+  reason            StockAdjustmentReason?
+  note              String?
+  unitCost          Decimal?               @db.Decimal(12, 2)
+  supplierId        String?
+  supplier          Supplier?              @relation(fields: [supplierId], references: [id])
+  documentId        String?
+  document          Document?              @relation(fields: [documentId], references: [id])
+  purchaseReceiptId String?
+  purchaseReceipt   PurchaseReceipt?       @relation(fields: [purchaseReceiptId], references: [id])
+  createdByUserId   String
+  createdByUser     User                   @relation(fields: [createdByUserId], references: [id])
+  createdAt         DateTime               @default(now())
 
   @@index([tenantId, productId])
   @@index([tenantId, createdAt])

@@ -9,6 +9,8 @@ const TENANT_SCOPED_MODELS = new Set([
   "User",
   "Supplier",
   "StockMovement",
+  "PurchaseReceipt",
+  "PurchaseReceiptLine",
 ]);
 
 /**

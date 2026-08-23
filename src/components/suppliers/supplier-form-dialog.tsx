@@ -15,7 +15,7 @@ interface SupplierFormDialogProps {
   onSaved: (supplier: Supplier) => void;
 }
 
-const EMPTY_FORM = { name: "", phone: "", address: "" };
+const EMPTY_FORM = { name: "", vatId: "", crNumber: "", phone: "", address: "" };
 const LABEL_CLASS = "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wider text-muted-fg";
 
 export function SupplierFormDialog({ open, supplier, onOpenChange, onSaved }: SupplierFormDialogProps) {
@@ -28,7 +28,13 @@ export function SupplierFormDialog({ open, supplier, onOpenChange, onSaved }: Su
     if (open) {
       setForm(
         supplier
-          ? { name: supplier.name, phone: supplier.phone ?? "", address: supplier.address ?? "" }
+          ? {
+              name: supplier.name,
+              vatId: supplier.vatId ?? "",
+              crNumber: supplier.crNumber ?? "",
+              phone: supplier.phone ?? "",
+              address: supplier.address ?? "",
+            }
           : EMPTY_FORM
       );
       setError(null);
@@ -79,6 +85,21 @@ export function SupplierFormDialog({ open, supplier, onOpenChange, onSaved }: Su
               {dict.suppliers.name}
             </Label>
             <Input id="supplier-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="supplier-vat" className={LABEL_CLASS}>
+                {dict.suppliers.vatId}
+              </Label>
+              <Input id="supplier-vat" value={form.vatId} onChange={(e) => setForm({ ...form, vatId: e.target.value })} />
+            </div>
+            <div>
+              <Label htmlFor="supplier-cr" className={LABEL_CLASS}>
+                {dict.suppliers.crNumber}
+              </Label>
+              <Input id="supplier-cr" value={form.crNumber} onChange={(e) => setForm({ ...form, crNumber: e.target.value })} />
+            </div>
           </div>
 
           <div>

@@ -26,6 +26,7 @@ export function getUnitOptions(dict: Dictionary): { value: string; label: string
     { value: "BOX", label: dict.products.units.box },
     { value: "CARTON", label: dict.products.units.carton },
     { value: "LITER", label: dict.products.units.liter },
+    { value: "DOZEN", label: dict.products.units.dozen },
   ];
 }
 

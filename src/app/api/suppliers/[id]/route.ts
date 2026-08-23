@@ -30,6 +30,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     data.name = name;
   }
+  if (body.vatId !== undefined) data.vatId = body.vatId || null;
+  if (body.crNumber !== undefined) data.crNumber = body.crNumber || null;
   if (body.phone !== undefined) data.phone = body.phone || null;
   if (body.address !== undefined) data.address = body.address || null;
   if (body.isActive !== undefined) data.isActive = Boolean(body.isActive);

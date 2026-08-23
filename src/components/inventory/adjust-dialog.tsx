@@ -97,6 +97,7 @@ export function AdjustDialog({ open, onOpenChange, products, onSaved }: AdjustDi
           supplier: body.supplier,
           createdByUser: body.createdByUser,
           document: null,
+          purchaseReceipt: null,
         },
         body.quantityAfter
       );

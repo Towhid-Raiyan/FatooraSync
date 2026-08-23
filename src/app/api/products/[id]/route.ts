@@ -7,7 +7,7 @@ import { findBarcodeConflict } from "../check-uniqueness";
 import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
 import { assertCanManageCatalog } from "@/lib/rbac/require-catalog-access";
 
-const VALID_UNITS: Unit[] = ["PIECE", "KG", "BOX", "CARTON", "LITER"];
+const VALID_UNITS: Unit[] = ["PIECE", "KG", "BOX", "CARTON", "LITER", "DOZEN"];
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();

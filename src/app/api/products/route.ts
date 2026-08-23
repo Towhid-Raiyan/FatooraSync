@@ -8,7 +8,7 @@ import { generateNextSku } from "./generate-sku";
 import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
 import { assertCanManageCatalog } from "@/lib/rbac/require-catalog-access";
 
-const VALID_UNITS: Unit[] = ["PIECE", "KG", "BOX", "CARTON", "LITER"];
+const VALID_UNITS: Unit[] = ["PIECE", "KG", "BOX", "CARTON", "LITER", "DOZEN"];
 
 // Not called by this branch's own UI (page.tsx fetches directly via withTenant) — reserved
 // for the future Sales Receipt screen's product picker, per the design spec.

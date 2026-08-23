@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { SupplierOption } from "./restock-dialog";
+import type { Supplier } from "@prisma/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,17 +9,27 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { useLocale } from "@/lib/i18n/language-provider";
 import { useToast } from "@/lib/toast/toast-provider";
 import type { Dictionary } from "@/lib/i18n/dictionaries/dictionary.types";
-import { RestockDialog } from "./restock-dialog";
 import { AdjustDialog } from "./adjust-dialog";
+import { PurchaseReceiptModal } from "./purchase-receipt-modal";
+import { PurchaseHistoryClient, type PurchaseReceiptsResponse } from "./purchase-history-client";
 
 export type MovementType = "SALE" | "RESTOCK" | "ADJUSTMENT";
 export type AdjustmentReason = "DAMAGE" | "LOSS_THEFT" | "RECOUNT" | "OTHER";
+
+export interface SupplierOption {
+  id: string;
+  name: string;
+}
 
 export interface InventoryProduct {
   id: string;
   nameEn: string;
   nameAr: string | null;
   sku: string | null;
+  barcode: string | null;
+  unit: string;
+  unitPrice: string;
+  vatRate: string | null;
   quantity: string;
   lowStockThreshold: string | null;
 }
@@ -38,6 +48,7 @@ export interface SerializedMovement {
   supplier: { name: string } | null;
   createdByUser: { email: string };
   document: { type: "SALES_RECEIPT" | "QUOTATION"; number: number } | null;
+  purchaseReceipt: { number: number } | null;
 }
 
 function typePill(type: MovementType, dict: Dictionary) {
@@ -73,6 +84,14 @@ function detailCell(movement: SerializedMovement, dict: Dictionary) {
     return movement.document ? dict.inventory.receiptLabel(movement.document.number) : "—";
   }
   if (movement.type === "RESTOCK") {
+    if (movement.purchaseReceipt) {
+      return (
+        <>
+          {dict.purchases.movementDetailLabel(movement.purchaseReceipt.number)}
+          {movement.unitCost && <div className="text-muted-fg">{dict.inventory.unitCostLabel(movement.unitCost)}</div>}
+        </>
+      );
+    }
     return (
       <>
         {movement.supplier?.name ?? "—"}
@@ -100,23 +119,27 @@ export function InventoryClient({
   initialMovements,
   products,
   initialSuppliers,
+  initialPurchaseReceipts,
   canManageCatalog,
 }: {
   initialMovements: SerializedMovement[];
   products: InventoryProduct[];
   initialSuppliers: SupplierOption[];
+  initialPurchaseReceipts: PurchaseReceiptsResponse;
   canManageCatalog: boolean;
 }) {
   const { dict, locale } = useLocale();
   const { toast } = useToast();
+  const [tab, setTab] = useState<"track" | "purchases">("track");
   const [movements, setMovements] = useState(initialMovements);
   const [productList, setProductList] = useState(products);
   const [suppliers, setSuppliers] = useState(initialSuppliers);
   const [typeFilter, setTypeFilter] = useState<"all" | MovementType>("all");
   const [search, setSearch] = useState("");
-  const [restockOpen, setRestockOpen] = useState(false);
+  const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [lowStockOnly, setLowStockOnly] = useState(false);
+  const [purchaseHistoryRefreshKey, setPurchaseHistoryRefreshKey] = useState(0);
 
   const lowStockProducts = useMemo(() => productList.filter(isLowStock), [productList]);
 
@@ -139,10 +162,13 @@ export function InventoryClient({
     setProductList((prev) => prev.map((p) => (p.id === movement.productId ? { ...p, quantity: updatedQuantity } : p)));
   }
 
-  function handleRestockSaved(movement: SerializedMovement, updatedQuantity: string) {
-    applyMovement(movement, updatedQuantity);
-    setRestockOpen(false);
-    toast.success(dict.inventory.restockSavedToast);
+  function handlePurchaseSaved(result: { purchaseReceipt: { id: string }; movements: SerializedMovement[] }) {
+    for (const movement of result.movements) {
+      applyMovement(movement, movement.quantityAfter);
+    }
+    setPurchaseOpen(false);
+    setPurchaseHistoryRefreshKey((key) => key + 1);
+    toast.success(dict.purchases.purchaseSavedToast);
   }
 
   function handleAdjustSaved(movement: SerializedMovement, updatedQuantity: string) {
@@ -163,14 +189,35 @@ export function InventoryClient({
             <Button variant="outline" onClick={() => setAdjustOpen(true)}>
               {dict.inventory.adjustStock}
             </Button>
-            <Button variant="primary" onClick={() => setRestockOpen(true)}>
+            <Button variant="primary" onClick={() => setPurchaseOpen(true)}>
               {dict.inventory.restock}
             </Button>
           </div>
         )}
       </div>
 
-      {lowStockProducts.length > 0 && (
+      <div className="flex gap-2 rounded-lg border border-border-subtle bg-bg-app p-1 self-start">
+        <button
+          type="button"
+          onClick={() => setTab("track")}
+          className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+            tab === "track" ? "bg-bg-card text-heading shadow-sm" : "text-muted-fg hover:text-body"
+          }`}
+        >
+          {dict.inventory.tabTrack}
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("purchases")}
+          className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+            tab === "purchases" ? "bg-bg-card text-heading shadow-sm" : "text-muted-fg hover:text-body"
+          }`}
+        >
+          {dict.inventory.tabPurchases}
+        </button>
+      </div>
+
+      {tab === "track" && lowStockProducts.length > 0 && (
         <div className="flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-800">
           <span className="size-1.5 shrink-0 rounded-full bg-amber-600" />
           <span className="flex-1">{dict.inventory.lowStockBanner(lowStockProducts.length)}</span>
@@ -184,6 +231,11 @@ export function InventoryClient({
         </div>
       )}
 
+      {tab === "purchases" && (
+        <PurchaseHistoryClient initial={initialPurchaseReceipts} refreshKey={purchaseHistoryRefreshKey} />
+      )}
+
+      {tab === "track" && (
       <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
         <div className="flex flex-col gap-3 border-b border-border-subtle p-4 sm:flex-row sm:items-center">
           <select
@@ -290,14 +342,16 @@ export function InventoryClient({
           </>
         )}
       </Card>
+      )}
 
-      <RestockDialog
-        open={restockOpen}
-        onOpenChange={setRestockOpen}
+      <PurchaseReceiptModal
+        open={purchaseOpen}
+        onOpenChange={setPurchaseOpen}
         products={productList}
         suppliers={suppliers}
-        onSupplierCreated={(supplier) => setSuppliers((prev) => [...prev, supplier])}
-        onSaved={handleRestockSaved}
+        onSupplierCreated={(supplier: Supplier) => setSuppliers((prev) => [...prev, supplier])}
+        onProductCreated={(product) => setProductList((prev) => [...prev, product])}
+        onSaved={handlePurchaseSaved}
       />
       <AdjustDialog
         open={adjustOpen}

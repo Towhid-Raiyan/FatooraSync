@@ -119,6 +119,7 @@ export function SuppliersClient({
                 <TableHeader>
                   <TableRow>
                     <TableHead>{dict.suppliers.name}</TableHead>
+                    <TableHead>{dict.suppliers.vatId}</TableHead>
                     <TableHead>{dict.suppliers.phone}</TableHead>
                     <TableHead>{dict.suppliers.address}</TableHead>
                     <TableHead className="text-right">{dict.common.actions}</TableHead>
@@ -128,6 +129,7 @@ export function SuppliersClient({
                   {filtered.map((supplier) => (
                     <TableRow key={supplier.id} className={!supplier.isActive ? "opacity-50" : undefined}>
                       <TableCell className="font-medium text-heading">{supplier.name}</TableCell>
+                      <TableCell className="font-mono text-xs">{supplier.vatId ?? "—"}</TableCell>
                       <TableCell>{supplier.phone ?? "—"}</TableCell>
                       <TableCell>{supplier.address ?? "—"}</TableCell>
                       <TableCell className="text-right">
@@ -159,6 +161,7 @@ export function SuppliersClient({
                 <li key={supplier.id} className={`p-4 ${!supplier.isActive ? "opacity-50" : ""}`}>
                   <div className="font-medium text-heading">{supplier.name}</div>
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-fg">
+                    {supplier.vatId && <span className="font-mono">{supplier.vatId}</span>}
                     {supplier.phone && <span>{supplier.phone}</span>}
                     {supplier.address && <span>{supplier.address}</span>}
                   </div>

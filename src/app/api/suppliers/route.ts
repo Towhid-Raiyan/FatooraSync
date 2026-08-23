@@ -41,6 +41,8 @@ export async function POST(request: Request) {
     tx.supplier.create({
       data: {
         name,
+        vatId: body.vatId || null,
+        crNumber: body.crNumber || null,
         phone: body.phone || null,
         address: body.address || null,
       } as Prisma.SupplierUncheckedCreateInput,

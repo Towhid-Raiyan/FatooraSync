@@ -11,6 +11,7 @@ export interface ApplyStockMovementInput {
   unitCost?: number | null;
   supplierId?: string | null;
   documentId?: string | null;
+  purchaseReceiptId?: string | null;
 }
 
 // The only code path allowed to change Product.quantity. Updates the product
@@ -37,6 +38,7 @@ export async function applyStockMovement(txn: Prisma.TransactionClient, input: A
       unitCost: input.unitCost ?? null,
       supplierId: input.supplierId ?? null,
       documentId: input.documentId ?? null,
+      purchaseReceiptId: input.purchaseReceiptId ?? null,
       createdByUserId: input.createdByUserId,
     },
   });

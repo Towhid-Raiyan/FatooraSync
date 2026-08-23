@@ -15,5 +15,6 @@ export const NAV_ITEMS: NavItem[] = [
   { labelKey: "receiptHistory", href: "/receipts" },
   { labelKey: "quotationHistory", href: "/quotations" },
   { labelKey: "inventory", href: "/inventory" },
+  { labelKey: "statistics", href: "/statistics", ownerOnly: true },
   { labelKey: "settings", href: "/settings", ownerOnly: true },
 ];
