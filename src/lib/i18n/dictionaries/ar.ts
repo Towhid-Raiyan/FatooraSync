@@ -272,7 +272,6 @@ export const ar: Dictionary = {
     unitLabel: "الوحدة",
     quantityLabel: "الكمية",
     unitPriceLabel: "سعر الوحدة",
-    vatPercentLabel: "نسبة الضريبة %",
     addLineButton: "إضافة صنف",
     columnProduct: "المنتج",
     columnUnit: "الوحدة",

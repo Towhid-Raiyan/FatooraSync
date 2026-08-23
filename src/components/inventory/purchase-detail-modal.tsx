@@ -73,7 +73,7 @@ export function PurchaseDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-[calc(100%-2rem)] lg:max-w-4xl">
         <DialogHeader>
           <DialogTitle>{detail ? dict.purchases.detailTitle(detail.number) : ""}</DialogTitle>
         </DialogHeader>
@@ -128,7 +128,7 @@ export function PurchaseDetailModal({
               </div>
             </div>
 
-            <div className="overflow-x-auto rounded-lg border border-border-subtle">
+            <div className="hidden overflow-x-auto rounded-lg border border-border-subtle lg:block">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -158,6 +158,39 @@ export function PurchaseDetailModal({
                 </TableBody>
               </Table>
             </div>
+
+            <ul className="flex flex-col gap-2 lg:hidden">
+              {detail.lines.map((line) => (
+                <li key={line.id} className="rounded-lg border border-border-subtle p-3 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-heading">{line.productName}</span>
+                    <span className="shrink-0 text-xs text-muted-fg">{unitLabels[line.unit] ?? line.unit}</span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-3">
+                    <div>
+                      <span className="text-muted-fg">{dict.purchases.columnQty}: </span>
+                      <span className="text-body">{line.quantity}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-fg">{dict.purchases.columnUnitPrice}: </span>
+                      <span className="text-body">{Number(line.unitPrice).toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-fg">{dict.purchases.columnSubtotal}: </span>
+                      <span className="text-body">{Number(line.lineSubtotal).toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-fg">{dict.purchases.columnVat}: </span>
+                      <span className="text-body">{Number(line.lineVat).toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-fg">{dict.purchases.columnTotal}: </span>
+                      <span className="font-semibold text-heading">{Number(line.lineTotal).toFixed(2)}</span>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
 
             <div className="flex flex-col gap-1.5 rounded-lg border border-dashed border-border-subtle bg-bg-app px-4 py-3 text-sm">
               <div className="flex justify-between text-body">

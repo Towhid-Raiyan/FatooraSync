@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma, type Unit } from "@prisma/client";
 import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/client";
-import { round2, round3, calculateLine, calculateDocumentTotals } from "@/lib/receipts/calculate-totals";
+import { round2, round3, calculateDocumentTotals } from "@/lib/receipts/calculate-totals";
 import { withTenant } from "@/lib/db/tenant-context";
 import { PAGE_SIZE } from "@/lib/receipts/constants";
 import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
@@ -24,7 +24,7 @@ interface RawLine {
   unit?: unknown;
   quantity?: unknown;
   unitPrice?: unknown;
-  vatRate?: unknown;
+  vatAmount?: unknown;
 }
 
 export async function POST(request: Request) {
@@ -70,25 +70,25 @@ export async function POST(request: Request) {
     unit: Unit;
     quantity: number;
     unitPrice: number;
-    vatRate: number;
+    vatAmount: number;
   }[] = [];
   for (const line of rawLines) {
     const quantity = Number(line.quantity);
     const unitPrice = round3(Number(line.unitPrice));
-    const vatRate = round2(Number(line.vatRate));
+    const vatAmount = round2(Number(line.vatAmount));
     if (typeof line.productId !== "string" || !Number.isFinite(quantity) || quantity <= 0) {
       return NextResponse.json({ error: "Each product must have a positive quantity" }, { status: 400 });
     }
     if (!Number.isFinite(unitPrice) || unitPrice < 0) {
       return NextResponse.json({ error: "Unit price must be zero or more" }, { status: 400 });
     }
-    if (!Number.isFinite(vatRate) || vatRate < 0) {
-      return NextResponse.json({ error: "VAT rate must be zero or more" }, { status: 400 });
+    if (!Number.isFinite(vatAmount) || vatAmount < 0) {
+      return NextResponse.json({ error: "VAT must be zero or more" }, { status: 400 });
     }
     if (typeof line.unit !== "string" || !VALID_UNITS.includes(line.unit as Unit)) {
       return NextResponse.json({ error: "Each product must have a valid unit" }, { status: 400 });
     }
-    parsedLines.push({ productId: line.productId, unit: line.unit as Unit, quantity, unitPrice, vatRate });
+    parsedLines.push({ productId: line.productId, unit: line.unit as Unit, quantity, unitPrice, vatAmount });
   }
 
   try {
@@ -118,19 +118,22 @@ export async function POST(request: Request) {
           if (!product) {
             throw new PurchaseReceiptError("One or more products are no longer available", 400);
           }
-          const { lineSubtotal, lineVat, lineTotal } = calculateLine({
-            unitPrice: line.unitPrice,
-            quantity: line.quantity,
-            vatRate: line.vatRate,
-            discount: 0,
-          });
+          // Purchase VAT is entered as a direct SAR amount, not a rate (always
+          // manual entry, decoupled from the product's own sales vatRate) --
+          // lineVat is the entered amount itself, not a percentage calculation.
+          // `vatRate` is still derived and stored on the line for the schema
+          // column / any future reporting, but nothing reads it as an input.
+          const lineSubtotal = round2(line.unitPrice * line.quantity);
+          const lineVat = line.vatAmount;
+          const lineTotal = round2(lineSubtotal + lineVat);
+          const vatRate = lineSubtotal > 0 ? round2((lineVat / lineSubtotal) * 100) : 0;
           resolvedLines.push({
             productId: product.id,
             productName: product.nameEn,
             unit: line.unit,
             quantity: line.quantity,
             unitPrice: line.unitPrice,
-            vatRate: line.vatRate,
+            vatRate,
             lineSubtotal,
             lineVat,
             lineTotal,

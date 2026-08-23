@@ -270,7 +270,6 @@ export interface Dictionary {
     unitLabel: string;
     quantityLabel: string;
     unitPriceLabel: string;
-    vatPercentLabel: string;
     addLineButton: string;
     columnProduct: string;
     columnUnit: string;

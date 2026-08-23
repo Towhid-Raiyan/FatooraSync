@@ -69,7 +69,7 @@ describe("/api/purchase-receipts/[id]", () => {
           supplierReceiptNumber: "SUP-77",
           purchaseDate: "2026-02-01",
           paymentMethod: "CREDIT",
-          lines: [{ productId, unit: "DOZEN", quantity: 3, unitPrice: 12, vatRate: 15 }],
+          lines: [{ productId, unit: "DOZEN", quantity: 3, unitPrice: 12, vatAmount: 5.4 }],
         }),
       })
     );

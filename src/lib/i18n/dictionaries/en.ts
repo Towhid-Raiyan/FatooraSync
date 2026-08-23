@@ -272,7 +272,6 @@ export const en: Dictionary = {
     unitLabel: "Unit",
     quantityLabel: "Qty",
     unitPriceLabel: "Unit price",
-    vatPercentLabel: "VAT %",
     addLineButton: "Add line",
     columnProduct: "Product",
     columnUnit: "Unit",

@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { useLocale } from "@/lib/i18n/language-provider";
-import { calculateLine, calculateDocumentTotals } from "@/lib/receipts/calculate-totals";
+import { round2, calculateDocumentTotals } from "@/lib/receipts/calculate-totals";
 import { ProductFormDialog, getUnitOptions } from "@/components/products/product-form-dialog";
 import { SupplierFormDialog } from "@/components/suppliers/supplier-form-dialog";
 import type { InventoryProduct, SerializedMovement, SupplierOption } from "./inventory-client";
@@ -26,7 +26,7 @@ interface PurchaseLine {
   unit: string;
   quantity: string;
   unitPrice: string;
-  vatRate: string;
+  vatAmount: string;
 }
 
 export interface PurchaseReceiptSaved {
@@ -110,7 +110,7 @@ export function PurchaseReceiptModal({
         unit: product.unit,
         quantity: "1",
         unitPrice: "",
-        vatRate: "",
+        vatAmount: "",
       },
     ]);
     setSearch("");
@@ -137,16 +137,17 @@ export function PurchaseReceiptModal({
     setLines((prev) => prev.filter((line) => line.key !== key));
   }
 
+  // Purchase VAT is always entered as a direct SAR amount per line (not a
+  // rate) -- decoupled from the product catalog's own sales vatRate, so this
+  // computes lineTotal from the entered amount rather than reusing
+  // calculateLine()'s rate-based math.
   const lineTotals = useMemo(
     () =>
-      lines.map((line) =>
-        calculateLine({
-          unitPrice: Number(line.unitPrice) || 0,
-          quantity: Number(line.quantity) || 0,
-          vatRate: Number(line.vatRate) || 0,
-          discount: 0,
-        })
-      ),
+      lines.map((line) => {
+        const lineSubtotal = round2((Number(line.unitPrice) || 0) * (Number(line.quantity) || 0));
+        const lineVat = round2(Number(line.vatAmount) || 0);
+        return { lineSubtotal, lineVat, lineTotal: round2(lineSubtotal + lineVat) };
+      }),
     [lines]
   );
 
@@ -167,12 +168,12 @@ export function PurchaseReceiptModal({
     for (const line of lines) {
       const quantity = Number(line.quantity);
       const unitPrice = Number(line.unitPrice);
-      const vatRate = Number(line.vatRate);
+      const vatAmount = Number(line.vatAmount);
       if (!Number.isFinite(quantity) || quantity <= 0) {
         setError(dict.inventory.invalidQuantity);
         return;
       }
-      if (!Number.isFinite(unitPrice) || unitPrice < 0 || !Number.isFinite(vatRate) || vatRate < 0) {
+      if (!Number.isFinite(unitPrice) || unitPrice < 0 || !Number.isFinite(vatAmount) || vatAmount < 0) {
         setError(dict.common.somethingWentWrong);
         return;
       }
@@ -192,7 +193,7 @@ export function PurchaseReceiptModal({
             unit: line.unit,
             quantity: Number(line.quantity),
             unitPrice: Number(line.unitPrice),
-            vatRate: Number(line.vatRate),
+            vatAmount: Number(line.vatAmount),
           })),
         }),
       });
@@ -212,7 +213,7 @@ export function PurchaseReceiptModal({
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-[calc(100%-2rem)] lg:max-w-6xl">
           <DialogHeader>
             <DialogTitle>{dict.purchases.newPurchaseTitle}</DialogTitle>
           </DialogHeader>
@@ -330,37 +331,129 @@ export function PurchaseReceiptModal({
                 {lines.length === 0 ? (
                   <p className="py-6 text-center text-sm text-muted-fg">{dict.purchases.noLinesYet}</p>
                 ) : (
-                  <div className="overflow-x-auto rounded-lg border border-border-subtle">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>{dict.purchases.columnProduct}</TableHead>
-                          <TableHead>{dict.purchases.columnUnit}</TableHead>
-                          <TableHead className="text-right">{dict.purchases.columnQty}</TableHead>
-                          <TableHead className="text-right">{dict.purchases.columnUnitPrice}</TableHead>
-                          <TableHead className="text-right">{dict.purchases.columnSubtotal}</TableHead>
-                          <TableHead className="text-right">{dict.purchases.vatPercentLabel}</TableHead>
-                          <TableHead className="text-right">{dict.purchases.columnVat}</TableHead>
-                          <TableHead className="text-right">{dict.purchases.columnTotal}</TableHead>
-                          <TableHead className="text-right">{dict.purchases.columnActions}</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {lines.map((line, index) => {
-                          const { lineSubtotal, lineVat, lineTotal } = lineTotals[index];
-                          return (
-                            <TableRow key={line.key}>
-                              <TableCell>
+                  <>
+                    {/* Desktop (lg+): full table. Below lg, this table's 8 columns don't
+                        fit any reasonable modal width without horizontal scroll hiding
+                        part of the row -- the card list below is the readable layout for
+                        phone and tablet instead. */}
+                    <div className="hidden overflow-x-auto rounded-lg border border-border-subtle lg:block">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{dict.purchases.columnProduct}</TableHead>
+                            <TableHead>{dict.purchases.columnUnit}</TableHead>
+                            <TableHead className="text-right">{dict.purchases.columnQty}</TableHead>
+                            <TableHead className="text-right">{dict.purchases.columnUnitPrice}</TableHead>
+                            <TableHead className="text-right">{dict.purchases.columnSubtotal}</TableHead>
+                            <TableHead className="text-right">{dict.purchases.columnVat}</TableHead>
+                            <TableHead className="text-right">{dict.purchases.columnTotal}</TableHead>
+                            <TableHead className="text-right">{dict.purchases.columnActions}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {lines.map((line, index) => {
+                            const { lineSubtotal, lineTotal } = lineTotals[index];
+                            return (
+                              <TableRow key={line.key}>
+                                <TableCell>
+                                  <div className="font-medium text-heading">{line.productName}</div>
+                                  {line.productNameAr && (
+                                    <div className="text-xs text-emerald-600 dark:text-emerald-400">{line.productNameAr}</div>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <select
+                                    value={line.unit}
+                                    onChange={(e) => updateLine(line.key, { unit: e.target.value })}
+                                    className="h-8 rounded-lg border border-input bg-transparent px-2 text-xs"
+                                  >
+                                    {unitOptions.map((opt) => (
+                                      <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Input
+                                    type="number"
+                                    step="0.001"
+                                    min="0.001"
+                                    value={line.quantity}
+                                    onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
+                                    className="w-16 text-right"
+                                  />
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Input
+                                    type="number"
+                                    step="0.001"
+                                    min="0"
+                                    value={line.unitPrice}
+                                    onChange={(e) => updateLine(line.key, { unitPrice: e.target.value })}
+                                    className="w-24 text-right"
+                                  />
+                                </TableCell>
+                                <TableCell className="text-right text-muted-fg">{lineSubtotal.toFixed(2)}</TableCell>
+                                <TableCell className="text-right">
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={line.vatAmount}
+                                    onChange={(e) => updateLine(line.key, { vatAmount: e.target.value })}
+                                    className="w-20 text-right"
+                                  />
+                                </TableCell>
+                                <TableCell className="text-right font-semibold text-heading">{lineTotal.toFixed(2)}</TableCell>
+                                <TableCell className="text-right">
+                                  <button
+                                    type="button"
+                                    aria-label={dict.a11y.removeItem}
+                                    onClick={() => removeLine(line.key)}
+                                    className="rounded-md p-1 text-red-600 hover:bg-red-600/10"
+                                  >
+                                    <X className="size-4" />
+                                  </button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* Phone/tablet (below lg): one card per line, every field stacked
+                        and fully visible -- no horizontal scrolling to see a row. */}
+                    <ul className="flex flex-col gap-3 lg:hidden">
+                      {lines.map((line, index) => {
+                        const { lineSubtotal, lineTotal } = lineTotals[index];
+                        return (
+                          <li key={line.key} className="rounded-lg border border-border-subtle p-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
                                 <div className="font-medium text-heading">{line.productName}</div>
                                 {line.productNameAr && (
                                   <div className="text-xs text-emerald-600 dark:text-emerald-400">{line.productNameAr}</div>
                                 )}
-                              </TableCell>
-                              <TableCell>
+                              </div>
+                              <button
+                                type="button"
+                                aria-label={dict.a11y.removeItem}
+                                onClick={() => removeLine(line.key)}
+                                className="shrink-0 rounded-md p-1 text-red-600 hover:bg-red-600/10"
+                              >
+                                <X className="size-4" />
+                              </button>
+                            </div>
+
+                            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                              <div>
+                                <Label className={LABEL_CLASS}>{dict.purchases.columnUnit}</Label>
                                 <select
                                   value={line.unit}
                                   onChange={(e) => updateLine(line.key, { unit: e.target.value })}
-                                  className="h-8 rounded-lg border border-input bg-transparent px-2 text-xs"
+                                  className="h-8 w-full rounded-lg border border-input bg-transparent px-2 text-xs"
                                 >
                                   {unitOptions.map((opt) => (
                                     <option key={opt.value} value={opt.value}>
@@ -368,56 +461,51 @@ export function PurchaseReceiptModal({
                                     </option>
                                   ))}
                                 </select>
-                              </TableCell>
-                              <TableCell className="text-right">
+                              </div>
+                              <div>
+                                <Label className={LABEL_CLASS}>{dict.purchases.columnQty}</Label>
                                 <Input
                                   type="number"
                                   step="0.001"
                                   min="0.001"
                                   value={line.quantity}
                                   onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
-                                  className="w-16 text-right"
                                 />
-                              </TableCell>
-                              <TableCell className="text-right">
+                              </div>
+                              <div>
+                                <Label className={LABEL_CLASS}>{dict.purchases.columnUnitPrice}</Label>
                                 <Input
                                   type="number"
                                   step="0.001"
                                   min="0"
                                   value={line.unitPrice}
                                   onChange={(e) => updateLine(line.key, { unitPrice: e.target.value })}
-                                  className="w-24 text-right"
                                 />
-                              </TableCell>
-                              <TableCell className="text-right text-muted-fg">{lineSubtotal.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">
+                              </div>
+                              <div>
+                                <Label className={LABEL_CLASS}>{dict.purchases.columnVat}</Label>
                                 <Input
                                   type="number"
                                   step="0.01"
                                   min="0"
-                                  value={line.vatRate}
-                                  onChange={(e) => updateLine(line.key, { vatRate: e.target.value })}
-                                  className="w-16 text-right"
+                                  value={line.vatAmount}
+                                  onChange={(e) => updateLine(line.key, { vatAmount: e.target.value })}
                                 />
-                              </TableCell>
-                              <TableCell className="text-right text-muted-fg">{lineVat.toFixed(2)}</TableCell>
-                              <TableCell className="text-right font-semibold text-heading">{lineTotal.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">
-                                <button
-                                  type="button"
-                                  aria-label={dict.a11y.removeItem}
-                                  onClick={() => removeLine(line.key)}
-                                  className="rounded-md p-1 text-red-600 hover:bg-red-600/10"
-                                >
-                                  <X className="size-4" />
-                                </button>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
+                              </div>
+                              <div>
+                                <Label className={LABEL_CLASS}>{dict.purchases.columnSubtotal}</Label>
+                                <div className="flex h-8 items-center text-sm text-muted-fg">{lineSubtotal.toFixed(2)}</div>
+                              </div>
+                              <div>
+                                <Label className={LABEL_CLASS}>{dict.purchases.columnTotal}</Label>
+                                <div className="flex h-8 items-center text-sm font-semibold text-heading">{lineTotal.toFixed(2)}</div>
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </>
                 )}
               </CardContent>
             </Card>

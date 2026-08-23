@@ -84,8 +84,8 @@ describe("/api/purchase-receipts", () => {
           purchaseDate: "2026-01-15",
           paymentMethod: "CREDIT",
           lines: [
-            { productId: productAId, unit: "PIECE", quantity: 10, unitPrice: 8, vatRate: 15 },
-            { productId: productBId, unit: "BOX", quantity: 4, unitPrice: 25, vatRate: 15 },
+            { productId: productAId, unit: "PIECE", quantity: 10, unitPrice: 8, vatAmount: 12 },
+            { productId: productBId, unit: "BOX", quantity: 4, unitPrice: 25, vatAmount: 15 },
           ],
         })
       );
@@ -126,7 +126,7 @@ describe("/api/purchase-receipts", () => {
         supplierId,
         purchaseDate: "2026-01-16",
         paymentMethod: "CASH",
-        lines: [{ productId: productAId, unit: "PIECE", quantity: 1, unitPrice: 1, vatRate: 0 }],
+        lines: [{ productId: productAId, unit: "PIECE", quantity: 1, unitPrice: 1, vatAmount: 0 }],
       })
     );
     const second = await POST(
@@ -134,7 +134,7 @@ describe("/api/purchase-receipts", () => {
         supplierId,
         purchaseDate: "2026-01-17",
         paymentMethod: "CASH",
-        lines: [{ productId: productAId, unit: "PIECE", quantity: 1, unitPrice: 1, vatRate: 0 }],
+        lines: [{ productId: productAId, unit: "PIECE", quantity: 1, unitPrice: 1, vatAmount: 0 }],
       })
     );
     const firstBody = await first.json();
@@ -147,7 +147,7 @@ describe("/api/purchase-receipts", () => {
       postRequest({
         purchaseDate: "2026-01-15",
         paymentMethod: "CASH",
-        lines: [{ productId: productAId, unit: "PIECE", quantity: 1, unitPrice: 1, vatRate: 0 }],
+        lines: [{ productId: productAId, unit: "PIECE", quantity: 1, unitPrice: 1, vatAmount: 0 }],
       })
     );
     expect(response.status).toBe(400);
@@ -166,7 +166,7 @@ describe("/api/purchase-receipts", () => {
         supplierId,
         purchaseDate: "2026-01-15",
         paymentMethod: "CASH",
-        lines: [{ productId: productAId, unit: "PIECE", quantity: 0, unitPrice: 1, vatRate: 0 }],
+        lines: [{ productId: productAId, unit: "PIECE", quantity: 0, unitPrice: 1, vatAmount: 0 }],
       })
     );
     expect(response.status).toBe(400);
@@ -178,7 +178,7 @@ describe("/api/purchase-receipts", () => {
         supplierId,
         purchaseDate: "2026-01-15",
         paymentMethod: "CASH",
-        lines: [{ productId: productAId, unit: "PALLET", quantity: 1, unitPrice: 1, vatRate: 0 }],
+        lines: [{ productId: productAId, unit: "PALLET", quantity: 1, unitPrice: 1, vatAmount: 0 }],
       })
     );
     expect(response.status).toBe(400);
@@ -190,7 +190,7 @@ describe("/api/purchase-receipts", () => {
         supplierId,
         purchaseDate: "2026-01-15",
         paymentMethod: "BANK_TRANSFER",
-        lines: [{ productId: productAId, unit: "PIECE", quantity: 1, unitPrice: 1, vatRate: 0 }],
+        lines: [{ productId: productAId, unit: "PIECE", quantity: 1, unitPrice: 1, vatAmount: 0 }],
       })
     );
     expect(response.status).toBe(400);
@@ -202,7 +202,7 @@ describe("/api/purchase-receipts", () => {
         supplierId: "00000000-0000-0000-0000-000000000000",
         purchaseDate: "2026-01-15",
         paymentMethod: "CASH",
-        lines: [{ productId: productAId, unit: "PIECE", quantity: 1, unitPrice: 1, vatRate: 0 }],
+        lines: [{ productId: productAId, unit: "PIECE", quantity: 1, unitPrice: 1, vatAmount: 0 }],
       })
     );
     expect(response.status).toBe(404);
@@ -214,7 +214,7 @@ describe("/api/purchase-receipts", () => {
         supplierId,
         purchaseDate: "2026-01-15",
         paymentMethod: "CASH",
-        lines: [{ productId: "00000000-0000-0000-0000-000000000000", unit: "PIECE", quantity: 1, unitPrice: 1, vatRate: 0 }],
+        lines: [{ productId: "00000000-0000-0000-0000-000000000000", unit: "PIECE", quantity: 1, unitPrice: 1, vatAmount: 0 }],
       })
     );
     expect(response.status).toBe(400);
@@ -228,7 +228,7 @@ describe("/api/purchase-receipts", () => {
           supplierId,
           purchaseDate: "2026-01-15",
           paymentMethod: "CASH",
-          lines: [{ productId: productAId, unit: "PIECE", quantity: 1, unitPrice: 1, vatRate: 0 }],
+          lines: [{ productId: productAId, unit: "PIECE", quantity: 1, unitPrice: 1, vatAmount: 0 }],
         })
       );
       expect(response.status).toBe(401);
@@ -246,7 +246,7 @@ describe("/api/purchase-receipts", () => {
           supplierId,
           purchaseDate: "2026-01-15",
           paymentMethod: "CASH",
-          lines: [{ productId: productAId, unit: "PIECE", quantity: 1, unitPrice: 1, vatRate: 0 }],
+          lines: [{ productId: productAId, unit: "PIECE", quantity: 1, unitPrice: 1, vatAmount: 0 }],
         })
       );
       expect(response.status).toBe(403);

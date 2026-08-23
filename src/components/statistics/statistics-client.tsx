@@ -43,7 +43,7 @@ function VatDonut({ outgoing, incoming }: { outgoing: number; incoming: number }
               strokeWidth={STROKE}
               strokeDasharray={`${outgoingLen} ${CIRCUMFERENCE - outgoingLen}`}
               strokeLinecap="butt"
-              className="stroke-primary"
+              className="stroke-red-500"
             />
             <circle
               cx="100"
@@ -105,6 +105,9 @@ export function StatisticsClient({ initial }: { initial: VatStats }) {
   const incoming = Number(stats.incomingVat);
   const net = Number(stats.netPayable);
   const isRefund = net < 0;
+  // Outgoing bigger than incoming (net owed) reads as red; incoming bigger
+  // (net refund) reads as green; an exact wash stays neutral.
+  const netColor = net > 0 ? "text-red-600" : net < 0 ? "text-emerald-600" : "text-heading";
 
   return (
     <div className="flex flex-col gap-4">
@@ -156,7 +159,7 @@ export function StatisticsClient({ initial }: { initial: VatStats }) {
           <div className="flex flex-col justify-center gap-4">
             <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-bg-app px-4 py-3">
               <div className="flex items-center gap-2">
-                <span className="size-2.5 shrink-0 rounded-full bg-primary" />
+                <span className="size-2.5 shrink-0 rounded-full bg-red-500" />
                 <div>
                   <div className="text-sm font-semibold text-heading">{dict.statistics.outgoingVat}</div>
                   <div className="text-xs text-muted-fg">{dict.statistics.outgoingVatCaption}</div>
@@ -183,9 +186,7 @@ export function StatisticsClient({ initial }: { initial: VatStats }) {
           <CardTitle className="text-heading">{isRefund ? dict.statistics.netRefund : dict.statistics.netPayable}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
-          <span className={`text-3xl font-bold ${isRefund ? "text-emerald-600" : "text-heading"}`}>
-            {Math.abs(net).toFixed(2)} SAR
-          </span>
+          <span className={`text-3xl font-bold ${netColor}`}>{Math.abs(net).toFixed(2)} SAR</span>
           <p className="text-xs text-muted-fg">{dict.statistics.netNote}</p>
         </CardContent>
       </Card>
