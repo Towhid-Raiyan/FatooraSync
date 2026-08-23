@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import type { Supplier } from "@prisma/client";
 import { Loader2Icon, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -81,10 +81,16 @@ export function PurchaseReceiptModal({
     setSaving(false);
   }
 
-  function handleOpenChange(next: boolean) {
-    if (next) resetForm();
-    onOpenChange(next);
-  }
+  // Reset whenever the dialog closes, however that happens -- the X button
+  // and Escape/outside-click go through Radix's own onOpenChange, but a
+  // successful save closes the dialog from the parent (InventoryClient sets
+  // `open` to false directly after onSaved()), bypassing that handler
+  // entirely. Watching the `open` prop itself is the one path that catches
+  // every case, so the form is always empty the next time it's opened.
+  useEffect(() => {
+    if (!open) resetForm();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -212,7 +218,7 @@ export function PurchaseReceiptModal({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={handleOpenChange}>
+      <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="flex max-h-[95vh] max-w-[calc(100vw-2rem)] flex-col overflow-y-auto md:max-w-[calc(100vw-4px)] lg:max-w-[1142px]">
           <DialogHeader>
             <DialogTitle>{dict.purchases.newPurchaseTitle}</DialogTitle>
@@ -327,17 +333,22 @@ export function PurchaseReceiptModal({
                   </Button>
                 </div>
 
-                {lines.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-muted-fg">{dict.purchases.noLinesYet}</p>
-                ) : (
-                  <>
+                {/* Both boxes below are always rendered at a fixed height, whether
+                    or not there are any lines yet -- reserving the space up front so
+                    adding the first product never changes the modal's overall size. */}
+                <>
                     {/* Desktop (lg+): full table. Below lg, this table's 8 columns don't
                         fit any reasonable modal width without horizontal scroll hiding
                         part of the row -- the card list below is the readable layout for
                         phone and tablet instead. Fixed height (not max-height) so the
                         modal's own size stays constant as products are added -- only this
                         box scrolls, sized to keep at least 3 rows visible. */}
-                    <div className="hidden h-[200px] overflow-y-auto overflow-x-auto rounded-lg border border-border-subtle lg:block">
+                    <div className="hidden h-[215px] overflow-y-auto overflow-x-auto rounded-lg border border-border-subtle lg:block">
+                      {lines.length === 0 ? (
+                        <p className="flex h-full items-center justify-center text-sm text-muted-fg">
+                          {dict.purchases.noLinesYet}
+                        </p>
+                      ) : (
                       <Table>
                         <TableHeader className="sticky top-0 z-10 bg-bg-card">
                           <TableRow>
@@ -422,6 +433,7 @@ export function PurchaseReceiptModal({
                           })}
                         </TableBody>
                       </Table>
+                      )}
                     </div>
 
                     {/* Phone/tablet (below lg): one card per line, every field stacked
@@ -429,7 +441,12 @@ export function PurchaseReceiptModal({
                         height (not max-height) for the same reason as the desktop table
                         above -- the modal's size stays constant as products are added. */}
                     <ul className="flex h-[340px] flex-col gap-2 overflow-y-auto lg:hidden">
-                      {lines.map((line, index) => {
+                      {lines.length === 0 ? (
+                        <li className="flex h-full items-center justify-center text-sm text-muted-fg">
+                          {dict.purchases.noLinesYet}
+                        </li>
+                      ) : (
+                      lines.map((line, index) => {
                         const { lineSubtotal, lineTotal } = lineTotals[index];
                         return (
                           <li key={line.key} className="rounded-lg border border-border-subtle p-3">
@@ -506,10 +523,10 @@ export function PurchaseReceiptModal({
                             </div>
                           </li>
                         );
-                      })}
+                      })
+                      )}
                     </ul>
-                  </>
-                )}
+                </>
               </CardContent>
             </Card>
 
