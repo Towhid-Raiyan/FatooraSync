@@ -49,7 +49,8 @@ export function ReceiptPrintA4({
             <A4BusinessHeader
               tenant={tenant}
               document={document}
-              docTitle="INVOICE"
+              docTitleEn="Simplified Tax Invoice"
+              docTitleAr="فاتورة ضريبية مبسطة"
               docNumberLabel="Invoice"
               prataClassName={prata.className}
             />

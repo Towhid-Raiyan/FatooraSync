@@ -1,4 +1,5 @@
 import type { Customer, Tenant, Document as PrismaDocument } from "@prisma/client";
+import { formatRiyadhDateTime } from "@/lib/format-datetime";
 import { PrintButton } from "@/components/receipts/print-button";
 
 function money(value: { toString(): string }): string {
@@ -47,7 +48,7 @@ export function QuotationPrintThermal({
 
       <div className="mb-3 flex justify-between text-xs">
         <span>QUOTATION (عرض سعر) #{document.number}</span>
-        <span>{document.createdAt.toISOString().slice(0, 19).replace("T", " ")}</span>
+        <span>{formatRiyadhDateTime(document.createdAt)}</span>
       </div>
 
       <div className="mb-3 border-t border-b border-black py-2 text-xs">

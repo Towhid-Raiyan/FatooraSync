@@ -1,5 +1,6 @@
 import type { Customer, Tenant, Document as PrismaDocument } from "@prisma/client";
 import { truncateNote } from "@/lib/print-format/truncate-note";
+import { formatRiyadhDateTime } from "@/lib/format-datetime";
 
 export function money(value: { toString(): string }): string {
   return Number(value.toString()).toFixed(2);
@@ -26,13 +27,15 @@ export type A4Document = Omit<PrismaDocument, "subtotal" | "vatTotal" | "grandTo
 export function A4BusinessHeader({
   tenant,
   document,
-  docTitle,
+  docTitleEn,
+  docTitleAr,
   docNumberLabel,
   prataClassName,
 }: {
   tenant: Tenant;
   document: A4Document;
-  docTitle: string;
+  docTitleEn: string;
+  docTitleAr?: string;
   docNumberLabel: string;
   prataClassName: string;
 }) {
@@ -47,11 +50,16 @@ export function A4BusinessHeader({
         {tenant.address && <div className="text-[13px] text-gray-600">{tenant.address}</div>}
       </div>
       <div className="text-right">
-        <div className={`${prataClassName} text-[32px]`}>{docTitle}</div>
+        <div className={`${prataClassName} whitespace-nowrap text-[22px]`}>{docTitleEn}</div>
+        {docTitleAr && (
+          <div className="text-[13px] text-gray-600" dir="rtl">
+            {docTitleAr}
+          </div>
+        )}
         <div className="mt-1 text-[13px] text-gray-600">
           {docNumberLabel} No. {document.number}
         </div>
-        <div className="text-[13px] text-gray-600">{document.createdAt.toISOString().slice(0, 19).replace("T", " ")}</div>
+        <div className="text-[13px] text-gray-600">{formatRiyadhDateTime(document.createdAt)}</div>
       </div>
     </div>
   );
@@ -178,6 +186,20 @@ export function A4Note({ notes }: { notes: string }) {
   );
 }
 
+// Absolutely positioned against `.a4-page` (which sets `position: relative`),
+// anchored a few px above the true physical page edge -- deliberately NOT in
+// normal flow like the totals/QR/note block above it. That block used to also
+// be bottom-anchored and was moved into normal flow because a short document
+// left a large gap and, worse, a container whose real height exceeded its
+// nominal 297mm could push a bottom-anchored block past the true printable
+// area onto a second physical page (see that block's own comment). This
+// footer is a single small line with no flow height of its own either way, so
+// switching it to absolute here doesn't reintroduce that risk -- it actually
+// removes the ~20px of in-flow height it used to add after the last block on
+// each page. Re-verified against both a short and a multi-page real PDF
+// export before relying on this.
 export function A4Footer() {
-  return <div className="mt-5 text-center text-[11px] text-gray-400">Powered By: FatooraSync</div>;
+  return (
+    <div className="absolute inset-x-0 bottom-1 text-center text-[11px] text-gray-400">Powered By: FatooraSync</div>
+  );
 }

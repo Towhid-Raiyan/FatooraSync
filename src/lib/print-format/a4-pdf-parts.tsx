@@ -1,5 +1,6 @@
 import { View, Text, Image, StyleSheet } from "@react-pdf/renderer";
 import type { Customer, DocumentLine, Tenant, Document as PrismaDocument } from "@prisma/client";
+import { formatRiyadhDateTime } from "@/lib/format-datetime";
 import "./a4-fonts";
 
 // Layout note: totals/QR/note/footer used to be `position: absolute` anchored to
@@ -17,7 +18,8 @@ export const a4PdfStyles = StyleSheet.create({
   bizNameAr: { fontSize: 15, fontWeight: "bold" },
   bizNameEn: { fontSize: 13, fontWeight: "bold" },
   bizLine: { fontSize: 10, color: "#555555", marginTop: 2 },
-  docTitle: { fontFamily: "Prata", fontSize: 28, textAlign: "right" },
+  docTitle: { fontFamily: "Prata", fontSize: 22, textAlign: "right" },
+  docTitleAr: { fontSize: 11, color: "#555555", textAlign: "right", marginTop: 2 },
   meta: { fontSize: 10, color: "#555555", textAlign: "right", marginTop: 4 },
   hr: { borderBottomWidth: 1, borderColor: "#d8d4c8", marginVertical: 12 },
   billedLabel: { fontSize: 11, fontWeight: "bold", marginBottom: 6 },
@@ -64,7 +66,11 @@ export const a4PdfStyles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 1.4,
   },
-  footer: { marginTop: 18, textAlign: "center", fontSize: 8.5, color: "#aaaaaa" },
+  // Absolutely positioned against the Page (react-pdf's standard footer
+  // pattern), anchored a few points above the physical page edge -- see the
+  // matching HTML A4Footer's comment for why this specific element is safe to
+  // bottom-anchor even though the taller totals/QR/note block above it isn't.
+  footer: { position: "absolute", bottom: 6, left: 0, right: 0, textAlign: "center", fontSize: 8.5, color: "#aaaaaa" },
 });
 
 export function money(value: { toString(): string }): string {
@@ -76,12 +82,14 @@ export type A4Document = PrismaDocument & { customer: Customer; lines: DocumentL
 export function A4BusinessHeader({
   tenant,
   document,
-  docTitle,
+  docTitleEn,
+  docTitleAr,
   docNumberLabel,
 }: {
   tenant: Tenant;
   document: A4Document;
-  docTitle: string;
+  docTitleEn: string;
+  docTitleAr?: string;
   docNumberLabel: string;
 }) {
   return (
@@ -95,11 +103,12 @@ export function A4BusinessHeader({
         {tenant.address && <Text style={a4PdfStyles.bizLine}>{tenant.address}</Text>}
       </View>
       <View>
-        <Text style={a4PdfStyles.docTitle}>{docTitle}</Text>
+        <Text style={a4PdfStyles.docTitle}>{docTitleEn}</Text>
+        {docTitleAr && <Text style={a4PdfStyles.docTitleAr}>{docTitleAr}</Text>}
         <Text style={a4PdfStyles.meta}>
           {docNumberLabel} No. {document.number}
         </Text>
-        <Text style={a4PdfStyles.meta}>{document.createdAt.toISOString().slice(0, 19).replace("T", " ")}</Text>
+        <Text style={a4PdfStyles.meta}>{formatRiyadhDateTime(document.createdAt)}</Text>
       </View>
     </View>
   );

@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { PAGE_SIZE } from "@/lib/receipts/constants";
 import { useLocale } from "@/lib/i18n/language-provider";
+import { formatRiyadhDate } from "@/lib/format-datetime";
 import { PrintModal } from "@/components/documents/print-modal";
 
 interface QuotationRow {
@@ -137,7 +138,7 @@ export function QuotationHistoryClient({ initial }: { initial: QuotationsRespons
                         <div className="font-medium text-heading">{q.customerName}</div>
                         {q.customerVatId && <div className="text-xs text-muted-fg">{q.customerVatId}</div>}
                       </TableCell>
-                      <TableCell>{q.createdAt.slice(0, 10)}</TableCell>
+                      <TableCell>{formatRiyadhDate(q.createdAt)}</TableCell>
                       <TableCell className="text-right font-semibold text-heading">
                         {Number(q.grandTotal).toFixed(2)} SAR
                       </TableCell>
@@ -160,7 +161,7 @@ export function QuotationHistoryClient({ initial }: { initial: QuotationsRespons
                       <span className="font-mono text-xs text-muted-fg">#{q.number}</span> {q.customerName}
                     </div>
                     <div className="mt-0.5 flex gap-3 text-xs text-muted-fg">
-                      <span>{q.createdAt.slice(0, 10)}</span>
+                      <span>{formatRiyadhDate(q.createdAt)}</span>
                       <span className="font-semibold text-heading">{Number(q.grandTotal).toFixed(2)} SAR</span>
                     </div>
                   </div>

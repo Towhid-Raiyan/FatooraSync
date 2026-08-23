@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { PAGE_SIZE } from "@/lib/receipts/constants";
 import { useLocale } from "@/lib/i18n/language-provider";
+import { formatRiyadhDate } from "@/lib/format-datetime";
 import { PrintModal } from "@/components/documents/print-modal";
 
 interface ReceiptRow {
@@ -142,7 +143,7 @@ export function ReceiptHistoryClient({ initial }: { initial: ReceiptsResponse })
                         <div className="font-medium text-heading">{r.customerName}</div>
                         {r.customerVatId && <div className="text-xs text-muted-fg">{r.customerVatId}</div>}
                       </TableCell>
-                      <TableCell>{r.createdAt.slice(0, 10)}</TableCell>
+                      <TableCell>{formatRiyadhDate(r.createdAt)}</TableCell>
                       <TableCell className="text-right font-semibold text-heading">
                         {Number(r.grandTotal).toFixed(2)} SAR
                       </TableCell>
@@ -165,7 +166,7 @@ export function ReceiptHistoryClient({ initial }: { initial: ReceiptsResponse })
                       <span className="font-mono text-xs text-muted-fg">#{r.number}</span> {r.customerName}
                     </div>
                     <div className="mt-0.5 flex gap-3 text-xs text-muted-fg">
-                      <span>{r.createdAt.slice(0, 10)}</span>
+                      <span>{formatRiyadhDate(r.createdAt)}</span>
                       <span className="font-semibold text-heading">{Number(r.grandTotal).toFixed(2)} SAR</span>
                     </div>
                   </div>

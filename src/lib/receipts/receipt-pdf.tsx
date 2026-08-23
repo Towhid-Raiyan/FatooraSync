@@ -1,6 +1,7 @@
 import path from "path";
 import { Document, Page, View, Text, Image, Font, StyleSheet } from "@react-pdf/renderer";
 import type { Customer, DocumentLine, Tenant, Document as PrismaDocument } from "@prisma/client";
+import { formatRiyadhDateTime } from "@/lib/format-datetime";
 
 // @react-pdf/renderer only reliably supports TTF/OTF (its own docs: "only TTF and
 // WOFF fonts files are supported", and WOFF2 is documented to cause rendering
@@ -97,7 +98,7 @@ export function ReceiptPdfDocument({ tenant, document, qrImageDataUrl }: Receipt
 
         <View style={styles.metaRow}>
           <Text>فاتورة ضريبية مبسطة / Simplified Tax Invoice #{document.number}</Text>
-          <Text>{document.createdAt.toISOString().slice(0, 19).replace("T", " ")}</Text>
+          <Text>{formatRiyadhDateTime(document.createdAt)}</Text>
         </View>
 
         <View style={styles.customerBlock}>

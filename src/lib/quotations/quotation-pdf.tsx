@@ -1,6 +1,7 @@
 import path from "path";
 import { Document, Page, View, Text, Font, StyleSheet } from "@react-pdf/renderer";
 import type { Customer, DocumentLine, Tenant, Document as PrismaDocument } from "@prisma/client";
+import { formatRiyadhDateTime } from "@/lib/format-datetime";
 
 // Same vendored-TTF approach as the receipt PDF template (see that file's comment
 // for why @fontsource's woff/woff2-only build doesn't work with @react-pdf/renderer).
@@ -90,7 +91,7 @@ export function QuotationPdfDocument({ tenant, document }: QuotationPdfProps) {
 
         <View style={styles.metaRow}>
           <Text>QUOTATION (عرض سعر) #{document.number}</Text>
-          <Text>{document.createdAt.toISOString().slice(0, 19).replace("T", " ")}</Text>
+          <Text>{formatRiyadhDateTime(document.createdAt)}</Text>
         </View>
 
         <View style={styles.customerBlock}>

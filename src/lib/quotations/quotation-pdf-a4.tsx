@@ -33,7 +33,7 @@ export function QuotationPdfA4Document({ tenant, document }: QuotationPdfA4Props
 
         return (
           <Page key={pageIndex} size="A4" style={a4PdfStyles.page}>
-            <A4BusinessHeader tenant={tenant} document={document} docTitle="QUOTATION" docNumberLabel="Quotation" />
+            <A4BusinessHeader tenant={tenant} document={document} docTitleEn="Quotation" docNumberLabel="Quotation" />
             <View style={a4PdfStyles.hr} />
             {isFirstPage && <A4BilledTo customer={document.customer} />}
             <A4ItemsTable lines={pageLines} startIndex={startIndex} hasDiscount={hasDiscount} />

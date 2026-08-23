@@ -47,7 +47,7 @@ export function QuotationPrintA4({
             <A4BusinessHeader
               tenant={tenant}
               document={document}
-              docTitle="QUOTATION"
+              docTitleEn="Quotation"
               docNumberLabel="Quotation"
               prataClassName={prata.className}
             />

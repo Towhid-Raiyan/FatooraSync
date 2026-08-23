@@ -34,7 +34,13 @@ export function ReceiptPdfA4Document({ tenant, document, qrImageDataUrl }: Recei
 
         return (
           <Page key={pageIndex} size="A4" style={a4PdfStyles.page}>
-            <A4BusinessHeader tenant={tenant} document={document} docTitle="INVOICE" docNumberLabel="Invoice" />
+            <A4BusinessHeader
+              tenant={tenant}
+              document={document}
+              docTitleEn="Simplified Tax Invoice"
+              docTitleAr="فاتورة ضريبية مبسطة"
+              docNumberLabel="Invoice"
+            />
             <View style={a4PdfStyles.hr} />
             {isFirstPage && <A4BilledTo customer={document.customer} />}
             <A4ItemsTable lines={pageLines} startIndex={startIndex} hasDiscount={hasDiscount} />
