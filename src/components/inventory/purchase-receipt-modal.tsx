@@ -343,7 +343,7 @@ export function PurchaseReceiptModal({
                         phone and tablet instead. Fixed height (not max-height) so the
                         modal's own size stays constant as products are added -- only this
                         box scrolls, sized to keep at least 3 rows visible. */}
-                    <div className="hidden h-[215px] overflow-y-auto overflow-x-auto rounded-lg border border-border-subtle lg:block">
+                    <div className="hidden h-[160px] overflow-y-auto overflow-x-auto rounded-lg border border-border-subtle lg:block">
                       {lines.length === 0 ? (
                         <p className="flex h-full items-center justify-center text-sm text-muted-fg">
                           {dict.purchases.noLinesYet}
