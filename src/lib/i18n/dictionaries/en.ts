@@ -261,7 +261,6 @@ export const en: Dictionary = {
   },
   purchases: {
     newPurchaseTitle: "New Purchase Receipt",
-    newPurchaseSubtitle: "Record everything that arrived in one delivery, as one document.",
     supplierSectionTitle: "Supplier",
     supplierReceiptNumber: "Supplier's receipt #",
     supplierReceiptNumberPlaceholder: "e.g. their invoice number",

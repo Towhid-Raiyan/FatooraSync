@@ -261,7 +261,6 @@ export const ar: Dictionary = {
   },
   purchases: {
     newPurchaseTitle: "فاتورة شراء جديدة",
-    newPurchaseSubtitle: "سجّل كل ما وصل في شحنة واحدة، كمستند واحد.",
     supplierSectionTitle: "المورد",
     supplierReceiptNumber: "رقم فاتورة المورد",
     supplierReceiptNumberPlaceholder: "مثال: رقم فاتورتهم",

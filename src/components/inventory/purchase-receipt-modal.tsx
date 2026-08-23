@@ -213,24 +213,23 @@ export function PurchaseReceiptModal({
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-[calc(100%-2rem)] lg:max-w-6xl">
+        <DialogContent className="flex max-h-[95vh] max-w-[calc(100vw-2rem)] flex-col overflow-y-auto md:max-w-[calc(100vw-4px)] lg:max-w-[1142px]">
           <DialogHeader>
             <DialogTitle>{dict.purchases.newPurchaseTitle}</DialogTitle>
           </DialogHeader>
-          <p className="-mt-2 text-xs text-muted-fg">{dict.purchases.newPurchaseSubtitle}</p>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             {error && (
               <p role="alert" className="text-xs text-red-600">
                 {error}
               </p>
             )}
 
-            <Card className="border border-border-subtle">
+            <Card size="sm" className="border border-border-subtle">
               <CardHeader>
                 <CardTitle className="text-heading">{dict.purchases.supplierSectionTitle}</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-2">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <Label className={LABEL_CLASS}>{dict.purchases.supplierSectionTitle}</Label>
@@ -291,11 +290,11 @@ export function PurchaseReceiptModal({
               </CardContent>
             </Card>
 
-            <Card className="overflow-visible border border-border-subtle">
+            <Card size="sm" className="overflow-visible border border-border-subtle">
               <CardHeader>
                 <CardTitle className="text-heading">{dict.purchases.addProductsTitle}</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-2">
                 <div className="relative flex gap-2">
                   <div className="relative flex-1">
                     <Input
@@ -335,10 +334,12 @@ export function PurchaseReceiptModal({
                     {/* Desktop (lg+): full table. Below lg, this table's 8 columns don't
                         fit any reasonable modal width without horizontal scroll hiding
                         part of the row -- the card list below is the readable layout for
-                        phone and tablet instead. */}
-                    <div className="hidden overflow-x-auto rounded-lg border border-border-subtle lg:block">
+                        phone and tablet instead. Fixed height (not max-height) so the
+                        modal's own size stays constant as products are added -- only this
+                        box scrolls, sized to keep at least 3 rows visible. */}
+                    <div className="hidden h-[200px] overflow-y-auto overflow-x-auto rounded-lg border border-border-subtle lg:block">
                       <Table>
-                        <TableHeader>
+                        <TableHeader className="sticky top-0 z-10 bg-bg-card">
                           <TableRow>
                             <TableHead>{dict.purchases.columnProduct}</TableHead>
                             <TableHead>{dict.purchases.columnUnit}</TableHead>
@@ -424,8 +425,10 @@ export function PurchaseReceiptModal({
                     </div>
 
                     {/* Phone/tablet (below lg): one card per line, every field stacked
-                        and fully visible -- no horizontal scrolling to see a row. */}
-                    <ul className="flex flex-col gap-3 lg:hidden">
+                        and fully visible -- no horizontal scrolling to see a row. Fixed
+                        height (not max-height) for the same reason as the desktop table
+                        above -- the modal's size stays constant as products are added. */}
+                    <ul className="flex h-[340px] flex-col gap-2 overflow-y-auto lg:hidden">
                       {lines.map((line, index) => {
                         const { lineSubtotal, lineTotal } = lineTotals[index];
                         return (
@@ -510,7 +513,7 @@ export function PurchaseReceiptModal({
               </CardContent>
             </Card>
 
-            <div className="flex flex-col gap-1.5 rounded-lg border border-dashed border-border-subtle bg-bg-app px-4 py-3 text-sm">
+            <div className="flex flex-col gap-1 rounded-lg border border-dashed border-border-subtle bg-bg-app px-4 py-2 text-sm">
               <div className="flex justify-between text-body">
                 <span>{dict.purchases.subtotalLabel}</span>
                 <span>{subtotal.toFixed(2)} SAR</span>

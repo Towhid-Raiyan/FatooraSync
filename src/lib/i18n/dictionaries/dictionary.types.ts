@@ -259,7 +259,6 @@ export interface Dictionary {
   };
   purchases: {
     newPurchaseTitle: string;
-    newPurchaseSubtitle: string;
     supplierSectionTitle: string;
     supplierReceiptNumber: string;
     supplierReceiptNumberPlaceholder: string;
