@@ -42,19 +42,23 @@ export function QuotationPrintThermal({
     <div id="print-target" className="mx-auto w-[80mm] bg-white p-3 text-sm text-black font-sans" dir="ltr">
       <div className="mb-4 text-center">
         <div className="text-lg font-bold">{tenant.tradeNameAr ?? tenant.tradeNameEn}</div>
-        <div className="text-base">{tenant.tradeNameEn}</div>
+        {(tenant.crNumber || tenant.phone) && (
+          <div className="mt-1 text-xs">
+            {tenant.crNumber && <>CR: {tenant.crNumber}</>}
+            {tenant.crNumber && tenant.phone && " | "}
+            {tenant.phone && <>Phone: {tenant.phone}</>}
+          </div>
+        )}
         <div className="mt-1 text-xs">
           {tenant.legalName} — VAT {tenant.vatNumber}
         </div>
         {tenant.address && <div className="text-xs">{tenant.address}</div>}
       </div>
 
-      <div className="mb-3 flex justify-between text-xs">
-        <span>QUOTATION (عرض سعر) #{document.number}</span>
-        <span className="text-end">
-          <div>{formatRiyadhDateTime(document.createdAt)}</div>
-          <div>{formatHijriDate(document.createdAt)}</div>
-        </span>
+      <div className="mb-3 text-xs">
+        <div>QUOTATION (عرض سعر) #{document.number}</div>
+        <div>{formatRiyadhDateTime(document.createdAt)}</div>
+        <div>{formatHijriDate(document.createdAt)}</div>
       </div>
 
       <div className="mb-3 border-t border-b border-black py-2 text-xs">

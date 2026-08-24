@@ -10,7 +10,7 @@ import { formatRiyadhDateTime, formatHijriDate } from "@/lib/format-datetime";
 // the actual content instead of a fixed constant, to avoid clipping longer
 // receipts or leaving excess blank paper on short ones.
 const THERMAL_WIDTH_PT = 80 * 2.83465;
-const THERMAL_BASE_HEIGHT_PT = 165; // header + meta + hijri line + customer block + table header + totals + page padding
+const THERMAL_BASE_HEIGHT_PT = 180; // header + meta (label may wrap) + hijri line + customer block + table header + totals + page padding
 const THERMAL_ROW_HEIGHT_PT = 13;
 const THERMAL_NOTES_HEIGHT_PT = 16;
 const THERMAL_QR_HEIGHT_PT = 130;
@@ -52,10 +52,8 @@ const styles = StyleSheet.create({
   },
   center: { textAlign: "center", marginBottom: 12 },
   tradeNameAr: { fontSize: 13, fontWeight: "bold" },
-  tradeNameEn: { fontSize: 11 },
   legalLine: { fontSize: 8, marginTop: 2 },
-  metaRow: { flexDirection: "row", justifyContent: "space-between", fontSize: 8, marginBottom: 8 },
-  metaDates: { alignItems: "flex-end" },
+  meta: { fontSize: 8, marginBottom: 8 },
   customerBlock: {
     borderTopWidth: 1,
     borderBottomWidth: 1,
@@ -112,19 +110,23 @@ export function ReceiptPdfDocument({ tenant, document, qrImageDataUrl }: Receipt
       <Page size={[THERMAL_WIDTH_PT, pageHeight]} style={styles.page}>
         <View style={styles.center}>
           <Text style={styles.tradeNameAr}>{tenant.tradeNameAr ?? tenant.tradeNameEn}</Text>
-          <Text style={styles.tradeNameEn}>{tenant.tradeNameEn}</Text>
+          {(tenant.crNumber || tenant.phone) && (
+            <Text style={styles.legalLine}>
+              {tenant.crNumber ? `CR: ${tenant.crNumber}` : ""}
+              {tenant.crNumber && tenant.phone ? " | " : ""}
+              {tenant.phone ? `Phone: ${tenant.phone}` : ""}
+            </Text>
+          )}
           <Text style={styles.legalLine}>
             {tenant.legalName} — VAT {tenant.vatNumber}
           </Text>
           {tenant.address && <Text style={styles.legalLine}>{tenant.address}</Text>}
         </View>
 
-        <View style={styles.metaRow}>
+        <View style={styles.meta}>
           <Text>فاتورة ضريبية مبسطة / Simplified Tax Invoice #{document.number}</Text>
-          <View style={styles.metaDates}>
-            <Text>{formatRiyadhDateTime(document.createdAt)}</Text>
-            <Text>{formatHijriDate(document.createdAt)}</Text>
-          </View>
+          <Text>{formatRiyadhDateTime(document.createdAt)}</Text>
+          <Text>{formatHijriDate(document.createdAt)}</Text>
         </View>
 
         <View style={styles.customerBlock}>

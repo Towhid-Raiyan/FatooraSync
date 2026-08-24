@@ -10,13 +10,15 @@ const ADJUSTMENT_REASONS = new Set(["DAMAGE", "LOSS_THEFT", "RECOUNT", "OTHER"])
 
 // Viewing history is available to any signed-in tenant user (same visibility
 // as the Products list) -- only the write side (POST) is gated by the
-// catalog-management permission.
+// catalog-management permission. Unit cost within that history is narrower:
+// owner-only, redacted below for anyone else.
 export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const tenantId = session.user.tenantId;
+  const isOwner = session.user.role === "OWNER";
   const blocked = await assertTenantAccess(tenantId);
   if (blocked) return blocked;
 
@@ -40,7 +42,8 @@ export async function GET(request: Request) {
       },
     })
   );
-  return NextResponse.json(movements);
+  const response = isOwner ? movements : movements.map((m) => ({ ...m, unitCost: null }));
+  return NextResponse.json(response);
 }
 
 export async function POST(request: Request) {

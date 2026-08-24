@@ -59,7 +59,8 @@ export default async function InventoryPage() {
       })
     ),
   ]);
-  const canManageCatalog = session!.user.role === "OWNER" || settings.cashierCanManageCatalog;
+  const isOwner = session!.user.role === "OWNER";
+  const canManageCatalog = isOwner || settings.cashierCanManageCatalog;
 
   const serializedMovements = movements.map((m) => ({
     id: m.id,
@@ -68,7 +69,9 @@ export default async function InventoryPage() {
     quantityAfter: m.quantityAfter.toString(),
     reason: m.reason,
     note: m.note,
-    unitCost: m.unitCost?.toString() ?? null,
+    // Cost is owner-only information -- never sent to a Cashier session, not just
+    // hidden client-side, so it can't be read out of the page payload or API response.
+    unitCost: isOwner ? m.unitCost?.toString() ?? null : null,
     createdAt: m.createdAt.toISOString(),
     productId: m.productId,
     product: m.product,

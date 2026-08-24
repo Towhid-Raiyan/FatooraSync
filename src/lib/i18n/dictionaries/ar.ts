@@ -72,7 +72,7 @@ export const ar: Dictionary = {
     barcode: "الباركود",
     name: "الاسم",
     unit: "الوحدة",
-    unitPrice: "سعر الوحدة",
+    unitPrice: "سعر بيع الوحدة",
     vat: "ضريبة القيمة المضافة",
     quantity: "الكمية",
     defaultBadge: "افتراضي",

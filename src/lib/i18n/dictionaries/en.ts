@@ -72,7 +72,7 @@ export const en: Dictionary = {
     barcode: "Barcode",
     name: "Name",
     unit: "Unit",
-    unitPrice: "Unit Price",
+    unitPrice: "Unit Selling Price",
     vat: "VAT",
     quantity: "Quantity",
     defaultBadge: "Default",
