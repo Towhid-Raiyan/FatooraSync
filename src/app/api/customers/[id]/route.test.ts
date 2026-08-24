@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import { withTenant } from "@/lib/db/tenant-context";
-import { PATCH } from "./route";
+import { PATCH, DELETE } from "./route";
 
 let tenantId: string;
 let otherTenantId: string;
@@ -18,6 +18,10 @@ vi.mock("@/lib/auth/config", () => ({
 
 function patchRequest(body: unknown) {
   return new Request("http://localhost/api/customers/x", { method: "PATCH", body: JSON.stringify(body) });
+}
+
+function deleteRequest() {
+  return new Request("http://localhost/api/customers/x", { method: "DELETE" });
 }
 
 describe("/api/customers/[id]", () => {
@@ -58,6 +62,9 @@ describe("/api/customers/[id]", () => {
   });
 
   afterAll(async () => {
+    // Document references Customer via a RESTRICT foreign key (the "returns 409" test
+    // below creates one), so it must be cleaned up before the customers it points at.
+    await prisma.document.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
     await prisma.customer.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
     await prisma.tenant.deleteMany({ where: { id: { in: [tenantId, otherTenantId] } } });
     await prisma.$disconnect();
@@ -160,6 +167,67 @@ describe("/api/customers/[id]", () => {
     } finally {
       mockSession = { user: { tenantId, role: "OWNER" } };
       await prisma.settings.deleteMany({ where: { tenantId } });
+    }
+  });
+
+  it("deletes a customer with no history", async () => {
+    const disposable = await withTenant(tenantId, (tx) =>
+      tx.customer.create({ data: { name: "Disposable Customer" } as Prisma.CustomerUncheckedCreateInput })
+    );
+    const response = await DELETE(deleteRequest(), { params: Promise.resolve({ id: disposable.id }) });
+    expect(response.status).toBe(200);
+    const found = await withTenant(tenantId, (tx) => tx.customer.findUnique({ where: { id: disposable.id } }));
+    expect(found).toBeNull();
+  });
+
+  it("DELETE returns 404 for a nonexistent id", async () => {
+    const response = await DELETE(deleteRequest(), {
+      params: Promise.resolve({ id: "00000000-0000-0000-0000-000000000000" }),
+    });
+    expect(response.status).toBe(404);
+  });
+
+  it("DELETE returns 404 for a customer belonging to another tenant", async () => {
+    const response = await DELETE(deleteRequest(), { params: Promise.resolve({ id: otherTenantCustomerId }) });
+    expect(response.status).toBe(404);
+  });
+
+  it("DELETE returns 403 when targeting the Walk-in Customer", async () => {
+    const response = await DELETE(deleteRequest(), { params: Promise.resolve({ id: walkInId }) });
+    expect(response.status).toBe(403);
+  });
+
+  it("returns 409 with a friendly error when the customer has document history", async () => {
+    const referenced = await withTenant(tenantId, (tx) =>
+      tx.customer.create({ data: { name: "Referenced Customer" } as Prisma.CustomerUncheckedCreateInput })
+    );
+    await withTenant(tenantId, (tx) =>
+      tx.document.create({
+        data: {
+          tenantId,
+          type: "SALES_RECEIPT",
+          number: 900002,
+          customerId: referenced.id,
+          subtotal: 4,
+          vatTotal: 0.6,
+          grandTotal: 4.6,
+        } as Prisma.DocumentUncheckedCreateInput,
+      })
+    );
+
+    const response = await DELETE(deleteRequest(), { params: Promise.resolve({ id: referenced.id }) });
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error).toContain("can't be deleted");
+  });
+
+  it("DELETE returns 401 when unauthenticated", async () => {
+    mockSession = null;
+    try {
+      const response = await DELETE(deleteRequest(), { params: Promise.resolve({ id: customerId }) });
+      expect(response.status).toBe(401);
+    } finally {
+      mockSession = { user: { tenantId, role: "OWNER" } };
     }
   });
 });

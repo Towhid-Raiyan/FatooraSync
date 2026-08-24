@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocale } from "@/lib/i18n/language-provider";
 
@@ -75,9 +75,18 @@ export function StatisticsClient({ initial }: { initial: VatStats }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const currentYear = new Date().getUTCFullYear();
+  const isFirstRun = useRef(true);
 
+  // Skipped on first mount: the server already provided this exact year/quarter's
+  // data via the initial prop, so an immediate re-fetch here would be redundant.
+  // Every subsequent change re-fetches unconditionally -- including a change back
+  // to the initial combo, which previously matched the (stale) guard below and
+  // silently kept whatever quarter's data was last fetched.
   useEffect(() => {
-    if (year === initial.year && quarter === initial.quarter) return;
+    if (isFirstRun.current) {
+      isFirstRun.current = false;
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     setError(null);

@@ -1,6 +1,6 @@
 import { View, Text, Image, StyleSheet } from "@react-pdf/renderer";
 import type { Customer, DocumentLine, Tenant, Document as PrismaDocument } from "@prisma/client";
-import { formatRiyadhDateTime } from "@/lib/format-datetime";
+import { formatRiyadhDateTime, formatHijriDate } from "@/lib/format-datetime";
 import "./a4-fonts";
 
 // Layout note: totals/QR/note/footer used to be `position: absolute` anchored to
@@ -109,6 +109,7 @@ export function A4BusinessHeader({
           {docNumberLabel} No. {document.number}
         </Text>
         <Text style={a4PdfStyles.meta}>{formatRiyadhDateTime(document.createdAt)}</Text>
+        <Text style={a4PdfStyles.meta}>{formatHijriDate(document.createdAt)}</Text>
       </View>
     </View>
   );

@@ -19,6 +19,9 @@ export const en: Dictionary = {
     edit: "Edit",
     deactivate: "Deactivate",
     reactivate: "Reactivate",
+    delete: "Delete",
+    cancel: "Cancel",
+    confirmDelete: "Confirm Delete",
     actions: "Actions",
     showInactive: "Show inactive",
     somethingWentWrong: "Something went wrong",
@@ -82,6 +85,9 @@ export const en: Dictionary = {
     units: { piece: "Piece", kg: "KG", box: "Box", carton: "Carton", liter: "Liter", dozen: "Dozen" },
     savedToast: "Product saved",
     statusUpdatedToast: "Product status updated",
+    deleteConfirmTitle: "Delete this product?",
+    deleteConfirmDescription: "This will permanently remove the product from your catalog. This can't be undone.",
+    deletedToast: "Product deleted",
   },
   customers: {
     searchPlaceholder: "Search by name, VAT ID, or phone",
@@ -96,6 +102,9 @@ export const en: Dictionary = {
     dialogTitleAdd: "Add Customer",
     savedToast: "Customer saved",
     statusUpdatedToast: "Customer status updated",
+    deleteConfirmTitle: "Delete this customer?",
+    deleteConfirmDescription: "This will permanently remove the customer from your records. This can't be undone.",
+    deletedToast: "Customer deleted",
   },
   documentForm: {
     customerSection: {

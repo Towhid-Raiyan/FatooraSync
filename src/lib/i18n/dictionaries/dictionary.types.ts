@@ -17,6 +17,9 @@ export interface Dictionary {
     edit: string;
     deactivate: string;
     reactivate: string;
+    delete: string;
+    cancel: string;
+    confirmDelete: string;
     actions: string;
     showInactive: string;
     somethingWentWrong: string;
@@ -80,6 +83,9 @@ export interface Dictionary {
     units: { piece: string; kg: string; box: string; carton: string; liter: string; dozen: string };
     savedToast: string;
     statusUpdatedToast: string;
+    deleteConfirmTitle: string;
+    deleteConfirmDescription: string;
+    deletedToast: string;
   };
   customers: {
     searchPlaceholder: string;
@@ -94,6 +100,9 @@ export interface Dictionary {
     dialogTitleAdd: string;
     savedToast: string;
     statusUpdatedToast: string;
+    deleteConfirmTitle: string;
+    deleteConfirmDescription: string;
+    deletedToast: string;
   };
   documentForm: {
     customerSection: {

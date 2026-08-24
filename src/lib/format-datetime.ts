@@ -23,3 +23,18 @@ export function formatRiyadhDate(input: Date | string): string {
   const r = toRiyadh(input);
   return `${r.getUTCFullYear()}-${pad(r.getUTCMonth() + 1)}-${pad(r.getUTCDate())}`;
 }
+
+// Umm al-Qura is the Hijri calendar Saudi Arabia uses officially. `timeZone: "UTC"`
+// is required here even though `r` is already shifted to Riyadh local time -- the
+// shift represents Riyadh time using UTC fields (see toRiyadh above), so the
+// formatter must read those fields as-is instead of re-applying the server's own
+// timezone offset on top.
+export function formatHijriDate(input: Date | string): string {
+  const r = toRiyadh(input);
+  return new Intl.DateTimeFormat("en-u-ca-islamic-umalqura", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(r);
+}

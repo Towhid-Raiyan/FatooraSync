@@ -2,13 +2,13 @@
 
 import { useMemo, useState } from "react";
 import type { Product } from "@prisma/client";
-import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { useLocale } from "@/lib/i18n/language-provider";
 import { useToast } from "@/lib/toast/toast-provider";
 import { ProductFormDialog, getUnitLabels } from "./product-form-dialog";
@@ -37,12 +37,13 @@ export function ProductsClient({
   const [products, setProducts] = useState(initialProducts);
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [dialogState, setDialogState] = useState<{ open: boolean; product: SerializedProduct | null }>({
     open: false,
     product: null,
   });
+  const [deleteTarget, setDeleteTarget] = useState<SerializedProduct | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -69,26 +70,29 @@ export function ProductsClient({
     toast.success(dict.products.savedToast);
   }
 
-  async function toggleActive(product: SerializedProduct) {
-    setActionError(null);
-    setTogglingId(product.id);
+  function openDeleteDialog(product: SerializedProduct) {
+    setDeleteTarget(product);
+    setDeleteError(null);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleteError(null);
+    setDeleting(true);
     try {
-      const response = await fetch(`/api/products/${product.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ isActive: !product.isActive }),
-      });
+      const response = await fetch(`/api/products/${deleteTarget.id}`, { method: "DELETE" });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
-        setActionError(body.error ?? dict.common.somethingWentWrong);
+        setDeleteError(body.error ?? dict.common.somethingWentWrong);
         return;
       }
-      const updated = await response.json();
-      setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-      toast.success(dict.products.statusUpdatedToast);
+      setProducts((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      toast.success(dict.products.deletedToast);
     } catch {
-      setActionError(dict.common.somethingWentWrong);
+      setDeleteError(dict.common.somethingWentWrong);
     } finally {
-      setTogglingId(null);
+      setDeleting(false);
     }
   }
 
@@ -113,12 +117,6 @@ export function ProductsClient({
           </Button>
         )}
       </div>
-
-      {actionError && (
-        <p role="alert" className="text-xs text-red-600">
-          {actionError}
-        </p>
-      )}
 
       <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
         {products.length === 0 ? (
@@ -178,14 +176,8 @@ export function ProductsClient({
                             <Button variant="outline" size="sm" onClick={() => setDialogState({ open: true, product })}>
                               {dict.common.edit}
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={togglingId === product.id}
-                              onClick={() => toggleActive(product)}
-                            >
-                              {togglingId === product.id && <Loader2Icon className="size-3.5 animate-spin" />}
-                              {product.isActive ? dict.common.deactivate : dict.common.reactivate}
+                            <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(product)}>
+                              {dict.common.delete}
                             </Button>
                           </div>
                         )}
@@ -228,14 +220,8 @@ export function ProductsClient({
                       <Button variant="outline" size="sm" onClick={() => setDialogState({ open: true, product })}>
                         {dict.common.edit}
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={togglingId === product.id}
-                        onClick={() => toggleActive(product)}
-                      >
-                        {togglingId === product.id && <Loader2Icon className="size-3.5 animate-spin" />}
-                        {product.isActive ? dict.common.deactivate : dict.common.reactivate}
+                      <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(product)}>
+                        {dict.common.delete}
                       </Button>
                     </div>
                   )}
@@ -251,6 +237,25 @@ export function ProductsClient({
         product={dialogState.product}
         onOpenChange={(open) => setDialogState((s) => ({ ...s, open }))}
         onSaved={handleSaved}
+      />
+
+      <DeleteConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title={dict.products.deleteConfirmTitle}
+        description={dict.products.deleteConfirmDescription}
+        details={
+          deleteTarget
+            ? [
+                { label: dict.products.name, value: deleteTarget.nameAr ? `${deleteTarget.nameEn} / ${deleteTarget.nameAr}` : deleteTarget.nameEn },
+                { label: dict.products.sku, value: deleteTarget.sku ?? "—" },
+                { label: dict.products.unitPrice, value: deleteTarget.unitPrice },
+              ]
+            : []
+        }
+        error={deleteError}
+        deleting={deleting}
+        onConfirm={confirmDelete}
       />
     </div>
   );

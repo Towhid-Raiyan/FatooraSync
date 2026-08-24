@@ -2,13 +2,13 @@
 
 import { useMemo, useState } from "react";
 import type { Customer } from "@prisma/client";
-import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { useLocale } from "@/lib/i18n/language-provider";
 import { useToast } from "@/lib/toast/toast-provider";
 import { CustomerFormDialog } from "./customer-form-dialog";
@@ -29,8 +29,9 @@ export function CustomersClient({
     open: false,
     customer: null,
   });
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -58,26 +59,29 @@ export function CustomersClient({
     toast.success(dict.customers.savedToast);
   }
 
-  async function toggleActive(customer: Customer) {
-    setActionError(null);
-    setTogglingId(customer.id);
+  function openDeleteDialog(customer: Customer) {
+    setDeleteTarget(customer);
+    setDeleteError(null);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleteError(null);
+    setDeleting(true);
     try {
-      const response = await fetch(`/api/customers/${customer.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ isActive: !customer.isActive }),
-      });
+      const response = await fetch(`/api/customers/${deleteTarget.id}`, { method: "DELETE" });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
-        setActionError(body.error ?? dict.common.somethingWentWrong);
+        setDeleteError(body.error ?? dict.common.somethingWentWrong);
         return;
       }
-      const updated = await response.json();
-      setCustomers((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-      toast.success(dict.customers.statusUpdatedToast);
+      setCustomers((prev) => prev.filter((c) => c.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      toast.success(dict.customers.deletedToast);
     } catch {
-      setActionError(dict.common.somethingWentWrong);
+      setDeleteError(dict.common.somethingWentWrong);
     } finally {
-      setTogglingId(null);
+      setDeleting(false);
     }
   }
 
@@ -102,12 +106,6 @@ export function CustomersClient({
           </Button>
         )}
       </div>
-
-      {actionError && (
-        <p role="alert" className="text-xs text-red-600">
-          {actionError}
-        </p>
-      )}
 
       <Card className="border border-border-subtle shadow-[0_1px_2px_rgba(16,44,30,0.03),0_6px_16px_rgba(16,44,30,0.05)]">
         {!hasAnyRealCustomer ? (
@@ -149,14 +147,8 @@ export function CustomersClient({
                             <Button variant="outline" size="sm" onClick={() => setDialogState({ open: true, customer })}>
                               {dict.common.edit}
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={togglingId === customer.id}
-                              onClick={() => toggleActive(customer)}
-                            >
-                              {togglingId === customer.id && <Loader2Icon className="size-3.5 animate-spin" />}
-                              {customer.isActive ? dict.common.deactivate : dict.common.reactivate}
+                            <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(customer)}>
+                              {dict.common.delete}
                             </Button>
                           </div>
                         )}
@@ -188,14 +180,8 @@ export function CustomersClient({
                       <Button variant="outline" size="sm" onClick={() => setDialogState({ open: true, customer })}>
                         {dict.common.edit}
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={togglingId === customer.id}
-                        onClick={() => toggleActive(customer)}
-                      >
-                        {togglingId === customer.id && <Loader2Icon className="size-3.5 animate-spin" />}
-                        {customer.isActive ? dict.common.deactivate : dict.common.reactivate}
+                      <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(customer)}>
+                        {dict.common.delete}
                       </Button>
                     </div>
                   )}
@@ -211,6 +197,25 @@ export function CustomersClient({
         customer={dialogState.customer}
         onOpenChange={(open) => setDialogState((s) => ({ ...s, open }))}
         onSaved={handleSaved}
+      />
+
+      <DeleteConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title={dict.customers.deleteConfirmTitle}
+        description={dict.customers.deleteConfirmDescription}
+        details={
+          deleteTarget
+            ? [
+                { label: dict.customers.name, value: deleteTarget.name },
+                { label: dict.customers.vatId, value: deleteTarget.vatId ?? "—" },
+                { label: dict.customers.phone, value: deleteTarget.phone ?? "—" },
+              ]
+            : []
+        }
+        error={deleteError}
+        deleting={deleting}
+        onConfirm={confirmDelete}
       />
     </div>
   );

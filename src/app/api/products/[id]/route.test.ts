@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import { withTenant } from "@/lib/db/tenant-context";
-import { PATCH } from "./route";
+import { PATCH, DELETE } from "./route";
 
 let tenantId: string;
 let otherTenantId: string;
@@ -17,6 +17,10 @@ vi.mock("@/lib/auth/config", () => ({
 
 function patchRequest(body: unknown) {
   return new Request("http://localhost/api/products/x", { method: "PATCH", body: JSON.stringify(body) });
+}
+
+function deleteRequest() {
+  return new Request("http://localhost/api/products/x", { method: "DELETE" });
 }
 
 describe("/api/products/[id]", () => {
@@ -52,6 +56,13 @@ describe("/api/products/[id]", () => {
   });
 
   afterAll(async () => {
+    // Deletion order matters -- DocumentLine/Document/Customer reference Product/Tenant
+    // via RESTRICT foreign keys (the "returns 409" test below creates them), so they
+    // must go before the rows they point at or this cleanup itself hits the same
+    // FK-violation this test file exists to verify.
+    await prisma.documentLine.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
+    await prisma.document.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
+    await prisma.customer.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
     await prisma.product.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
     await prisma.tenant.deleteMany({ where: { id: { in: [tenantId, otherTenantId] } } });
     await prisma.$disconnect();
@@ -175,6 +186,81 @@ describe("/api/products/[id]", () => {
     } finally {
       mockSession = { user: { tenantId, role: "OWNER" } };
       await prisma.settings.deleteMany({ where: { tenantId } });
+    }
+  });
+
+  it("deletes a product with no history", async () => {
+    const disposable = await withTenant(tenantId, (tx) =>
+      tx.product.create({ data: { nameEn: "Disposable Product", unitPrice: 3 } as Prisma.ProductUncheckedCreateInput })
+    );
+    const response = await DELETE(deleteRequest(), { params: Promise.resolve({ id: disposable.id }) });
+    expect(response.status).toBe(200);
+    const found = await withTenant(tenantId, (tx) => tx.product.findUnique({ where: { id: disposable.id } }));
+    expect(found).toBeNull();
+  });
+
+  it("DELETE returns 404 for a nonexistent id", async () => {
+    const response = await DELETE(deleteRequest(), {
+      params: Promise.resolve({ id: "00000000-0000-0000-0000-000000000000" }),
+    });
+    expect(response.status).toBe(404);
+  });
+
+  it("DELETE returns 404 for a product belonging to another tenant", async () => {
+    const response = await DELETE(deleteRequest(), { params: Promise.resolve({ id: otherTenantProductId }) });
+    expect(response.status).toBe(404);
+  });
+
+  it("returns 409 with a friendly error when the product has document history", async () => {
+    const referenced = await withTenant(tenantId, (tx) =>
+      tx.product.create({ data: { nameEn: "Referenced Product", unitPrice: 4 } as Prisma.ProductUncheckedCreateInput })
+    );
+    const customer = await withTenant(tenantId, (tx) =>
+      tx.customer.create({ data: { tenantId, name: "Delete FK Test Customer" } as Prisma.CustomerUncheckedCreateInput })
+    );
+    const doc = await withTenant(tenantId, (tx) =>
+      tx.document.create({
+        data: {
+          tenantId,
+          type: "SALES_RECEIPT",
+          number: 900001,
+          customerId: customer.id,
+          subtotal: 4,
+          vatTotal: 0.6,
+          grandTotal: 4.6,
+        } as Prisma.DocumentUncheckedCreateInput,
+      })
+    );
+    await withTenant(tenantId, (tx) =>
+      tx.documentLine.create({
+        data: {
+          tenantId,
+          documentId: doc.id,
+          productId: referenced.id,
+          productName: referenced.nameEn,
+          quantity: 1,
+          unitPrice: 4,
+          vatRate: 15,
+          lineSubtotal: 4,
+          lineVat: 0.6,
+          lineTotal: 4.6,
+        } as Prisma.DocumentLineUncheckedCreateInput,
+      })
+    );
+
+    const response = await DELETE(deleteRequest(), { params: Promise.resolve({ id: referenced.id }) });
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error).toContain("can't be deleted");
+  });
+
+  it("DELETE returns 401 when unauthenticated", async () => {
+    mockSession = null;
+    try {
+      const response = await DELETE(deleteRequest(), { params: Promise.resolve({ id: productId }) });
+      expect(response.status).toBe(401);
+    } finally {
+      mockSession = { user: { tenantId, role: "OWNER" } };
     }
   });
 });

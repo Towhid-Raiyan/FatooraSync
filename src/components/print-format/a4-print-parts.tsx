@@ -1,6 +1,6 @@
 import type { Customer, Tenant, Document as PrismaDocument } from "@prisma/client";
 import { truncateNote } from "@/lib/print-format/truncate-note";
-import { formatRiyadhDateTime } from "@/lib/format-datetime";
+import { formatRiyadhDateTime, formatHijriDate } from "@/lib/format-datetime";
 
 export function money(value: { toString(): string }): string {
   return Number(value.toString()).toFixed(2);
@@ -60,6 +60,7 @@ export function A4BusinessHeader({
           {docNumberLabel} No. {document.number}
         </div>
         <div className="text-[13px] text-gray-600">{formatRiyadhDateTime(document.createdAt)}</div>
+        <div className="text-[13px] text-gray-600">{formatHijriDate(document.createdAt)}</div>
       </div>
     </div>
   );

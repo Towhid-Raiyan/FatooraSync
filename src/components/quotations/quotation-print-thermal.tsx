@@ -1,5 +1,5 @@
 import type { Customer, Tenant, Document as PrismaDocument } from "@prisma/client";
-import { formatRiyadhDateTime } from "@/lib/format-datetime";
+import { formatRiyadhDateTime, formatHijriDate } from "@/lib/format-datetime";
 import { PrintButton } from "@/components/receipts/print-button";
 
 function money(value: { toString(): string }): string {
@@ -36,7 +36,10 @@ export function QuotationPrintThermal({
   const hasDiscount = document.lines.some((line) => Number(line.discount) > 0);
 
   return (
-    <div id="print-target" className="mx-auto max-w-[420px] bg-white p-6 text-sm text-black print:p-0 font-sans" dir="ltr">
+    // 80mm is the standard thermal receipt-roll width (58mm is the other common
+    // size, but too narrow for this 5-6 column item table); the previous
+    // max-w-[420px] (~111mm at 96dpi) didn't match either real thermal paper size.
+    <div id="print-target" className="mx-auto w-[80mm] bg-white p-3 text-sm text-black font-sans" dir="ltr">
       <div className="mb-4 text-center">
         <div className="text-lg font-bold">{tenant.tradeNameAr ?? tenant.tradeNameEn}</div>
         <div className="text-base">{tenant.tradeNameEn}</div>
@@ -48,7 +51,10 @@ export function QuotationPrintThermal({
 
       <div className="mb-3 flex justify-between text-xs">
         <span>QUOTATION (عرض سعر) #{document.number}</span>
-        <span>{formatRiyadhDateTime(document.createdAt)}</span>
+        <span className="text-end">
+          <div>{formatRiyadhDateTime(document.createdAt)}</div>
+          <div>{formatHijriDate(document.createdAt)}</div>
+        </span>
       </div>
 
       <div className="mb-3 border-t border-b border-black py-2 text-xs">
@@ -101,6 +107,12 @@ export function QuotationPrintThermal({
       {document.notes && <div className="mt-3 text-xs">Notes: {document.notes}</div>}
 
       {showPrintButton && <PrintButton />}
+
+      <style>{`
+        @media print {
+          @page { size: 80mm auto; margin: 0; }
+        }
+      `}</style>
     </div>
   );
 }

@@ -1,7 +1,22 @@
 import path from "path";
 import { Document, Page, View, Text, Font, StyleSheet } from "@react-pdf/renderer";
 import type { Customer, DocumentLine, Tenant, Document as PrismaDocument } from "@prisma/client";
-import { formatRiyadhDateTime } from "@/lib/format-datetime";
+import { formatRiyadhDateTime, formatHijriDate } from "@/lib/format-datetime";
+
+// 80mm is the standard thermal receipt-roll width (58mm is the other common
+// size, but too narrow for this 5-6 column item table); 1mm = 2.83465pt.
+// @react-pdf/renderer has no "auto height" page mode -- a thermal roll is
+// continuous paper, not a fixed-length sheet, so the height is estimated from
+// the actual content instead of a fixed constant, to avoid clipping longer
+// quotations or leaving excess blank paper on short ones.
+const THERMAL_WIDTH_PT = 80 * 2.83465;
+const THERMAL_BASE_HEIGHT_PT = 150; // header + meta + hijri line + customer block + table header + totals + page padding
+const THERMAL_ROW_HEIGHT_PT = 13;
+const THERMAL_NOTES_HEIGHT_PT = 16;
+
+function estimateThermalPageHeight(lineCount: number, hasNotes: boolean): number {
+  return THERMAL_BASE_HEIGHT_PT + lineCount * THERMAL_ROW_HEIGHT_PT + (hasNotes ? THERMAL_NOTES_HEIGHT_PT : 0);
+}
 
 // Same vendored-TTF approach as the receipt PDF template (see that file's comment
 // for why @fontsource's woff/woff2-only build doesn't work with @react-pdf/renderer).
@@ -22,13 +37,14 @@ const styles = StyleSheet.create({
     fontFamily: "IBM Plex Sans Arabic",
     fontSize: 9,
     color: "#000000",
-    padding: 24,
+    padding: 10,
   },
   center: { textAlign: "center", marginBottom: 12 },
   tradeNameAr: { fontSize: 13, fontWeight: "bold" },
   tradeNameEn: { fontSize: 11 },
   legalLine: { fontSize: 8, marginTop: 2 },
   metaRow: { flexDirection: "row", justifyContent: "space-between", fontSize: 8, marginBottom: 8 },
+  metaDates: { alignItems: "flex-end" },
   customerBlock: {
     borderTopWidth: 1,
     borderBottomWidth: 1,
@@ -76,10 +92,11 @@ export interface QuotationPdfProps {
 
 export function QuotationPdfDocument({ tenant, document }: QuotationPdfProps) {
   const hasDiscount = document.lines.some((line) => Number(line.discount) > 0);
+  const pageHeight = estimateThermalPageHeight(document.lines.length, Boolean(document.notes));
 
   return (
     <Document>
-      <Page size="A6" style={styles.page}>
+      <Page size={[THERMAL_WIDTH_PT, pageHeight]} style={styles.page}>
         <View style={styles.center}>
           <Text style={styles.tradeNameAr}>{tenant.tradeNameAr ?? tenant.tradeNameEn}</Text>
           <Text style={styles.tradeNameEn}>{tenant.tradeNameEn}</Text>
@@ -91,7 +108,10 @@ export function QuotationPdfDocument({ tenant, document }: QuotationPdfProps) {
 
         <View style={styles.metaRow}>
           <Text>QUOTATION (عرض سعر) #{document.number}</Text>
-          <Text>{formatRiyadhDateTime(document.createdAt)}</Text>
+          <View style={styles.metaDates}>
+            <Text>{formatRiyadhDateTime(document.createdAt)}</Text>
+            <Text>{formatHijriDate(document.createdAt)}</Text>
+          </View>
         </View>
 
         <View style={styles.customerBlock}>

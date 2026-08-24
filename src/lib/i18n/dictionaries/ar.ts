@@ -19,6 +19,9 @@ export const ar: Dictionary = {
     edit: "تعديل",
     deactivate: "إيقاف",
     reactivate: "تفعيل",
+    delete: "حذف",
+    cancel: "إلغاء",
+    confirmDelete: "تأكيد الحذف",
     actions: "إجراءات",
     showInactive: "إظهار الموقوفين",
     somethingWentWrong: "حدث خطأ ما",
@@ -82,6 +85,9 @@ export const ar: Dictionary = {
     units: { piece: "قطعة", kg: "كيلوغرام", box: "صندوق", carton: "كرتون", liter: "لتر", dozen: "دزينة" },
     savedToast: "تم حفظ المنتج",
     statusUpdatedToast: "تم تحديث حالة المنتج",
+    deleteConfirmTitle: "حذف هذا المنتج؟",
+    deleteConfirmDescription: "سيتم حذف المنتج نهائيًا من الكتالوج الخاص بك. لا يمكن التراجع عن هذا الإجراء.",
+    deletedToast: "تم حذف المنتج",
   },
   customers: {
     searchPlaceholder: "ابحث بالاسم أو الرقم الضريبي أو الهاتف",
@@ -96,6 +102,9 @@ export const ar: Dictionary = {
     dialogTitleAdd: "إضافة عميل",
     savedToast: "تم حفظ العميل",
     statusUpdatedToast: "تم تحديث حالة العميل",
+    deleteConfirmTitle: "حذف هذا العميل؟",
+    deleteConfirmDescription: "سيتم حذف العميل نهائيًا من سجلاتك. لا يمكن التراجع عن هذا الإجراء.",
+    deletedToast: "تم حذف العميل",
   },
   documentForm: {
     customerSection: {

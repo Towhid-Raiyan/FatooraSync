@@ -4,6 +4,7 @@ import type { Unit } from "@prisma/client";
 import { auth } from "@/lib/auth/config";
 import { withTenant } from "@/lib/db/tenant-context";
 import { findBarcodeConflict } from "../check-uniqueness";
+import { isForeignKeyViolation } from "@/lib/db/foreign-key-violation";
 import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
 import { assertCanManageCatalog } from "@/lib/rbac/require-catalog-access";
 
@@ -101,6 +102,37 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
       return NextResponse.json({ error: "This barcode is already in use by another product" }, { status: 409 });
+    }
+    throw err;
+  }
+}
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user?.tenantId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const tenantId = session.user.tenantId;
+  const blocked = await assertTenantAccess(tenantId);
+  if (blocked) return blocked;
+  const catalogBlocked = await assertCanManageCatalog(tenantId, session.user.role);
+  if (catalogBlocked) return catalogBlocked;
+  const { id } = await params;
+
+  const existing = await withTenant(tenantId, (tx) => tx.product.findUnique({ where: { id } }));
+  if (!existing) {
+    return NextResponse.json({ error: "Product not found" }, { status: 404 });
+  }
+
+  try {
+    await withTenant(tenantId, (tx) => tx.product.delete({ where: { id } }));
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    if (isForeignKeyViolation(err)) {
+      return NextResponse.json(
+        { error: "This product has receipts, quotations, purchases, or stock history and can't be deleted" },
+        { status: 409 }
+      );
     }
     throw err;
   }
