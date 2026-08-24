@@ -73,7 +73,7 @@ export function PurchaseDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[calc(100%-2rem)] lg:max-w-4xl">
+      <DialogContent className="flex max-h-[90vh] w-full max-w-[calc(100%-2rem)] flex-col overflow-hidden sm:max-w-6xl">
         <DialogHeader>
           <DialogTitle>{detail ? dict.purchases.detailTitle(detail.number) : ""}</DialogTitle>
         </DialogHeader>
@@ -86,7 +86,7 @@ export function PurchaseDetailModal({
         )}
 
         {detail && (
-          <div className="flex flex-col gap-4">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
             <div className="grid grid-cols-1 gap-x-6 gap-y-1.5 rounded-lg border border-dashed border-border-subtle bg-bg-app p-3 text-sm sm:grid-cols-2">
               <div>
                 <span className="text-muted-fg">{dict.purchases.columnSupplier}: </span>
