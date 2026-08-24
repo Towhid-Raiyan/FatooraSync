@@ -44,6 +44,9 @@ export function ReceiptPrintThermal({
     <div id="print-target" className="mx-auto w-[80mm] bg-white p-3 text-sm text-black font-sans" dir="ltr">
       <div className="mb-4 text-center">
         <div className="text-lg font-bold">{tenant.tradeNameAr ?? tenant.tradeNameEn}</div>
+        <div className="mt-1 text-xs">
+          {tenant.legalName} — VAT {tenant.vatNumber}
+        </div>
         {(tenant.crNumber || tenant.phone) && (
           <div className="mt-1 text-xs">
             {tenant.crNumber && <>CR: {tenant.crNumber}</>}
@@ -51,9 +54,6 @@ export function ReceiptPrintThermal({
             {tenant.phone && <>Phone: {tenant.phone}</>}
           </div>
         )}
-        <div className="mt-1 text-xs">
-          {tenant.legalName} — VAT {tenant.vatNumber}
-        </div>
         {tenant.address && <div className="text-xs">{tenant.address}</div>}
       </div>
 

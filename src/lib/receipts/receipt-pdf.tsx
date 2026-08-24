@@ -110,6 +110,9 @@ export function ReceiptPdfDocument({ tenant, document, qrImageDataUrl }: Receipt
       <Page size={[THERMAL_WIDTH_PT, pageHeight]} style={styles.page}>
         <View style={styles.center}>
           <Text style={styles.tradeNameAr}>{tenant.tradeNameAr ?? tenant.tradeNameEn}</Text>
+          <Text style={styles.legalLine}>
+            {tenant.legalName} — VAT {tenant.vatNumber}
+          </Text>
           {(tenant.crNumber || tenant.phone) && (
             <Text style={styles.legalLine}>
               {tenant.crNumber ? `CR: ${tenant.crNumber}` : ""}
@@ -117,9 +120,6 @@ export function ReceiptPdfDocument({ tenant, document, qrImageDataUrl }: Receipt
               {tenant.phone ? `Phone: ${tenant.phone}` : ""}
             </Text>
           )}
-          <Text style={styles.legalLine}>
-            {tenant.legalName} — VAT {tenant.vatNumber}
-          </Text>
           {tenant.address && <Text style={styles.legalLine}>{tenant.address}</Text>}
         </View>
 
