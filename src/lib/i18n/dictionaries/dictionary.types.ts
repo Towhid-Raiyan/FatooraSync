@@ -116,6 +116,7 @@ export interface Dictionary {
     itemsSection: {
       title: string;
       searchPlaceholder: string;
+      searchPlaceholderWithQuotation: string;
       noMatches: string;
       exceedsStock: string;
       exceedsSubtotal: string;

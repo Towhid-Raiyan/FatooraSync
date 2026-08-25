@@ -118,6 +118,7 @@ export const ar: Dictionary = {
     itemsSection: {
       title: "الأصناف",
       searchPlaceholder: "امسح الباركود أو ابحث برمز المنتج / الاسم",
+      searchPlaceholderWithQuotation: "امسح الباركود أو ابحث برمز المنتج أو الاسم أو رقم عرض السعر",
       noMatches: "لا توجد نتائج",
       exceedsStock: "يتجاوز المخزون",
       exceedsSubtotal: "يتجاوز إجمالي الصنف",

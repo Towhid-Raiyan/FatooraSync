@@ -237,21 +237,32 @@ describe("/api/quotations", () => {
       expect((await lower.json()).total).toBe(1);
     });
 
-    it("the number param matches only the exact number, unlike search which also fuzzy-matches customer name/VAT", { timeout: 30000 }, async () => {
+    it("numberPrefix narrows live as more digits are typed, unlike search which also fuzzy-matches customer name/VAT", { timeout: 30000 }, async () => {
       // historyCustomerVatId ("300000000000922") contains a "1", so the general
       // `search` param would incidentally match it too via the VAT-contains
-      // branch -- `number` must not.
-      const response = await GET(getRequest("?number=1"));
-      const body = await response.json();
-      expect(body.total).toBe(1);
-      expect(body.quotations[0].number).toBe(1);
+      // branch -- `numberPrefix` must not, and must match every number whose
+      // decimal form starts with the typed digits (1, 10, 11, 12 for "1"),
+      // not just an exact "1".
+      const onePrefix = await GET(getRequest("?numberPrefix=1"));
+      const oneBody = await onePrefix.json();
+      expect(oneBody.total).toBe(4);
+      expect(oneBody.quotations.map((q: { number: number }) => q.number).sort((a: number, b: number) => a - b)).toEqual([1, 10, 11, 12]);
+
+      const elevenPrefix = await GET(getRequest("?numberPrefix=11"));
+      const elevenBody = await elevenPrefix.json();
+      expect(elevenBody.total).toBe(1);
+      expect(elevenBody.quotations[0].number).toBe(11);
     });
 
-    it("the number param accepts a QTE prefix and returns nothing for an unparsable value", { timeout: 30000 }, async () => {
-      const prefixed = await GET(getRequest("?number=QTE1"));
-      expect((await prefixed.json()).total).toBe(1);
-      const garbage = await GET(getRequest("?number=not-a-number"));
+    it("numberPrefix accepts a QTE prefix, case-insensitively, and returns nothing for an unparsable or empty value", { timeout: 30000 }, async () => {
+      const prefixed = await GET(getRequest("?numberPrefix=QTE1"));
+      expect((await prefixed.json()).total).toBe(4);
+      const lower = await GET(getRequest("?numberPrefix=qte11"));
+      expect((await lower.json()).total).toBe(1);
+      const garbage = await GET(getRequest("?numberPrefix=not-a-number"));
       expect((await garbage.json()).total).toBe(0);
+      const noDigitsYet = await GET(getRequest("?numberPrefix=QTE"));
+      expect((await noDigitsYet.json()).total).toBe(0);
     });
 
     it("searches by the customer's full 15-digit VAT ID without erroring", { timeout: 30000 }, async () => {

@@ -6,7 +6,7 @@ import { round2, round3, calculateLine, calculateDocumentTotals } from "@/lib/re
 import { withTenant } from "@/lib/db/tenant-context";
 import { PAGE_SIZE } from "@/lib/receipts/constants";
 import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
-import { parseQuotationNumberQuery } from "@/lib/quotations/quotation-number";
+import { parseQuotationNumberQuery, extractQuotationNumberPrefix, quotationNumberPrefixRanges } from "@/lib/quotations/quotation-number";
 
 class QuotationError extends Error {
   status: number;
@@ -247,12 +247,14 @@ export async function GET(request: Request) {
     Number.isFinite(pageParam) && pageParam >= 1 ? Math.min(Math.floor(pageParam), 1_000_000) : 1;
 
   const search = url.searchParams.get("search")?.trim() || "";
-  // Distinct from `search`: an exact-number-only lookup, used by the New
-  // Receipt page's "load from quotation" search, which must never also match
-  // on a customer name/VAT-ID substring the way the general `search` param
-  // does (a numeric query like "4" would otherwise also match any customer
-  // whose VAT ID happens to contain a "4").
-  const numberParam = url.searchParams.get("number");
+  // Distinct from `search`: a number-*prefix* lookup, used by the New Receipt
+  // page's "load from quotation" search for live, narrowing-as-you-type
+  // suggestions (typing "QTE1" should show 1, 10-19, 100-199, ... immediately,
+  // not just an exact "QTE1" hit). This must never also match on a customer
+  // name/VAT-ID substring the way the general `search` param does (a numeric
+  // query like "4" would otherwise also match any customer whose VAT ID
+  // happens to contain a "4").
+  const numberPrefixParam = url.searchParams.get("numberPrefix");
   const startOfDay = parseDateOrNull(url.searchParams.get("dateFrom"));
   const endOfDay = parseDateOrNull(url.searchParams.get("dateTo"));
   if (endOfDay) {
@@ -269,9 +271,18 @@ export async function GET(request: Request) {
       ...(endOfDay ? { lte: endOfDay } : {}),
     };
   }
-  if (numberParam !== null) {
-    const parsedNumber = parseQuotationNumberQuery(numberParam);
-    where.number = parsedNumber ?? -1; // -1 never matches -- an unparsable number param returns no results, not every quotation
+  if (numberPrefixParam !== null) {
+    const digits = extractQuotationNumberPrefix(numberPrefixParam);
+    const ranges = digits ? quotationNumberPrefixRanges(digits) : [];
+    if (ranges.length > 0) {
+      where.OR = ranges.map((range) => ({ number: { gte: range.gte, lte: range.lte } }));
+    } else {
+      // No digits typed yet (digits === "") or an unparsable prefix (digits
+      // === null) -- -1 never matches a real Document.number, rather than
+      // relying on an empty OR array's match-nothing-vs-match-everything
+      // semantics, which differ across Prisma versions.
+      where.number = -1;
+    }
   } else if (search) {
     // Accepts "QTE132"/"qte132"/"#132" as well as a bare "132" -- a 15-digit VAT
     // ID also passes the digit-only check inside this parser, so it's clamped to

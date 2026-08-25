@@ -118,6 +118,7 @@ export const en: Dictionary = {
     itemsSection: {
       title: "Items",
       searchPlaceholder: "Scan barcode or search by SKU / name",
+      searchPlaceholderWithQuotation: "Scan barcode or search by SKU, name, or quotation number",
       noMatches: "No matches",
       exceedsStock: "exceeds stock",
       exceedsSubtotal: "exceeds item subtotal",

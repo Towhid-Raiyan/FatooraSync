@@ -11,7 +11,7 @@ import { getUnitLabels } from "@/components/products/product-form-dialog";
 import { BarcodeScannerModal } from "@/components/barcode-scanner-modal";
 import type { SerializedProduct } from "@/components/products/products-client";
 import type { LineTotals } from "@/lib/receipts/calculate-totals";
-import { formatQuotationNumber, parseQuotationNumberQuery } from "@/lib/quotations/quotation-number";
+import { formatQuotationNumber, extractQuotationNumberPrefix } from "@/lib/quotations/quotation-number";
 import { useLocale } from "@/lib/i18n/language-provider";
 import { cn } from "@/lib/utils";
 
@@ -77,19 +77,23 @@ export function ItemsSection({
   const [quotationMatches, setQuotationMatches] = useState<QuotationSuggestion[]>([]);
   const quotationDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // A query that parses as a quotation number ("QTE132", "132", "#132") takes
-  // over the whole dropdown -- product name/SKU never look like this, so there's
-  // no real ambiguity to resolve between the two searches.
-  const quotationQueryNumber = onSelectQuotation ? parseQuotationNumberQuery(search) : null;
+  // A query that looks like a quotation number ("QTE132", "132", "#132", or a
+  // partial "QTE13" while still being typed) takes over the whole dropdown --
+  // product name/SKU never look like this, so there's no real ambiguity to
+  // resolve between the two searches. `null` means "not a quotation-shaped
+  // query" (fall through to product search); `""` means the prefix has
+  // started (e.g. just "QTE") but no digits yet, so there's nothing to fetch
+  // but the dropdown still shows the quotation branch, not products.
+  const quotationDigitPrefix = onSelectQuotation ? extractQuotationNumberPrefix(search) : null;
 
   useEffect(() => {
-    if (quotationQueryNumber === null) {
+    if (!quotationDigitPrefix) {
       setQuotationMatches([]);
       return;
     }
     if (quotationDebounceRef.current) clearTimeout(quotationDebounceRef.current);
     quotationDebounceRef.current = setTimeout(() => {
-      fetch(`/api/quotations?number=${quotationQueryNumber}`)
+      fetch(`/api/quotations?numberPrefix=${encodeURIComponent(quotationDigitPrefix)}`)
         .then((response) => (response.ok ? response.json() : Promise.reject()))
         .then((body: { quotations: QuotationSuggestion[] }) => setQuotationMatches(body.quotations))
         .catch(() => setQuotationMatches([]));
@@ -97,7 +101,7 @@ export function ItemsSection({
     return () => {
       if (quotationDebounceRef.current) clearTimeout(quotationDebounceRef.current);
     };
-  }, [quotationQueryNumber]);
+  }, [quotationDigitPrefix]);
 
   function handleSelectQuotation(quotationId: string) {
     setSearch("");
@@ -136,7 +140,7 @@ export function ItemsSection({
   function handleSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key !== "Enter") return;
     e.preventDefault();
-    if (quotationQueryNumber !== null) {
+    if (quotationDigitPrefix !== null) {
       if (quotationMatches.length === 1) handleSelectQuotation(quotationMatches[0].id);
       return;
     }
@@ -207,7 +211,11 @@ export function ItemsSection({
           <div className="relative flex-1">
             <Input
               ref={searchInputRef}
-              placeholder={dict.documentForm.itemsSection.searchPlaceholder}
+              placeholder={
+                onSelectQuotation
+                  ? dict.documentForm.itemsSection.searchPlaceholderWithQuotation
+                  : dict.documentForm.itemsSection.searchPlaceholder
+              }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleSearchKeyDown}
@@ -215,7 +223,7 @@ export function ItemsSection({
             />
             {search.trim() && (
               <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-border-subtle bg-bg-card shadow-[0_4px_16px_rgba(16,44,30,0.12)]">
-                {quotationQueryNumber !== null ? (
+                {quotationDigitPrefix !== null ? (
                   <>
                     {quotationMatches.map((quotation) => (
                       <button
