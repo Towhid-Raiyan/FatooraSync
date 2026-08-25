@@ -5,6 +5,7 @@ import { getQuotationPrintData } from "@/lib/quotations/get-print-data";
 import { QuotationPdfDocument } from "@/lib/quotations/quotation-pdf";
 import { QuotationPdfA4Document } from "@/lib/quotations/quotation-pdf-a4";
 import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
+import { formatQuotationNumber } from "@/lib/quotations/quotation-number";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -32,7 +33,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="quotation-${data.document.number}.pdf"`,
+      "Content-Disposition": `attachment; filename="quotation-${formatQuotationNumber(data.document.number)}.pdf"`,
     },
   });
 }

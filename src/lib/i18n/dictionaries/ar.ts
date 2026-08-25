@@ -121,6 +121,10 @@ export const ar: Dictionary = {
       noMatches: "لا توجد نتائج",
       exceedsStock: "يتجاوز المخزون",
       exceedsSubtotal: "يتجاوز إجمالي الصنف",
+      quotationBadge: "عرض سعر",
+      noQuotationMatch: "لا يوجد عرض سعر بهذا الرقم",
+      quotationLoadedToast: (number) => `تم تحميل الأصناف من ${number}`,
+      quotationLoadError: "تعذر تحميل عرض السعر",
       headers: {
         number: "#",
         sku: "رمز المنتج",

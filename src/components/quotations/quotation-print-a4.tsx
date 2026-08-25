@@ -11,6 +11,7 @@ import {
   type A4Document,
 } from "@/components/print-format/a4-print-parts";
 import { PrintButton } from "@/components/receipts/print-button";
+import { formatQuotationNumber } from "@/lib/quotations/quotation-number";
 
 const prata = Prata({ subsets: ["latin"], weight: "400" });
 const inter = Inter({ subsets: ["latin"], weight: ["400", "600"] });
@@ -50,6 +51,7 @@ export function QuotationPrintA4({
               docTitleEn="Quotation"
               docNumberLabel="Quotation"
               prataClassName={prata.className}
+              formatNumber={formatQuotationNumber}
             />
             <hr className="my-3 border-[#d8d4c8]" />
             {isFirstPage && <A4BilledTo customer={document.customer} />}

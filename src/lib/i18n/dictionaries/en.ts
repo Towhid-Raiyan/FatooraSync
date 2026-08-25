@@ -121,6 +121,10 @@ export const en: Dictionary = {
       noMatches: "No matches",
       exceedsStock: "exceeds stock",
       exceedsSubtotal: "exceeds item subtotal",
+      quotationBadge: "Quotation",
+      noQuotationMatch: "No quotation with that number",
+      quotationLoadedToast: (number) => `Loaded items from ${number}`,
+      quotationLoadError: "Couldn't load that quotation",
       headers: {
         number: "#",
         sku: "SKU",

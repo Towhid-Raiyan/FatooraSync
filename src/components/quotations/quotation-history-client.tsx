@@ -8,6 +8,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { PAGE_SIZE } from "@/lib/receipts/constants";
 import { useLocale } from "@/lib/i18n/language-provider";
 import { formatRiyadhDate } from "@/lib/format-datetime";
+import { formatQuotationNumber } from "@/lib/quotations/quotation-number";
 import { PrintModal } from "@/components/documents/print-modal";
 
 interface QuotationRow {
@@ -133,7 +134,7 @@ export function QuotationHistoryClient({ initial }: { initial: QuotationsRespons
                 <TableBody>
                   {data.quotations.map((q) => (
                     <TableRow key={q.id}>
-                      <TableCell className="font-mono text-xs">#{q.number}</TableCell>
+                      <TableCell className="font-mono text-xs">{formatQuotationNumber(q.number)}</TableCell>
                       <TableCell>
                         <div className="font-medium text-heading">{q.customerName}</div>
                         {q.customerVatId && <div className="text-xs text-muted-fg">{q.customerVatId}</div>}
@@ -158,7 +159,7 @@ export function QuotationHistoryClient({ initial }: { initial: QuotationsRespons
                 <li key={q.id} className="flex items-center justify-between gap-3 p-4">
                   <div className="min-w-0">
                     <div className="font-medium text-heading">
-                      <span className="font-mono text-xs text-muted-fg">#{q.number}</span> {q.customerName}
+                      <span className="font-mono text-xs text-muted-fg">{formatQuotationNumber(q.number)}</span> {q.customerName}
                     </div>
                     <div className="mt-0.5 flex gap-3 text-xs text-muted-fg">
                       <span>{formatRiyadhDate(q.createdAt)}</span>

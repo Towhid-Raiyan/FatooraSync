@@ -119,6 +119,10 @@ export interface Dictionary {
       noMatches: string;
       exceedsStock: string;
       exceedsSubtotal: string;
+      quotationBadge: string;
+      noQuotationMatch: string;
+      quotationLoadedToast: (number: string) => string;
+      quotationLoadError: string;
       headers: {
         number: string;
         sku: string;

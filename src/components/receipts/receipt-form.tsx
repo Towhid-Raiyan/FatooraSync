@@ -9,10 +9,30 @@ import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import { PrintModal } from "@/components/documents/print-modal";
 import type { SerializedProduct } from "@/components/products/products-client";
 import { round3, calculateLine, calculateDocumentTotals, deriveUnitPriceFromTotal } from "@/lib/receipts/calculate-totals";
+import { formatQuotationNumber } from "@/lib/quotations/quotation-number";
 import { useLocale } from "@/lib/i18n/language-provider";
 import { useToast } from "@/lib/toast/toast-provider";
 import { CustomerSection, type CustomerDraft } from "./customer-section";
 import { ItemsSection, type ReceiptLine } from "./items-section";
+
+interface QuotationPrefillLine {
+  productId: string;
+  sku: string | null;
+  productName: string;
+  productNameAr: string | null;
+  unit: string;
+  quantity: string;
+  unitPrice: string;
+  discount: string;
+  vatRate: string;
+  stockAtAdd: string;
+}
+
+interface QuotationPrefill {
+  number: number;
+  customer: { name: string; vatId: string; crNumber: string; phone: string; address: string };
+  lines: QuotationPrefillLine[];
+}
 
 const EMPTY_CUSTOMER_DRAFT: CustomerDraft = { name: "", vatId: "", crNumber: "", phone: "", address: "" };
 
@@ -89,6 +109,65 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
         },
       ];
     });
+  }
+
+  // "Load from quotation": merges an approved quotation's lines/customer into
+  // whatever's already on the form, same additive spirit as scanning a
+  // barcode twice -- a matching product bumps quantity instead of duplicating
+  // the row, and customer fields only fill in whatever the cashier hasn't
+  // already typed by hand. Price/discount/VAT come from the quotation's own
+  // saved line values (what was actually quoted), not the product's current
+  // catalog price.
+  async function handleSelectQuotation(quotationId: string) {
+    try {
+      const response = await fetch(`/api/quotations/${quotationId}/for-receipt`);
+      const body = await response.json();
+      if (!response.ok) {
+        toast.error(body.error ?? dict.documentForm.itemsSection.quotationLoadError);
+        return;
+      }
+      const prefill = body as QuotationPrefill;
+
+      setCustomerDraft((prev) => ({
+        name: prev.name || prefill.customer.name,
+        vatId: prev.vatId || prefill.customer.vatId,
+        crNumber: prev.crNumber || prefill.customer.crNumber,
+        phone: prev.phone || prefill.customer.phone,
+        address: prev.address || prefill.customer.address,
+      }));
+
+      setLines((prev) => {
+        const next = [...prev];
+        for (const line of prefill.lines) {
+          const existingIndex = next.findIndex((l) => l.productId === line.productId);
+          if (existingIndex !== -1) {
+            next[existingIndex] = {
+              ...next[existingIndex],
+              quantity: String(Number(next[existingIndex].quantity) + Number(line.quantity)),
+            };
+          } else {
+            next.push({
+              key: `${line.productId}-${next.length}-${Date.now()}`,
+              productId: line.productId,
+              sku: line.sku,
+              productName: line.productName,
+              productNameAr: line.productNameAr,
+              unit: line.unit,
+              quantity: line.quantity,
+              unitPrice: line.unitPrice,
+              discount: line.discount,
+              vatRate: line.vatRate,
+              stockAtAdd: line.stockAtAdd,
+            });
+          }
+        }
+        return next;
+      });
+
+      toast.success(dict.documentForm.itemsSection.quotationLoadedToast(formatQuotationNumber(prefill.number)));
+    } catch {
+      toast.error(dict.documentForm.itemsSection.quotationLoadError);
+    }
   }
 
   function handleQuickCreateSaved(product: SerializedProduct) {
@@ -244,6 +323,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
           }
           onTotalChange={handleTotalChange}
           onOpenQuickCreate={() => setQuickCreateOpen(true)}
+          onSelectQuotation={handleSelectQuotation}
           className="xl:col-start-1 xl:row-start-2 xl:min-h-0"
         />
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Camera, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,8 +11,16 @@ import { getUnitLabels } from "@/components/products/product-form-dialog";
 import { BarcodeScannerModal } from "@/components/barcode-scanner-modal";
 import type { SerializedProduct } from "@/components/products/products-client";
 import type { LineTotals } from "@/lib/receipts/calculate-totals";
+import { formatQuotationNumber, parseQuotationNumberQuery } from "@/lib/quotations/quotation-number";
 import { useLocale } from "@/lib/i18n/language-provider";
 import { cn } from "@/lib/utils";
+
+export interface QuotationSuggestion {
+  id: string;
+  number: number;
+  customerName: string;
+  grandTotal: string;
+}
 
 export interface ReceiptLine {
   key: string;
@@ -39,6 +47,11 @@ interface ItemsSectionProps {
   onDiscountChange: (key: string, discount: string) => void;
   onTotalChange: (key: string, total: string) => void;
   onOpenQuickCreate: () => void;
+  // Only provided by the New Receipt page (receipt-form.tsx) -- New Quotation
+  // uses this same component without it, which simply leaves the
+  // quotation-number-lookup branch of the search box inactive. "Load from
+  // a quotation" only makes sense when building a receipt.
+  onSelectQuotation?: (quotationId: string) => void | Promise<void>;
   className?: string;
 }
 
@@ -53,6 +66,7 @@ export function ItemsSection({
   onDiscountChange,
   onTotalChange,
   onOpenQuickCreate,
+  onSelectQuotation,
   className,
 }: ItemsSectionProps) {
   const { dict } = useLocale();
@@ -60,6 +74,35 @@ export function ItemsSection({
   const [search, setSearch] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [quotationMatches, setQuotationMatches] = useState<QuotationSuggestion[]>([]);
+  const quotationDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // A query that parses as a quotation number ("QTE132", "132", "#132") takes
+  // over the whole dropdown -- product name/SKU never look like this, so there's
+  // no real ambiguity to resolve between the two searches.
+  const quotationQueryNumber = onSelectQuotation ? parseQuotationNumberQuery(search) : null;
+
+  useEffect(() => {
+    if (quotationQueryNumber === null) {
+      setQuotationMatches([]);
+      return;
+    }
+    if (quotationDebounceRef.current) clearTimeout(quotationDebounceRef.current);
+    quotationDebounceRef.current = setTimeout(() => {
+      fetch(`/api/quotations?number=${quotationQueryNumber}`)
+        .then((response) => (response.ok ? response.json() : Promise.reject()))
+        .then((body: { quotations: QuotationSuggestion[] }) => setQuotationMatches(body.quotations))
+        .catch(() => setQuotationMatches([]));
+    }, 250);
+    return () => {
+      if (quotationDebounceRef.current) clearTimeout(quotationDebounceRef.current);
+    };
+  }, [quotationQueryNumber]);
+
+  function handleSelectQuotation(quotationId: string) {
+    setSearch("");
+    onSelectQuotation?.(quotationId);
+  }
 
   // Editing Total is a reverse calculation (it back-solves Unit Price), so the
   // displayed total is normally the computed `lineTotal` -- except while a cell is
@@ -93,6 +136,10 @@ export function ItemsSection({
   function handleSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key !== "Enter") return;
     e.preventDefault();
+    if (quotationQueryNumber !== null) {
+      if (quotationMatches.length === 1) handleSelectQuotation(quotationMatches[0].id);
+      return;
+    }
     const query = search.trim().toLowerCase();
     if (!query) return;
     const exactBarcode = products.find((p) => (p.barcode ?? "").toLowerCase() === query);
@@ -168,20 +215,49 @@ export function ItemsSection({
             />
             {search.trim() && (
               <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-border-subtle bg-bg-card shadow-[0_4px_16px_rgba(16,44,30,0.12)]">
-                {filtered.map((product) => (
-                  <button
-                    key={product.id}
-                    type="button"
-                    onClick={() => handleSelect(product)}
-                    className="block w-full px-3 py-2 text-start text-sm hover:bg-bg-app"
-                  >
-                    <span className="font-mono text-xs text-muted-fg">{product.sku}</span>{" "}
-                    <span className="text-heading">{product.nameEn}</span>{" "}
-                    <span className="text-muted-fg">— {product.unitPrice}</span>
-                  </button>
-                ))}
-                {filtered.length === 0 && (
-                  <div className="px-3 py-2 text-sm text-muted-fg">{dict.documentForm.itemsSection.noMatches}</div>
+                {quotationQueryNumber !== null ? (
+                  <>
+                    {quotationMatches.map((quotation) => (
+                      <button
+                        key={quotation.id}
+                        type="button"
+                        onClick={() => handleSelectQuotation(quotation.id)}
+                        className="block w-full px-3 py-2 text-start text-sm hover:bg-bg-app"
+                      >
+                        <Badge variant="secondary" className="me-1.5">
+                          {dict.documentForm.itemsSection.quotationBadge}
+                        </Badge>
+                        <span className="font-mono text-xs text-muted-fg">
+                          {formatQuotationNumber(quotation.number)}
+                        </span>{" "}
+                        <span className="text-heading">{quotation.customerName}</span>{" "}
+                        <span className="text-muted-fg">— {Number(quotation.grandTotal).toFixed(2)} SAR</span>
+                      </button>
+                    ))}
+                    {quotationMatches.length === 0 && (
+                      <div className="px-3 py-2 text-sm text-muted-fg">
+                        {dict.documentForm.itemsSection.noQuotationMatch}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {filtered.map((product) => (
+                      <button
+                        key={product.id}
+                        type="button"
+                        onClick={() => handleSelect(product)}
+                        className="block w-full px-3 py-2 text-start text-sm hover:bg-bg-app"
+                      >
+                        <span className="font-mono text-xs text-muted-fg">{product.sku}</span>{" "}
+                        <span className="text-heading">{product.nameEn}</span>{" "}
+                        <span className="text-muted-fg">— {product.unitPrice}</span>
+                      </button>
+                    ))}
+                    {filtered.length === 0 && (
+                      <div className="px-3 py-2 text-sm text-muted-fg">{dict.documentForm.itemsSection.noMatches}</div>
+                    )}
+                  </>
                 )}
               </div>
             )}

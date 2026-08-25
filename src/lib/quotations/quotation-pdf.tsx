@@ -2,6 +2,7 @@ import path from "path";
 import { Document, Page, View, Text, Font, StyleSheet } from "@react-pdf/renderer";
 import type { Customer, DocumentLine, Tenant, Document as PrismaDocument } from "@prisma/client";
 import { formatRiyadhDateTime, formatHijriDate } from "@/lib/format-datetime";
+import { formatQuotationNumber } from "@/lib/quotations/quotation-number";
 
 // 80mm is the standard thermal receipt-roll width (58mm is the other common
 // size, but too narrow for this 5-6 column item table); 1mm = 2.83465pt.
@@ -111,7 +112,7 @@ export function QuotationPdfDocument({ tenant, document }: QuotationPdfProps) {
         </View>
 
         <View style={styles.meta}>
-          <Text>QUOTATION (عرض سعر) #{document.number}</Text>
+          <Text>QUOTATION (عرض سعر) {formatQuotationNumber(document.number)}</Text>
           <Text>{formatRiyadhDateTime(document.createdAt)}</Text>
           <Text>{formatHijriDate(document.createdAt)}</Text>
         </View>

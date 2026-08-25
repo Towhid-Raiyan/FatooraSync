@@ -11,6 +11,7 @@ import {
   A4Footer,
   type A4Document,
 } from "@/lib/print-format/a4-pdf-parts";
+import { formatQuotationNumber } from "@/lib/quotations/quotation-number";
 
 export interface QuotationPdfA4Props {
   tenant: Tenant;
@@ -33,7 +34,13 @@ export function QuotationPdfA4Document({ tenant, document }: QuotationPdfA4Props
 
         return (
           <Page key={pageIndex} size="A4" style={a4PdfStyles.page}>
-            <A4BusinessHeader tenant={tenant} document={document} docTitleEn="Quotation" docNumberLabel="Quotation" />
+            <A4BusinessHeader
+              tenant={tenant}
+              document={document}
+              docTitleEn="Quotation"
+              docNumberLabel="Quotation"
+              formatNumber={formatQuotationNumber}
+            />
             <View style={a4PdfStyles.hr} />
             {isFirstPage && <A4BilledTo customer={document.customer} />}
             <A4ItemsTable lines={pageLines} startIndex={startIndex} hasDiscount={hasDiscount} />

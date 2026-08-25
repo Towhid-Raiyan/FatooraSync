@@ -31,6 +31,7 @@ export function A4BusinessHeader({
   docTitleAr,
   docNumberLabel,
   prataClassName,
+  formatNumber = String,
 }: {
   tenant: Tenant;
   document: A4Document;
@@ -38,6 +39,7 @@ export function A4BusinessHeader({
   docTitleAr?: string;
   docNumberLabel: string;
   prataClassName: string;
+  formatNumber?: (number: number) => string;
 }) {
   return (
     <div className="flex justify-between">
@@ -57,7 +59,7 @@ export function A4BusinessHeader({
           </div>
         )}
         <div className="mt-1 text-[13px] text-gray-600">
-          {docNumberLabel} No. {document.number}
+          {docNumberLabel} No. {formatNumber(document.number)}
         </div>
         <div className="text-[13px] text-gray-600">{formatRiyadhDateTime(document.createdAt)}</div>
         <div className="text-[13px] text-gray-600">{formatHijriDate(document.createdAt)}</div>

@@ -1,5 +1,6 @@
 import type { Customer, Tenant, Document as PrismaDocument } from "@prisma/client";
 import { formatRiyadhDateTime, formatHijriDate } from "@/lib/format-datetime";
+import { formatQuotationNumber } from "@/lib/quotations/quotation-number";
 import { PrintButton } from "@/components/receipts/print-button";
 
 function money(value: { toString(): string }): string {
@@ -56,7 +57,7 @@ export function QuotationPrintThermal({
       </div>
 
       <div className="mb-3 text-xs">
-        <div>QUOTATION (عرض سعر) #{document.number}</div>
+        <div>QUOTATION (عرض سعر) {formatQuotationNumber(document.number)}</div>
         <div>{formatRiyadhDateTime(document.createdAt)}</div>
         <div>{formatHijriDate(document.createdAt)}</div>
       </div>

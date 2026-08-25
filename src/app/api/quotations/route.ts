@@ -6,6 +6,7 @@ import { round2, round3, calculateLine, calculateDocumentTotals } from "@/lib/re
 import { withTenant } from "@/lib/db/tenant-context";
 import { PAGE_SIZE } from "@/lib/receipts/constants";
 import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
+import { parseQuotationNumberQuery } from "@/lib/quotations/quotation-number";
 
 class QuotationError extends Error {
   status: number;
@@ -246,6 +247,12 @@ export async function GET(request: Request) {
     Number.isFinite(pageParam) && pageParam >= 1 ? Math.min(Math.floor(pageParam), 1_000_000) : 1;
 
   const search = url.searchParams.get("search")?.trim() || "";
+  // Distinct from `search`: an exact-number-only lookup, used by the New
+  // Receipt page's "load from quotation" search, which must never also match
+  // on a customer name/VAT-ID substring the way the general `search` param
+  // does (a numeric query like "4" would otherwise also match any customer
+  // whose VAT ID happens to contain a "4").
+  const numberParam = url.searchParams.get("number");
   const startOfDay = parseDateOrNull(url.searchParams.get("dateFrom"));
   const endOfDay = parseDateOrNull(url.searchParams.get("dateTo"));
   if (endOfDay) {
@@ -262,13 +269,15 @@ export async function GET(request: Request) {
       ...(endOfDay ? { lte: endOfDay } : {}),
     };
   }
-  if (search) {
-    const strippedHash = search.startsWith("#") ? search.slice(1) : search;
-    // Document.number is Postgres INT4 (max 2,147,483,647); a 15-digit VAT ID
-    // passes this digit-only regex too, so it's clamped to the INT4 range and
-    // falls through to the `contains` branches below instead of throwing.
-    const parsed = /^\d+$/.test(strippedHash) ? Number(strippedHash) : null;
-    const parsedNumber = parsed !== null && parsed <= 2147483647 ? parsed : null;
+  if (numberParam !== null) {
+    const parsedNumber = parseQuotationNumberQuery(numberParam);
+    where.number = parsedNumber ?? -1; // -1 never matches -- an unparsable number param returns no results, not every quotation
+  } else if (search) {
+    // Accepts "QTE132"/"qte132"/"#132" as well as a bare "132" -- a 15-digit VAT
+    // ID also passes the digit-only check inside this parser, so it's clamped to
+    // the INT4 range and falls through to the `contains` branches below instead
+    // of throwing.
+    const parsedNumber = parseQuotationNumberQuery(search);
     where.OR = [
       ...(parsedNumber !== null ? [{ number: parsedNumber }] : []),
       { customer: { name: { contains: search, mode: "insensitive" } } },

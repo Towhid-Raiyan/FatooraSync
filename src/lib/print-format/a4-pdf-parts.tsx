@@ -85,12 +85,14 @@ export function A4BusinessHeader({
   docTitleEn,
   docTitleAr,
   docNumberLabel,
+  formatNumber = String,
 }: {
   tenant: Tenant;
   document: A4Document;
   docTitleEn: string;
   docTitleAr?: string;
   docNumberLabel: string;
+  formatNumber?: (number: number) => string;
 }) {
   return (
     <View style={a4PdfStyles.headerRow}>
@@ -106,7 +108,7 @@ export function A4BusinessHeader({
         <Text style={a4PdfStyles.docTitle}>{docTitleEn}</Text>
         {docTitleAr && <Text style={a4PdfStyles.docTitleAr}>{docTitleAr}</Text>}
         <Text style={a4PdfStyles.meta}>
-          {docNumberLabel} No. {document.number}
+          {docNumberLabel} No. {formatNumber(document.number)}
         </Text>
         <Text style={a4PdfStyles.meta}>{formatRiyadhDateTime(document.createdAt)}</Text>
         <Text style={a4PdfStyles.meta}>{formatHijriDate(document.createdAt)}</Text>

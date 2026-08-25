@@ -230,6 +230,30 @@ describe("/api/quotations", () => {
       expect(body.total).toBe(1);
     });
 
+    it("searches by the QTE-prefixed quotation number, case-insensitively", { timeout: 30000 }, async () => {
+      const upper = await GET(getRequest("?search=QTE1"));
+      expect((await upper.json()).total).toBe(1);
+      const lower = await GET(getRequest("?search=qte1"));
+      expect((await lower.json()).total).toBe(1);
+    });
+
+    it("the number param matches only the exact number, unlike search which also fuzzy-matches customer name/VAT", { timeout: 30000 }, async () => {
+      // historyCustomerVatId ("300000000000922") contains a "1", so the general
+      // `search` param would incidentally match it too via the VAT-contains
+      // branch -- `number` must not.
+      const response = await GET(getRequest("?number=1"));
+      const body = await response.json();
+      expect(body.total).toBe(1);
+      expect(body.quotations[0].number).toBe(1);
+    });
+
+    it("the number param accepts a QTE prefix and returns nothing for an unparsable value", { timeout: 30000 }, async () => {
+      const prefixed = await GET(getRequest("?number=QTE1"));
+      expect((await prefixed.json()).total).toBe(1);
+      const garbage = await GET(getRequest("?number=not-a-number"));
+      expect((await garbage.json()).total).toBe(0);
+    });
+
     it("searches by the customer's full 15-digit VAT ID without erroring", { timeout: 30000 }, async () => {
       const response = await GET(getRequest(`?search=${historyCustomerVatId}`));
       expect(response.status).toBe(200);
