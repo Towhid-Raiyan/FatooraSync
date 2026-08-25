@@ -294,7 +294,13 @@ export function ItemsSection({
           // which makes the sticky behavior both unnecessary and actively harmful --
           // a plain in-flow column has no such overlap risk.
           <div className="rounded-lg border border-border-subtle xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
-            <Table>
+            {/* Denser than the Table component's own defaults (p-2 cells, h-10 header,
+                h-8 inputs) -- purely to fit more rows in the same scroll area before a
+                cashier has to scroll (the actual goal; a font-size tweak alone barely
+                moves row height, since h-8 inputs and p-2 padding are what dominate it).
+                Targets attribute selectors instead of editing every cell/input below,
+                same pattern the Table component itself already uses for [&_tr]. */}
+            <Table className="text-[13px] [&_td]:py-1 [&_th]:h-7 [&_input]:h-7">
               <TableHeader>
                 <TableRow>
                   <TableHead>{dict.documentForm.itemsSection.headers.number}</TableHead>
@@ -326,12 +332,16 @@ export function ItemsSection({
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="font-medium text-heading">{line.productName}</div>
+                        <div className="font-medium leading-tight text-heading">{line.productName}</div>
                         {line.productNameAr && (
-                          <div className="text-xs text-emerald-600 dark:text-emerald-400">{line.productNameAr}</div>
+                          <div className="text-xs leading-tight text-emerald-600 dark:text-emerald-400">
+                            {line.productNameAr}
+                          </div>
                         )}
                         {exceedsStock && (
-                          <div className="text-xs text-amber-600">{dict.documentForm.itemsSection.exceedsStock}</div>
+                          <div className="text-xs leading-tight text-amber-600">
+                            {dict.documentForm.itemsSection.exceedsStock}
+                          </div>
                         )}
                       </TableCell>
                       <TableCell className="text-muted-fg">{unitLabels[line.unit] ?? line.unit}</TableCell>
