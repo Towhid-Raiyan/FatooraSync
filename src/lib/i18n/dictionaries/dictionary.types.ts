@@ -60,6 +60,9 @@ export interface Dictionary {
     a4: string;
     saveChanges: string;
     cashierCanManageCatalog: string;
+    labelSize: string;
+    labelWidth: string;
+    labelHeight: string;
     savedToast: string;
     saveError: string;
   };
@@ -86,6 +89,17 @@ export interface Dictionary {
     deleteConfirmTitle: string;
     deleteConfirmDescription: string;
     deletedToast: string;
+    printLabel: string;
+  };
+  printLabel: {
+    dialogTitle: string;
+    copies: string;
+    searchPlaceholder: string;
+    noMatches: string;
+    removeItem: string;
+    backToEdit: string;
+    print: (count: number) => string;
+    loadError: string;
   };
   customers: {
     searchPlaceholder: string;

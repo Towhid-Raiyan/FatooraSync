@@ -36,7 +36,15 @@ describe("/api/settings", () => {
   it("PATCH updates the tenant's settings", async () => {
     const request = new Request("http://localhost/api/settings", {
       method: "PATCH",
-      body: JSON.stringify({ defaultVatRate: "10", language: "en", printFormat: "THERMAL", phone: "", cashierCanManageCatalog: true }),
+      body: JSON.stringify({
+        defaultVatRate: "10",
+        language: "en",
+        printFormat: "THERMAL",
+        phone: "",
+        cashierCanManageCatalog: true,
+        labelWidthMm: "50",
+        labelHeightMm: "30",
+      }),
     });
     const response = await PATCH(request);
     expect(response.status).toBe(200);
@@ -107,7 +115,15 @@ describe("/api/settings", () => {
   it("PATCH updates printFormat and phone", async () => {
     const request = new Request("http://localhost/api/settings", {
       method: "PATCH",
-      body: JSON.stringify({ defaultVatRate: "15", language: "ar", printFormat: "A4", phone: "+966501234567", cashierCanManageCatalog: true }),
+      body: JSON.stringify({
+        defaultVatRate: "15",
+        language: "ar",
+        printFormat: "A4",
+        phone: "+966501234567",
+        cashierCanManageCatalog: true,
+        labelWidthMm: "50",
+        labelHeightMm: "30",
+      }),
     });
     const response = await PATCH(request);
     expect(response.status).toBe(200);
@@ -121,7 +137,15 @@ describe("/api/settings", () => {
   it("PATCH clears the phone to null when an empty string is submitted", async () => {
     const request = new Request("http://localhost/api/settings", {
       method: "PATCH",
-      body: JSON.stringify({ defaultVatRate: "15", language: "ar", printFormat: "THERMAL", phone: "", cashierCanManageCatalog: true }),
+      body: JSON.stringify({
+        defaultVatRate: "15",
+        language: "ar",
+        printFormat: "THERMAL",
+        phone: "",
+        cashierCanManageCatalog: true,
+        labelWidthMm: "50",
+        labelHeightMm: "30",
+      }),
     });
     const response = await PATCH(request);
     expect(response.status).toBe(200);
@@ -156,7 +180,15 @@ describe("/api/settings", () => {
   it("PATCH persists cashierCanManageCatalog: false", async () => {
     const request = new Request("http://localhost/api/settings", {
       method: "PATCH",
-      body: JSON.stringify({ defaultVatRate: "15", language: "ar", printFormat: "THERMAL", phone: "", cashierCanManageCatalog: false }),
+      body: JSON.stringify({
+        defaultVatRate: "15",
+        language: "ar",
+        printFormat: "THERMAL",
+        phone: "",
+        cashierCanManageCatalog: false,
+        labelWidthMm: "50",
+        labelHeightMm: "30",
+      }),
     });
     const response = await PATCH(request);
     expect(response.status).toBe(200);
@@ -166,5 +198,70 @@ describe("/api/settings", () => {
 
     // Restore, since later tests in this file assume the default.
     await withTenant(tenantId, (tx) => tx.settings.update({ where: { tenantId }, data: { cashierCanManageCatalog: true } }));
+  });
+
+  it("GET returns the default label size for a fresh tenant", async () => {
+    const response = await GET();
+    const body = await response.json();
+    expect(body.labelWidthMm).toBe(50);
+    expect(body.labelHeightMm).toBe(30);
+  });
+
+  it("PATCH updates and persists the label size", async () => {
+    const request = new Request("http://localhost/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({
+        defaultVatRate: "15",
+        language: "ar",
+        printFormat: "THERMAL",
+        phone: "",
+        cashierCanManageCatalog: true,
+        labelWidthMm: "58",
+        labelHeightMm: "40",
+      }),
+    });
+    const response = await PATCH(request);
+    expect(response.status).toBe(200);
+
+    const after = await withTenant(tenantId, (tx) => tx.settings.findUniqueOrThrow({ where: { tenantId } }));
+    expect(after.labelWidthMm).toBe(58);
+    expect(after.labelHeightMm).toBe(40);
+
+    // Restore, since later tests in this file assume the default.
+    await withTenant(tenantId, (tx) => tx.settings.update({ where: { tenantId }, data: { labelWidthMm: 50, labelHeightMm: 30 } }));
+  });
+
+  it("PATCH returns 400 for a label width outside 10-200mm", async () => {
+    const request = new Request("http://localhost/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({
+        defaultVatRate: "15",
+        language: "ar",
+        printFormat: "THERMAL",
+        phone: "",
+        cashierCanManageCatalog: true,
+        labelWidthMm: "5",
+        labelHeightMm: "30",
+      }),
+    });
+    const response = await PATCH(request);
+    expect(response.status).toBe(400);
+  });
+
+  it("PATCH returns 400 for a non-integer label height", async () => {
+    const request = new Request("http://localhost/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({
+        defaultVatRate: "15",
+        language: "ar",
+        printFormat: "THERMAL",
+        phone: "",
+        cashierCanManageCatalog: true,
+        labelWidthMm: "50",
+        labelHeightMm: "30.5",
+      }),
+    });
+    const response = await PATCH(request);
+    expect(response.status).toBe(400);
   });
 });

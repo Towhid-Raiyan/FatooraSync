@@ -18,6 +18,8 @@ export function SettingsClient() {
   const [printFormat, setPrintFormat] = useState("THERMAL");
   const [phone, setPhone] = useState("");
   const [cashierCanManageCatalog, setCashierCanManageCatalog] = useState(true);
+  const [labelWidthMm, setLabelWidthMm] = useState("50");
+  const [labelHeightMm, setLabelHeightMm] = useState("30");
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +33,8 @@ export function SettingsClient() {
         setPrintFormat(data.printFormat);
         setPhone(data.phone ?? "");
         setCashierCanManageCatalog(data.cashierCanManageCatalog);
+        setLabelWidthMm(String(data.labelWidthMm));
+        setLabelHeightMm(String(data.labelHeightMm));
         setLoaded(true);
       });
   }, []);
@@ -41,7 +45,15 @@ export function SettingsClient() {
     try {
       const response = await fetch("/api/settings", {
         method: "PATCH",
-        body: JSON.stringify({ defaultVatRate, language, printFormat, phone, cashierCanManageCatalog }),
+        body: JSON.stringify({
+          defaultVatRate,
+          language,
+          printFormat,
+          phone,
+          cashierCanManageCatalog,
+          labelWidthMm,
+          labelHeightMm,
+        }),
       });
       if (!response.ok) {
         setError(dict.settings.saveError);
@@ -116,6 +128,40 @@ export function SettingsClient() {
           />
           {dict.settings.cashierCanManageCatalog}
         </label>
+
+        <div>
+          <Label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wider text-muted-fg">
+            {dict.settings.labelSize}
+          </Label>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="labelWidth" className="mb-1 block text-xs text-muted-fg">
+                {dict.settings.labelWidth}
+              </Label>
+              <Input
+                id="labelWidth"
+                type="number"
+                min="10"
+                max="200"
+                value={labelWidthMm}
+                onChange={(e) => setLabelWidthMm(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="labelHeight" className="mb-1 block text-xs text-muted-fg">
+                {dict.settings.labelHeight}
+              </Label>
+              <Input
+                id="labelHeight"
+                type="number"
+                min="10"
+                max="200"
+                value={labelHeightMm}
+                onChange={(e) => setLabelHeightMm(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
 
         {error && (
           <p role="alert" className="text-xs text-red-600">

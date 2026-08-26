@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Settings" ADD COLUMN     "labelHeightMm" INTEGER NOT NULL DEFAULT 30,
+ADD COLUMN     "labelWidthMm" INTEGER NOT NULL DEFAULT 50;

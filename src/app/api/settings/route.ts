@@ -60,6 +60,15 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "cashierCanManageCatalog must be a boolean" }, { status: 400 });
   }
 
+  const labelWidthMm = Number(body.labelWidthMm);
+  if (!Number.isFinite(labelWidthMm) || !Number.isInteger(labelWidthMm) || labelWidthMm < 10 || labelWidthMm > 200) {
+    return NextResponse.json({ error: "labelWidthMm must be a whole number between 10 and 200" }, { status: 400 });
+  }
+  const labelHeightMm = Number(body.labelHeightMm);
+  if (!Number.isFinite(labelHeightMm) || !Number.isInteger(labelHeightMm) || labelHeightMm < 10 || labelHeightMm > 200) {
+    return NextResponse.json({ error: "labelHeightMm must be a whole number between 10 and 200" }, { status: 400 });
+  }
+
   await withTenant(tenantId, (tx) =>
     tx.settings.update({
       where: { tenantId },
@@ -68,6 +77,8 @@ export async function PATCH(request: Request) {
         language: body.language,
         printFormat: body.printFormat,
         cashierCanManageCatalog: body.cashierCanManageCatalog,
+        labelWidthMm,
+        labelHeightMm,
       },
     })
   );

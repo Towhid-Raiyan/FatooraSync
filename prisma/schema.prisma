@@ -103,6 +103,8 @@ model Settings {
   language                String      @default("en")
   printFormat             PrintFormat @default(THERMAL)
   cashierCanManageCatalog Boolean     @default(true)
+  labelWidthMm            Int         @default(50)
+  labelHeightMm           Int         @default(30)
 }
 
 model User {

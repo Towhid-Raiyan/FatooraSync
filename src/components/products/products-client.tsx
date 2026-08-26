@@ -12,6 +12,7 @@ import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { useLocale } from "@/lib/i18n/language-provider";
 import { useToast } from "@/lib/toast/toast-provider";
 import { ProductFormDialog, getUnitLabels } from "./product-form-dialog";
+import { PrintLabelModal } from "./print-label-modal";
 
 export type SerializedProduct = Omit<Product, "unitPrice" | "vatRate" | "quantity" | "lowStockThreshold"> & {
   unitPrice: string;
@@ -44,6 +45,7 @@ export function ProductsClient({
   const [deleteTarget, setDeleteTarget] = useState<SerializedProduct | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [labelProduct, setLabelProduct] = useState<SerializedProduct | null>(null);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -173,6 +175,9 @@ export function ProductsClient({
                       <TableCell className="text-right">
                         {canManageCatalog && (
                           <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setLabelProduct(product)}>
+                              {dict.products.printLabel}
+                            </Button>
                             <Button variant="outline" size="sm" onClick={() => setDialogState({ open: true, product })}>
                               {dict.common.edit}
                             </Button>
@@ -217,6 +222,9 @@ export function ProductsClient({
                   </div>
                   {canManageCatalog && (
                     <div className="mt-3 flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setLabelProduct(product)}>
+                        {dict.products.printLabel}
+                      </Button>
                       <Button variant="outline" size="sm" onClick={() => setDialogState({ open: true, product })}>
                         {dict.common.edit}
                       </Button>
@@ -256,6 +264,12 @@ export function ProductsClient({
         error={deleteError}
         deleting={deleting}
         onConfirm={confirmDelete}
+      />
+
+      <PrintLabelModal
+        product={labelProduct}
+        products={products}
+        onOpenChange={(open) => !open && setLabelProduct(null)}
       />
     </div>
   );
