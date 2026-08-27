@@ -69,6 +69,7 @@ describe("/api/receipts", () => {
   });
 
   afterAll(async () => {
+    await prisma.numberLease.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
     await prisma.stockMovement.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
     await prisma.documentLine.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
     await prisma.document.deleteMany({ where: { tenantId: { in: [tenantId, otherTenantId] } } });
@@ -445,6 +446,86 @@ describe("/api/receipts", () => {
     } finally {
       await prisma.tenant.update({ where: { id: tenantId }, data: { billingStatus: "TRIALING" } });
     }
+  });
+
+  it("saves with a pre-assigned number when it falls inside an owned lease", { timeout: 30000 }, async () => {
+    const leased = await prisma.$transaction(async (txn) => {
+      const tenant = await txn.tenant.update({
+        where: { id: tenantId },
+        data: { nextSalesReceiptNumber: { increment: 20 } },
+        select: { nextSalesReceiptNumber: true },
+      });
+      const rangeEnd = tenant.nextSalesReceiptNumber - 1;
+      const rangeStart = rangeEnd - 19;
+      await txn.numberLease.create({
+        data: { tenantId, deviceId: "device-lease-test", documentType: "SALES_RECEIPT", rangeStart, rangeEnd, nextToIssue: rangeStart },
+      });
+      return rangeStart;
+    });
+
+    const request = new Request("http://localhost/api/receipts", {
+      method: "POST",
+      headers: { "X-Device-Id": "device-lease-test" },
+      body: JSON.stringify({
+        customer: {},
+        lines: [{ productId, quantity: 1 }],
+        preAssigned: { number: leased, uuid: "11111111-1111-1111-1111-111111111111" },
+      }),
+    });
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.number).toBe(leased);
+  });
+
+  it("rejects a pre-assigned number outside any lease this device owns", { timeout: 30000 }, async () => {
+    const request = new Request("http://localhost/api/receipts", {
+      method: "POST",
+      headers: { "X-Device-Id": "device-with-no-lease" },
+      body: JSON.stringify({
+        customer: {},
+        lines: [{ productId, quantity: 1 }],
+        preAssigned: { number: 999999, uuid: "22222222-2222-2222-2222-222222222222" },
+      }),
+    });
+    const response = await POST(request);
+    expect(response.status).toBe(409);
+  });
+
+  it("returns the existing document, not a duplicate, on a retried uuid", { timeout: 30000 }, async () => {
+    const leased = await prisma.$transaction(async (txn) => {
+      const tenant = await txn.tenant.update({
+        where: { id: tenantId },
+        data: { nextSalesReceiptNumber: { increment: 20 } },
+        select: { nextSalesReceiptNumber: true },
+      });
+      const rangeEnd = tenant.nextSalesReceiptNumber - 1;
+      const rangeStart = rangeEnd - 19;
+      await txn.numberLease.create({
+        data: { tenantId, deviceId: "device-retry-test", documentType: "SALES_RECEIPT", rangeStart, rangeEnd, nextToIssue: rangeStart },
+      });
+      return rangeStart;
+    });
+    const body = {
+      customer: {},
+      lines: [{ productId, quantity: 1 }],
+      preAssigned: { number: leased, uuid: "33333333-3333-3333-3333-333333333333" },
+    };
+    const makeRequest = () =>
+      new Request("http://localhost/api/receipts", {
+        method: "POST",
+        headers: { "X-Device-Id": "device-retry-test" },
+        body: JSON.stringify(body),
+      });
+
+    const first = await POST(makeRequest());
+    expect(first.status).toBe(201);
+    const firstBody = await first.json();
+
+    const second = await POST(makeRequest());
+    expect(second.status).toBe(200);
+    const secondBody = await second.json();
+    expect(secondBody.id).toBe(firstBody.id);
   });
 
   describe("GET /api/receipts", () => {

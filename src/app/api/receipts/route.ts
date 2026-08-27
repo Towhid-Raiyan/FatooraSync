@@ -36,6 +36,8 @@ export async function POST(request: Request) {
   const blocked = await assertTenantAccess(tenantId);
   if (blocked) return blocked;
   const body = await request.json();
+  const deviceId = request.headers.get("X-Device-Id");
+  const preAssigned = body.preAssigned as { number: number; uuid: string } | undefined;
 
   const rawLines: RawLine[] = Array.isArray(body.lines) ? body.lines : [];
   if (rawLines.length === 0) {
@@ -108,8 +110,18 @@ export async function POST(request: Request) {
     // and a cold-start reconnect is normally well under a couple of seconds even
     // when it's slow, so 5s covers that with headroom without leaving a cashier
     // staring at a spinner for 30s on a genuinely stuck request.
-    const document = await prisma.$transaction(async (txn) => {
+    const result = await prisma.$transaction(async (txn) => {
       const settings = await txn.settings.findUniqueOrThrow({ where: { tenantId } });
+
+      if (preAssigned?.uuid) {
+        const existing = await txn.document.findFirst({
+          where: { tenantId, uuid: preAssigned.uuid },
+          include: { lines: true },
+        });
+        if (existing) {
+          return { existing, isRetry: true } as const;
+        }
+      }
 
       const resolvedLines: {
         productId: string;
@@ -172,13 +184,40 @@ export async function POST(request: Request) {
       // other into `create`: the second save blocks here until the first commits,
       // so by the time it reaches the customer lookup below, the first save's new
       // customer row is already visible to it.
-      const tenantCounters = await txn.tenant.update({
-        where: { id: tenantId },
-        data: { nextSalesReceiptNumber: { increment: 1 } },
-        select: { nextSalesReceiptNumber: true, lastSalesReceiptHash: true },
-      });
-      const number = tenantCounters.nextSalesReceiptNumber - 1;
-      const previousInvoiceHash = tenantCounters.lastSalesReceiptHash ?? GENESIS_HASH;
+      let number: number;
+      let previousInvoiceHash: string;
+      if (preAssigned) {
+        if (!deviceId) {
+          throw new ReceiptError("X-Device-Id header is required with a pre-assigned number", 400);
+        }
+        const lease = await txn.numberLease.findFirst({
+          where: {
+            tenantId,
+            deviceId,
+            documentType: "SALES_RECEIPT",
+            rangeStart: { lte: preAssigned.number },
+            rangeEnd: { gte: preAssigned.number },
+          },
+        });
+        if (!lease) {
+          throw new ReceiptError("This number was not leased to your device", 409);
+        }
+        const alreadyUsed = await txn.document.findFirst({ where: { tenantId, type: "SALES_RECEIPT", number: preAssigned.number } });
+        if (alreadyUsed) {
+          throw new ReceiptError("This number has already been used", 409);
+        }
+        number = preAssigned.number;
+        const tenantForHash = await txn.tenant.findUniqueOrThrow({ where: { id: tenantId }, select: { lastSalesReceiptHash: true } });
+        previousInvoiceHash = tenantForHash.lastSalesReceiptHash ?? GENESIS_HASH;
+      } else {
+        const tenantCounters = await txn.tenant.update({
+          where: { id: tenantId },
+          data: { nextSalesReceiptNumber: { increment: 1 } },
+          select: { nextSalesReceiptNumber: true, lastSalesReceiptHash: true },
+        });
+        number = tenantCounters.nextSalesReceiptNumber - 1;
+        previousInvoiceHash = tenantCounters.lastSalesReceiptHash ?? GENESIS_HASH;
+      }
 
       let customerId: string;
       if (hasFullCustomer) {
@@ -248,7 +287,7 @@ export async function POST(request: Request) {
         customerId = walkIn.id;
       }
 
-      const uuid = randomUUID();
+      const uuid = preAssigned?.uuid ?? randomUUID();
       const createdAt = new Date();
       const invoiceHash = computeInvoiceHash({
         previousInvoiceHash,
@@ -316,10 +355,11 @@ export async function POST(request: Request) {
         data: { lastSalesReceiptHash: invoiceHash },
       });
 
-      return created;
+      return { existing: created, isRetry: false } as const;
     }, { timeout: 15000, maxWait: 5000 });
 
-    return NextResponse.json(document, { status: 201 });
+    const { existing: document, isRetry } = result;
+    return NextResponse.json(document, { status: isRetry ? 200 : 201 });
   } catch (err) {
     if (err instanceof ReceiptError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
