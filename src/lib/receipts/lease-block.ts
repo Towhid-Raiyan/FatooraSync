@@ -19,30 +19,38 @@ export async function leaseNumberBlock(
   documentType: DocumentType,
   blockSize: number
 ): Promise<{ rangeStart: number; rangeEnd: number }> {
-  return prisma.$transaction(async (txn) => {
-    let nextAfter: number;
-    if (documentType === "SALES_RECEIPT") {
-      const tenant = await txn.tenant.update({
-        where: { id: tenantId },
-        data: { nextSalesReceiptNumber: { increment: blockSize } },
-        select: { nextSalesReceiptNumber: true },
-      });
-      nextAfter = tenant.nextSalesReceiptNumber;
-    } else {
-      const tenant = await txn.tenant.update({
-        where: { id: tenantId },
-        data: { nextQuotationNumber: { increment: blockSize } },
-        select: { nextQuotationNumber: true },
-      });
-      nextAfter = tenant.nextQuotationNumber;
-    }
-    const rangeStart = nextAfter - blockSize;
-    const rangeEnd = nextAfter - 1;
+  return prisma.$transaction(
+    async (txn) => {
+      let nextAfter: number;
+      if (documentType === "SALES_RECEIPT") {
+        const tenant = await txn.tenant.update({
+          where: { id: tenantId },
+          data: { nextSalesReceiptNumber: { increment: blockSize } },
+          select: { nextSalesReceiptNumber: true },
+        });
+        nextAfter = tenant.nextSalesReceiptNumber;
+      } else {
+        const tenant = await txn.tenant.update({
+          where: { id: tenantId },
+          data: { nextQuotationNumber: { increment: blockSize } },
+          select: { nextQuotationNumber: true },
+        });
+        nextAfter = tenant.nextQuotationNumber;
+      }
+      const rangeStart = nextAfter - blockSize;
+      const rangeEnd = nextAfter - 1;
 
-    await txn.numberLease.create({
-      data: { tenantId, deviceId, documentType, rangeStart, rangeEnd, nextToIssue: rangeStart },
-    });
+      await txn.numberLease.create({
+        data: { tenantId, deviceId, documentType, rangeStart, rangeEnd, nextToIssue: rangeStart },
+      });
 
-    return { rangeStart, rangeEnd };
-  });
+      return { rangeStart, rangeEnd };
+    },
+    // Same timing tolerance as the Tenant-counter transaction in
+    // src/app/api/receipts/route.ts (see its "Neon's serverless compute" comment):
+    // this is plausibly called right when a device reconnects after being offline,
+    // i.e. exactly the cold-start scenario that default maxWait (2000ms) is too
+    // short for against Neon's serverless compute waking from idle.
+    { timeout: 15000, maxWait: 5000 }
+  );
 }
