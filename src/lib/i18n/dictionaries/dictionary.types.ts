@@ -369,4 +369,9 @@ export interface Dictionary {
     close: string;
     openMenu: string;
   };
+  offline: {
+    offlineBadge: string;
+    pendingSyncBadge: (count: number) => string;
+    authExpiredBadge: (count: number) => string;
+  };
 }

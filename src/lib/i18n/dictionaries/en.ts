@@ -371,4 +371,9 @@ export const en: Dictionary = {
     close: "Close",
     openMenu: "Open menu",
   },
+  offline: {
+    offlineBadge: "Offline — sales will sync when reconnected",
+    pendingSyncBadge: (count) => `Offline — ${count} sale${count === 1 ? "" : "s"} pending sync`,
+    authExpiredBadge: (count) => `Please log in again to finish syncing ${count} sale${count === 1 ? "" : "s"}`,
+  },
 };

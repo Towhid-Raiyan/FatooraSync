@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { NavDrawer } from "./nav-drawer";
+import { OfflineStatusIndicator } from "@/components/offline/offline-status-indicator";
 
 export function AppShell({
   tenantName,
@@ -49,6 +50,10 @@ export function AppShell({
         />
 
         <Topbar userEmail={userEmail} onMenuClick={() => setDrawerOpen(true)} />
+
+        <div className="relative z-10 px-4 pt-3 empty:hidden sm:px-7">
+          <OfflineStatusIndicator />
+        </div>
 
         <main className="relative z-10 flex-1 overflow-auto p-4 sm:p-5 lg:p-7">{children}</main>
       </div>

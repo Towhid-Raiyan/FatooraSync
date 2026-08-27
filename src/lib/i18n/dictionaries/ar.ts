@@ -371,4 +371,9 @@ export const ar: Dictionary = {
     close: "إغلاق",
     openMenu: "فتح القائمة",
   },
+  offline: {
+    offlineBadge: "غير متصل — ستتم مزامنة المبيعات عند عودة الاتصال",
+    pendingSyncBadge: (count) => `غير متصل — ${count} عملية بيع بانتظار المزامنة`,
+    authExpiredBadge: (count) => `يرجى تسجيل الدخول مرة أخرى لإتمام مزامنة ${count} عملية بيع`,
+  },
 };
