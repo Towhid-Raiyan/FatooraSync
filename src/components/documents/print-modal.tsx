@@ -50,21 +50,24 @@ interface PrintData {
 export function PrintModal({
   kind,
   documentId,
+  initialData,
   onOpenChange,
 }: {
   kind: "receipt" | "quotation";
   documentId: string | null;
+  initialData?: PrintData | null;
   onOpenChange: (open: boolean) => void;
 }) {
   const { dict } = useLocale();
   const { toast } = useToast();
-  const [data, setData] = useState<PrintData | null>(null);
+  const [fetchedData, setFetchedData] = useState<PrintData | null>(null);
   const [loading, setLoading] = useState(false);
   const requestedIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (initialData) return;
     if (!documentId) {
-      setData(null);
+      setFetchedData(null);
       return;
     }
     requestedIdRef.current = documentId;
@@ -75,7 +78,7 @@ export function PrintModal({
         return response.json();
       })
       .then((body: PrintData) => {
-        if (requestedIdRef.current === documentId) setData(body);
+        if (requestedIdRef.current === documentId) setFetchedData(body);
       })
       .catch(() => {
         if (requestedIdRef.current === documentId) {
@@ -89,7 +92,8 @@ export function PrintModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind, documentId]);
 
-  const open = documentId !== null;
+  const data = initialData ?? fetchedData;
+  const open = initialData ? true : documentId !== null;
 
   // A genuine Date instance, reconstructed once per fetch -- every print
   // component keeps calling `.toISOString()` on this exactly as it already
@@ -138,9 +142,11 @@ export function PrintModal({
             </div>
 
             <DialogFooter>
-              <Button variant="outline" asChild>
-                <a href={`/api/${kind}s/${documentId}/pdf`}>{dict.common.download}</a>
-              </Button>
+              {!initialData && (
+                <Button variant="outline" asChild>
+                  <a href={`/api/${kind}s/${documentId}/pdf`}>{dict.common.download}</a>
+                </Button>
+              )}
               <Button variant="primary" onClick={() => window.print()}>
                 {dict.printChrome.print}
               </Button>
