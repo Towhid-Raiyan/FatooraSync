@@ -16,6 +16,7 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: false,
+    setupFiles: ["./src/lib/offline/test-setup.ts"],
     // `.worktrees/` is this project's own manual-fallback worktree convention;
     // `.claude/worktrees/` is where the harness's native worktree tool creates
     // them. Without excluding both, running the suite from the repo root while
