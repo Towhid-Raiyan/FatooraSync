@@ -159,9 +159,31 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
     // *rejects* the quotation is a real answer, not a connectivity failure: it
     // surfaces the error and stops, it does not get queued.
     if (online) {
+      // Only the `fetch` call itself is guarded here, and only so a genuine
+      // transport failure can fall through to the offline outbox. Parsing the
+      // response is deliberately *outside* that catch: a reply that arrived but
+      // can't be parsed (a 502/504 gateway HTML page, a NextAuth redirect, or a
+      // cold-Neon P2028 500) means the server answered and failed. That is a
+      // server error to show the cashier, not a reason to queue the quotation
+      // offline behind a green "saved" toast it would never sync out of.
+      let response: Response | null = null;
       try {
-        const response = await fetch("/api/quotations", { method: "POST", body: JSON.stringify(payload) });
-        const body = await response.json();
+        response = await fetch("/api/quotations", { method: "POST", body: JSON.stringify(payload) });
+      } catch {
+        // An actual network failure despite useOnlineStatus() reporting online
+        // (the health ping only samples every 15s, so the connection can drop
+        // between checks) -- fall through to the offline path below, same as
+        // having been offline from the start.
+        response = null;
+      }
+
+      if (response) {
+        const body = await response.json().catch(() => null);
+        if (body === null) {
+          setError(dict.common.somethingWentWrong);
+          setSaving(false);
+          return;
+        }
 
         if (!response.ok) {
           setError(body.error ?? dict.common.somethingWentWrong);
@@ -201,79 +223,85 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
           setSaving(false);
         }
         return;
-      } catch {
-        // An actual network failure despite useOnlineStatus() reporting online
-        // (the health ping only samples every 15s, so the connection can drop
-        // between checks) -- fall through to the offline path below, same as
-        // having been offline from the start.
       }
     }
 
-    const number = await issueNumber("QUOTATION");
-    if (number === null) {
-      setError(dict.documentForm.totals.offlineNumbersExhausted);
-      setSaving(false);
-      return;
-    }
+    // Everything below touches IndexedDB, which can fail outright (blocked by
+    // device policy, or a QuotaExceededError on a device that's been offline a
+    // while -- not far-fetched, given what triggers this path in the first
+    // place). Without this guard a rejection would leave `saving` stuck true:
+    // both buttons disabled, cart still on screen, and no indication whether
+    // the quotation was recorded.
+    try {
+      const number = await issueNumber("QUOTATION");
+      if (number === null) {
+        setError(dict.documentForm.totals.offlineNumbersExhausted);
+        setSaving(false);
+        return;
+      }
 
-    const uuid = crypto.randomUUID();
-    const createdAt = new Date().toISOString();
+      const uuid = crypto.randomUUID();
+      const createdAt = new Date().toISOString();
 
-    // Resolved with the same round3 + calculateLine + VAT-resolution the server
-    // itself applies (src/app/api/quotations/route.ts), so the quotation printed
-    // now from local data and the one the server writes when this replays carry
-    // identical totals.
-    const resolvedLines: OfflineResolvedLine[] = payload.lines.map((line) => {
-      const product = products.find((p) => p.id === line.productId);
-      const unitPrice = round3(Number(line.unitPrice));
-      const quantity = Number(line.quantity);
-      const discount = Number(line.discount || 0);
-      const vatRate = product?.vatRate != null ? Number(product.vatRate) : Number(defaultVatRate);
-      const { lineSubtotal, lineVat, lineTotal } = calculateLine({ unitPrice, quantity, vatRate, discount });
-      return {
-        id: line.productId,
-        productName: product?.nameEn ?? "",
-        quantity: line.quantity,
-        unitPrice: line.unitPrice,
-        discount: line.discount,
-        lineSubtotal,
-        lineVat,
-        lineTotal,
+      // Resolved with the same round3 + calculateLine + VAT-resolution the server
+      // itself applies (src/app/api/quotations/route.ts), so the quotation printed
+      // now from local data and the one the server writes when this replays carry
+      // identical totals.
+      const resolvedLines: OfflineResolvedLine[] = payload.lines.map((line) => {
+        const product = products.find((p) => p.id === line.productId);
+        const unitPrice = round3(Number(line.unitPrice));
+        const quantity = Number(line.quantity);
+        const discount = Number(line.discount || 0);
+        const vatRate = product?.vatRate != null ? Number(product.vatRate) : Number(defaultVatRate);
+        const { lineSubtotal, lineVat, lineTotal } = calculateLine({ unitPrice, quantity, vatRate, discount });
+        return {
+          id: line.productId,
+          productName: product?.nameEn ?? "",
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          discount: line.discount,
+          lineSubtotal,
+          lineVat,
+          lineTotal,
+        };
+      });
+
+      const pending = {
+        uuid,
+        number,
+        customer: {
+          name: payload.customer.name,
+          vatId: payload.customer.vatId,
+          crNumber: payload.customer.crNumber,
+          phone: payload.customer.phone,
+          address: payload.customer.address,
+        },
+        lines: payload.lines.map((line) => ({
+          productId: line.productId,
+          quantity: Number(line.quantity),
+          discount: Number(line.discount || 0),
+          unitPrice: Number(line.unitPrice),
+        })),
+        notes: payload.notes,
+        createdAt,
+        status: "pending" as const,
       };
-    });
 
-    const pending = {
-      uuid,
-      number,
-      customer: {
-        name: payload.customer.name,
-        vatId: payload.customer.vatId,
-        crNumber: payload.customer.crNumber,
-        phone: payload.customer.phone,
-        address: payload.customer.address,
-      },
-      lines: payload.lines.map((line) => ({
-        productId: line.productId,
-        quantity: Number(line.quantity),
-        discount: Number(line.discount || 0),
-        unitPrice: Number(line.unitPrice),
-      })),
-      notes: payload.notes,
-      createdAt,
-      status: "pending" as const,
-    };
+      await enqueuePending("quotation", pending);
 
-    await enqueuePending("quotation", pending);
+      const printData = await buildOfflinePrintData("quotation", pending, resolvedLines);
 
-    const printData = await buildOfflinePrintData("quotation", pending, resolvedLines);
-
-    toast.success(dict.documentForm.totals.savedOfflineToast);
-    if (printAfter) {
-      setOfflinePrintData(printData);
-    } else {
-      resetForm();
+      toast.success(dict.documentForm.totals.savedOfflineToast);
+      if (printAfter) {
+        setOfflinePrintData(printData);
+      } else {
+        resetForm();
+      }
+      setSaving(false);
+    } catch {
+      setError(dict.common.somethingWentWrong);
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   return (
