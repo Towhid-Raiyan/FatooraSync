@@ -19,9 +19,16 @@ export async function pendingCount(kind: Kind): Promise<number> {
   return tableFor(kind).count();
 }
 
-// Replays every queued item against the real save endpoint, in the order it
-// was created (Dexie's primary-key insertion order). Each item's `uuid` is
-// sent as the request's idempotency key -- the server (Task 4/5) treats a
+// Replays every queued item against the real save endpoint, oldest first by
+// `createdAt`. Creation order is the semantically correct replay order: for
+// receipts it determines the order documents are chained into the tenant's
+// hash chain, so replaying out of order would chain a later sale off an
+// earlier one's predecessor. (An earlier version ordered by `uuid` under the
+// mistaken belief that was insertion order -- `uuid` is a random string and
+// sorts lexicographically, which is unrelated to when the sale was made.)
+// `createdAt` is ISO 8601, which sorts correctly as a plain string.
+//
+// Each item's `uuid` is sent as the request's idempotency key -- the server (Task 4/5) treats a
 // resubmission of an already-saved uuid as a no-op, so a request that
 // actually succeeded but whose response was lost to a flaky connection can't
 // create a duplicate receipt on the next replay.
@@ -33,7 +40,7 @@ export async function pendingCount(kind: Kind): Promise<number> {
 // message instead of a generic "still syncing" one (spec §7).
 export async function replayPending(kind: Kind): Promise<{ synced: number; stillPending: number; authExpired: boolean }> {
   const table = tableFor(kind);
-  const items = await table.orderBy("uuid").toArray();
+  const items = await table.orderBy("createdAt").toArray();
   let synced = 0;
   let stillPending = 0;
   let authExpired = false;
@@ -47,6 +54,12 @@ export async function replayPending(kind: Kind): Promise<{ synced: number; still
           customer: doc.customer,
           lines: doc.lines,
           notes: doc.notes,
+          // The moment the cashier actually made the sale -- which may be hours
+          // before this replay runs. It's already been printed (and, for a
+          // receipt, baked into the ZATCA QR's timestamp field), so the server
+          // must store this instead of "now"; otherwise the customer's printed
+          // copy and the stored record permanently disagree on the date.
+          createdAt: doc.createdAt,
           preAssigned: { number: doc.number, uuid: doc.uuid },
         }),
       });

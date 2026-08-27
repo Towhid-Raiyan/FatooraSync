@@ -25,7 +25,11 @@ export async function GET() {
       tx.settings.findUniqueOrThrow({ where: { tenantId } }),
       prisma.tenant.findUniqueOrThrow({
         where: { id: tenantId },
-        select: { tradeNameEn: true, tradeNameAr: true, legalName: true, vatNumber: true, crNumber: true, phone: true, address: true },
+        // `id` isn't rendered anywhere -- it's the discriminator the client
+        // cache uses to notice that this device has switched to a different
+        // tenant's account and must throw away the previous tenant's cached
+        // catalog and, critically, its number leases (cache-sync.ts).
+        select: { id: true, tradeNameEn: true, tradeNameAr: true, legalName: true, vatNumber: true, crNumber: true, phone: true, address: true },
       }),
     ])
   );

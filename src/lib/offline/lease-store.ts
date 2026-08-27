@@ -8,9 +8,12 @@ export async function storeLeasedBlock(documentType: DocumentType, rangeStart: n
 
 // Draws the next number from the oldest leased block that still has capacity,
 // advancing that block's nextToIssue by one. Returns null when every stored
-// block for this document type is exhausted -- the caller (the save flow,
-// Task 13) is responsible for queueing without a final number in that rare
-// case, per spec §4.1.
+// block for this document type is exhausted. Per spec §4.1, the caller (the
+// save flow) then REFUSES the sale with a "reconnect briefly to get more
+// numbers" message -- it does not queue it unnumbered. That's the deliberate
+// v1 tradeoff: every number a cashier hands a customer is final immediately,
+// and the exhaustion case stays rare by construction (blocks of 20, refilled
+// at 5 remaining).
 export async function issueNumber(documentType: DocumentType): Promise<number | null> {
   return offlineDb.transaction("rw", offlineDb.numberLeases, async () => {
     const blocks = await offlineDb.numberLeases.where("documentType").equals(documentType).sortBy("rangeStart");

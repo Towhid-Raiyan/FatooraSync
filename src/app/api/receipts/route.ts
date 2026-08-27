@@ -26,6 +26,27 @@ interface RawLine {
   unitPrice?: unknown;
 }
 
+// The creation timestamp for a save. Normally (the online path) this is simply
+// "now". The one exception is an offline sale being replayed from the device's
+// outbox: it was created -- and printed, with that date baked into the ZATCA QR
+// -- possibly hours earlier, so the request carries the original `createdAt`
+// and the stored Document must match the paper the customer already has.
+//
+// Only honored alongside `preAssigned`, i.e. only on the offline-replay path;
+// an ordinary online save can never backdate a receipt by passing this field.
+// Clamped defensively even then: an unparsable value, or one in the future
+// (beyond a few seconds of client clock skew), falls back to "now" rather than
+// letting a wrong device clock write a nonsense date into the tax record.
+const CLOCK_SKEW_TOLERANCE_MS = 5000;
+
+function resolveCreatedAt(rawCreatedAt: unknown, isPreAssigned: boolean): Date {
+  if (!isPreAssigned || typeof rawCreatedAt !== "string") return new Date();
+  const parsed = new Date(rawCreatedAt);
+  if (Number.isNaN(parsed.getTime())) return new Date();
+  if (parsed.getTime() > Date.now() + CLOCK_SKEW_TOLERANCE_MS) return new Date();
+  return parsed;
+}
+
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.tenantId || !session.user.id) {
@@ -300,7 +321,7 @@ export async function POST(request: Request) {
       }
 
       const uuid = preAssigned?.uuid ?? randomUUID();
-      const createdAt = new Date();
+      const createdAt = resolveCreatedAt(body.createdAt, Boolean(preAssigned));
       const invoiceHash = computeInvoiceHash({
         previousInvoiceHash,
         uuid,

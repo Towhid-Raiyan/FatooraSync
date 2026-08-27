@@ -82,6 +82,32 @@ describe("outbox", () => {
     expect(result).toEqual({ synced: 1, stillPending: 0, authExpired: false });
   });
 
+  it("sends the sale's original createdAt so the server can't restamp it at sync time", async () => {
+    await enqueuePending("receipt", sampleDoc);
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: "doc-1", number: 8 }) });
+
+    await replayPending("receipt");
+
+    const [, init] = (global.fetch as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls[0];
+    expect(JSON.parse(init.body as string).createdAt).toBe("2026-08-27T10:00:00.000Z");
+  });
+
+  it("replays in creation order, not uuid order", async () => {
+    // Deliberately reversed: the uuid that sorts FIRST lexicographically is the
+    // sale made SECOND. Ordering by uuid (as an earlier version did) would
+    // replay these backwards, chaining the later receipt off the earlier one's
+    // hash-chain predecessor.
+    await enqueuePending("receipt", { ...sampleDoc, uuid: "aaaa-second", number: 9, createdAt: "2026-08-27T11:00:00.000Z" });
+    await enqueuePending("receipt", { ...sampleDoc, uuid: "zzzz-first", number: 8, createdAt: "2026-08-27T10:00:00.000Z" });
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+
+    await replayPending("receipt");
+
+    const calls = (global.fetch as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls;
+    const replayedUuids = calls.map(([, init]) => JSON.parse(init.body as string).preAssigned.uuid);
+    expect(replayedUuids).toEqual(["zzzz-first", "aaaa-second"]);
+  });
+
   it("flags authExpired on a 401 instead of a generic pending state", async () => {
     await enqueuePending("receipt", sampleDoc);
     global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) });

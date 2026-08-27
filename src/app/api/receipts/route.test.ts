@@ -528,6 +528,89 @@ describe("/api/receipts", () => {
     expect(secondBody.id).toBe(firstBody.id);
   });
 
+  it("stores an offline sale's original createdAt, not the sync time", { timeout: 30000 }, async () => {
+    const leased = await prisma.$transaction(async (txn) => {
+      const tenant = await txn.tenant.update({
+        where: { id: tenantId },
+        data: { nextSalesReceiptNumber: { increment: 20 } },
+        select: { nextSalesReceiptNumber: true },
+      });
+      const rangeEnd = tenant.nextSalesReceiptNumber - 1;
+      const rangeStart = rangeEnd - 19;
+      await txn.numberLease.create({
+        data: { tenantId, deviceId: "device-createdat-test", documentType: "SALES_RECEIPT", rangeStart, rangeEnd, nextToIssue: rangeStart },
+      });
+      return rangeStart;
+    });
+
+    const offlineCreatedAt = "2026-08-20T09:15:30.000Z";
+    const request = new Request("http://localhost/api/receipts", {
+      method: "POST",
+      headers: { "X-Device-Id": "device-createdat-test" },
+      body: JSON.stringify({
+        customer: {},
+        lines: [{ productId, quantity: 1 }],
+        createdAt: offlineCreatedAt,
+        preAssigned: { number: leased, uuid: "44444444-4444-4444-4444-444444444444" },
+      }),
+    });
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(new Date(body.createdAt).toISOString()).toBe(offlineCreatedAt);
+
+    // The QR and the hash chain both bake in the timestamp -- the whole point
+    // of honoring it is that the stored record matches the copy the cashier
+    // already printed offline, so verify the persisted row too, not just the
+    // response.
+    const stored = await withTenant(tenantId, (tx) => tx.document.findFirstOrThrow({ where: { uuid: "44444444-4444-4444-4444-444444444444" } }));
+    expect(stored.createdAt.toISOString()).toBe(offlineCreatedAt);
+  });
+
+  it("falls back to now for a future-dated or unparsable createdAt", { timeout: 30000 }, async () => {
+    const leased = await prisma.$transaction(async (txn) => {
+      const tenant = await txn.tenant.update({
+        where: { id: tenantId },
+        data: { nextSalesReceiptNumber: { increment: 20 } },
+        select: { nextSalesReceiptNumber: true },
+      });
+      const rangeEnd = tenant.nextSalesReceiptNumber - 1;
+      const rangeStart = rangeEnd - 19;
+      await txn.numberLease.create({
+        data: { tenantId, deviceId: "device-badclock-test", documentType: "SALES_RECEIPT", rangeStart, rangeEnd, nextToIssue: rangeStart },
+      });
+      return rangeStart;
+    });
+
+    const save = async (createdAt: unknown, number: number, uuid: string) => {
+      const before = Date.now();
+      const response = await POST(
+        new Request("http://localhost/api/receipts", {
+          method: "POST",
+          headers: { "X-Device-Id": "device-badclock-test" },
+          body: JSON.stringify({
+            customer: {},
+            lines: [{ productId, quantity: 1 }],
+            createdAt,
+            preAssigned: { number, uuid },
+          }),
+        })
+      );
+      expect(response.status).toBe(201);
+      const body = await response.json();
+      const stored = new Date(body.createdAt).getTime();
+      // Roughly "now" -- bounded by the wall clock either side of the call,
+      // with a second of slack for the DB round trip's own timestamp rounding.
+      expect(stored).toBeGreaterThanOrEqual(before - 1000);
+      expect(stored).toBeLessThanOrEqual(Date.now() + 1000);
+    };
+
+    // A device whose clock is a year fast must not backdate-forward the tax record.
+    await save("2027-08-20T09:15:30.000Z", leased, "55555555-5555-5555-5555-555555555555");
+    // Garbage in the field must not throw, and must not store an Invalid Date.
+    await save("not-a-date", leased + 1, "66666666-6666-6666-6666-666666666666");
+  });
+
   describe("GET /api/receipts", () => {
     let historyTenantId: string;
     let historyProductId: string;

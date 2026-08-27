@@ -31,7 +31,15 @@ export interface CachedSettings {
 }
 
 export interface CachedTenant {
+  // Dexie primary key. Deliberately a fixed literal, not the tenant's real id:
+  // this table holds exactly one row -- "whichever tenant's data is currently
+  // cached on this device" -- so every caller can just `.get("singleton")`.
   id: "singleton";
+  // The tenant's REAL server-side id. Used only to detect that this device has
+  // switched to a different tenant's account, so the stale cache can be
+  // discarded (see cache-sync.ts) rather than silently mixing two tenants'
+  // catalogs and, worse, their number leases.
+  tenantId: string;
   tradeNameEn: string;
   tradeNameAr: string | null;
   legalName: string;
@@ -85,6 +93,14 @@ class OfflineDatabase extends Dexie {
       numberLeases: "++id, documentType",
       pendingReceipts: "uuid, status",
       pendingQuotations: "uuid, status",
+    });
+    // v2 indexes `createdAt` on the two outbox tables so replay can be ordered
+    // by when the sale was actually made (outbox.ts) -- Dexie's `orderBy` only
+    // accepts the primary key or a declared index. Tables not named here carry
+    // over from v1 unchanged.
+    this.version(2).stores({
+      pendingReceipts: "uuid, status, createdAt",
+      pendingQuotations: "uuid, status, createdAt",
     });
   }
 }

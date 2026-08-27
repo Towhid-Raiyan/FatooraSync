@@ -231,6 +231,84 @@ describe("/api/quotations", () => {
     expect(secondBody.id).toBe(firstBody.id);
   });
 
+  it("stores an offline quotation's original createdAt, not the sync time", { timeout: 30000 }, async () => {
+    const leased = await prisma.$transaction(async (txn) => {
+      const tenant = await txn.tenant.update({
+        where: { id: tenantId },
+        data: { nextQuotationNumber: { increment: 20 } },
+        select: { nextQuotationNumber: true },
+      });
+      const rangeEnd = tenant.nextQuotationNumber - 1;
+      const rangeStart = rangeEnd - 19;
+      await txn.numberLease.create({
+        data: { tenantId, deviceId: "device-createdat-test-q", documentType: "QUOTATION", rangeStart, rangeEnd, nextToIssue: rangeStart },
+      });
+      return rangeStart;
+    });
+
+    const offlineCreatedAt = "2026-08-20T09:15:30.000Z";
+    const response = await POST(
+      new Request("http://localhost/api/quotations", {
+        method: "POST",
+        headers: { "X-Device-Id": "device-createdat-test-q" },
+        body: JSON.stringify({
+          customer: {},
+          lines: [{ productId, quantity: 1 }],
+          createdAt: offlineCreatedAt,
+          preAssigned: { number: leased, uuid: "44444444-4444-4444-4444-444444444445" },
+        }),
+      })
+    );
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(new Date(body.createdAt).toISOString()).toBe(offlineCreatedAt);
+
+    const stored = await withTenant(tenantId, (tx) =>
+      tx.document.findFirstOrThrow({ where: { uuid: "44444444-4444-4444-4444-444444444445" } })
+    );
+    expect(stored.createdAt.toISOString()).toBe(offlineCreatedAt);
+  });
+
+  it("falls back to now for a future-dated or unparsable createdAt", { timeout: 30000 }, async () => {
+    const leased = await prisma.$transaction(async (txn) => {
+      const tenant = await txn.tenant.update({
+        where: { id: tenantId },
+        data: { nextQuotationNumber: { increment: 20 } },
+        select: { nextQuotationNumber: true },
+      });
+      const rangeEnd = tenant.nextQuotationNumber - 1;
+      const rangeStart = rangeEnd - 19;
+      await txn.numberLease.create({
+        data: { tenantId, deviceId: "device-badclock-test-q", documentType: "QUOTATION", rangeStart, rangeEnd, nextToIssue: rangeStart },
+      });
+      return rangeStart;
+    });
+
+    const save = async (createdAt: unknown, number: number, uuid: string) => {
+      const before = Date.now();
+      const response = await POST(
+        new Request("http://localhost/api/quotations", {
+          method: "POST",
+          headers: { "X-Device-Id": "device-badclock-test-q" },
+          body: JSON.stringify({
+            customer: {},
+            lines: [{ productId, quantity: 1 }],
+            createdAt,
+            preAssigned: { number, uuid },
+          }),
+        })
+      );
+      expect(response.status).toBe(201);
+      const body = await response.json();
+      const stored = new Date(body.createdAt).getTime();
+      expect(stored).toBeGreaterThanOrEqual(before - 1000);
+      expect(stored).toBeLessThanOrEqual(Date.now() + 1000);
+    };
+
+    await save("2027-08-20T09:15:30.000Z", leased, "55555555-5555-5555-5555-555555555556");
+    await save("not-a-date", leased + 1, "66666666-6666-6666-6666-666666666667");
+  });
+
   describe("GET /api/quotations", () => {
     let historyTenantId: string;
     let historyCustomerVatId: string;

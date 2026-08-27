@@ -23,6 +23,22 @@ interface RawLine {
   unitPrice?: unknown;
 }
 
+// Same rule as the receipt save (src/app/api/receipts/route.ts, where the full
+// reasoning lives): "now" for an ordinary online save, but an offline quotation
+// replayed from the device outbox carries the timestamp it was created and
+// printed with, so the stored record matches the paper the customer already
+// has. Only honored alongside `preAssigned`, and clamped against an unparsable
+// or future-dated value.
+const CLOCK_SKEW_TOLERANCE_MS = 5000;
+
+function resolveCreatedAt(rawCreatedAt: unknown, isPreAssigned: boolean): Date {
+  if (!isPreAssigned || typeof rawCreatedAt !== "string") return new Date();
+  const parsed = new Date(rawCreatedAt);
+  if (Number.isNaN(parsed.getTime())) return new Date();
+  if (parsed.getTime() > Date.now() + CLOCK_SKEW_TOLERANCE_MS) return new Date();
+  return parsed;
+}
+
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.tenantId) {
@@ -222,7 +238,7 @@ export async function POST(request: Request) {
         customerId = walkIn.id;
       }
 
-      const createdAt = new Date();
+      const createdAt = resolveCreatedAt(body.createdAt, Boolean(preAssigned));
 
       // No stock decrement here (contrast with the receipt save's per-line
       // `txn.product.update({ data: { quantity: { decrement } } })` loop) -- a
