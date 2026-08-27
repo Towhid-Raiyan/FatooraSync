@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, IBM_Plex_Sans_Arabic } from "next/font/google";
 import { resolveLocale } from "@/lib/i18n/locale";
 import { LanguageProvider } from "@/lib/i18n/language-provider";
 import { ToastProvider } from "@/lib/toast/toast-provider";
+import { ServiceWorkerRegistration } from "@/components/offline/service-worker-registration";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -20,6 +21,11 @@ const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
 export const metadata: Metadata = {
   title: "FatooraSync",
   description: "Cloud POS and business management for Saudi SMEs",
+  manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#006C35",
 };
 
 export default async function RootLayout({
@@ -40,6 +46,7 @@ export default async function RootLayout({
         <LanguageProvider initialLocale={locale}>
           <ToastProvider>{children}</ToastProvider>
         </LanguageProvider>
+        <ServiceWorkerRegistration />
       </body>
     </html>
   );
