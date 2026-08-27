@@ -160,6 +160,8 @@ export interface Dictionary {
       savePrint: string;
       addAtLeastOneItem: string;
       savedToast: string;
+      offlineNumbersExhausted: string;
+      savedOfflineToast: string;
     };
   };
   receiptHistory: {

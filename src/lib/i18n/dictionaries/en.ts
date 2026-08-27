@@ -162,6 +162,8 @@ export const en: Dictionary = {
       savePrint: "Save & Print",
       addAtLeastOneItem: "Add at least one item",
       savedToast: "Saved",
+      offlineNumbersExhausted: "You're offline and out of reserved numbers — reconnect briefly to keep selling.",
+      savedOfflineToast: "Saved offline — will sync automatically once you're back online.",
     },
   },
   receiptHistory: {

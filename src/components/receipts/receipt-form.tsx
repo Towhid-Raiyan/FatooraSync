@@ -10,6 +10,10 @@ import { PrintModal } from "@/components/documents/print-modal";
 import type { SerializedProduct } from "@/components/products/products-client";
 import { round3, calculateLine, calculateDocumentTotals, deriveUnitPriceFromTotal } from "@/lib/receipts/calculate-totals";
 import { formatQuotationNumber } from "@/lib/quotations/quotation-number";
+import { issueNumber } from "@/lib/offline/lease-store";
+import { enqueuePending } from "@/lib/offline/outbox";
+import { buildOfflinePrintData, type OfflineResolvedLine } from "@/lib/offline/print-data";
+import { useOnlineStatus } from "@/lib/offline/connectivity";
 import { useLocale } from "@/lib/i18n/language-provider";
 import { useToast } from "@/lib/toast/toast-provider";
 import { CustomerSection, type CustomerDraft } from "./customer-section";
@@ -42,9 +46,16 @@ interface ReceiptFormProps {
   defaultVatRate: string;
 }
 
+interface ReceiptPayload {
+  customer: CustomerDraft;
+  lines: { productId: string; quantity: string; discount: string; unitPrice: string }[];
+  notes: string;
+}
+
 export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate }: ReceiptFormProps) {
   const { dict } = useLocale();
   const { toast } = useToast();
+  const online = useOnlineStatus();
   const [customers, setCustomers] = useState(initialCustomers);
   const [products, setProducts] = useState(initialProducts);
 
@@ -57,6 +68,9 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [printModalId, setPrintModalId] = useState<string | null>(null);
+  const [offlinePrintData, setOfflinePrintData] = useState<Awaited<ReturnType<typeof buildOfflinePrintData>> | null>(
+    null
+  );
 
   // Resolves each line's VAT the same way the server does (Task 2): the product's
   // own override if it has one, otherwise the tenant's real default -- never a
@@ -225,7 +239,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
     setSaving(true);
     setError(null);
 
-    const payload = {
+    const payload: ReceiptPayload = {
       customer: customerDraft,
       lines: lines.map((line) => ({
         productId: line.productId,
@@ -236,51 +250,128 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
       notes,
     };
 
-    try {
-      const response = await fetch("/api/receipts", { method: "POST", body: JSON.stringify(payload) });
-      const body = await response.json();
+    // The real network save stays the first thing tried, and its success path is
+    // exactly what it always was -- the offline outbox below is strictly a
+    // fallback for when that save can't happen at all. A server that answers and
+    // *rejects* the sale (a validation error, insufficient stock) is a real
+    // answer, not a connectivity failure: it surfaces the error and stops, it
+    // does not get queued.
+    if (online) {
+      try {
+        const response = await fetch("/api/receipts", { method: "POST", body: JSON.stringify(payload) });
+        const body = await response.json();
 
-      if (!response.ok) {
-        setError(body.error ?? dict.common.somethingWentWrong);
-        setSaving(false);
+        if (!response.ok) {
+          setError(body.error ?? dict.common.somethingWentWrong);
+          setSaving(false);
+          return;
+        }
+
+        const trimmedName = customerDraft.name.trim();
+        const trimmedVatId = customerDraft.vatId.trim();
+        if (trimmedName && trimmedVatId) {
+          setCustomers((prev) => {
+            if (prev.some((c) => c.vatId === trimmedVatId)) return prev;
+            return [
+              ...prev,
+              {
+                id: body.customerId,
+                tenantId: "", // not used by any UI in this list -- fine to leave blank client-side
+                name: trimmedName,
+                vatId: trimmedVatId,
+                crNumber: customerDraft.crNumber.trim() || null,
+                phone: customerDraft.phone.trim() || null,
+                address: customerDraft.address.trim() || null,
+                isWalkIn: false,
+                isActive: true,
+                createdAt: new Date(),
+              },
+            ];
+          });
+        }
+
+        if (printAfter) {
+          setPrintModalId(body.id);
+          setSaving(false);
+        } else {
+          toast.success(dict.documentForm.totals.savedToast);
+          resetForm();
+          setSaving(false);
+        }
         return;
+      } catch {
+        // An actual network failure despite useOnlineStatus() reporting online
+        // (the health ping only samples every 15s, so the connection can drop
+        // between checks) -- fall through to the offline path below, same as
+        // having been offline from the start.
       }
-
-      const trimmedName = customerDraft.name.trim();
-      const trimmedVatId = customerDraft.vatId.trim();
-      if (trimmedName && trimmedVatId) {
-        setCustomers((prev) => {
-          if (prev.some((c) => c.vatId === trimmedVatId)) return prev;
-          return [
-            ...prev,
-            {
-              id: body.customerId,
-              tenantId: "", // not used by any UI in this list -- fine to leave blank client-side
-              name: trimmedName,
-              vatId: trimmedVatId,
-              crNumber: customerDraft.crNumber.trim() || null,
-              phone: customerDraft.phone.trim() || null,
-              address: customerDraft.address.trim() || null,
-              isWalkIn: false,
-              isActive: true,
-              createdAt: new Date(),
-            },
-          ];
-        });
-      }
-
-      if (printAfter) {
-        setPrintModalId(body.id);
-        setSaving(false);
-      } else {
-        toast.success(dict.documentForm.totals.savedToast);
-        resetForm();
-        setSaving(false);
-      }
-    } catch {
-      setError(dict.common.somethingWentWrong);
-      setSaving(false);
     }
+
+    const number = await issueNumber("SALES_RECEIPT");
+    if (number === null) {
+      setError(dict.documentForm.totals.offlineNumbersExhausted);
+      setSaving(false);
+      return;
+    }
+
+    const uuid = crypto.randomUUID();
+    const createdAt = new Date().toISOString();
+
+    // Resolved with the same round3 + calculateLine + VAT-resolution the server
+    // itself applies (src/app/api/receipts/route.ts), so the receipt printed now
+    // from local data and the one the server writes when this replays carry
+    // identical totals.
+    const resolvedLines: OfflineResolvedLine[] = payload.lines.map((line) => {
+      const product = products.find((p) => p.id === line.productId);
+      const unitPrice = round3(Number(line.unitPrice));
+      const quantity = Number(line.quantity);
+      const discount = Number(line.discount || 0);
+      const vatRate = product?.vatRate != null ? Number(product.vatRate) : Number(defaultVatRate);
+      const { lineSubtotal, lineVat, lineTotal } = calculateLine({ unitPrice, quantity, vatRate, discount });
+      return {
+        id: line.productId,
+        productName: product?.nameEn ?? "",
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        discount: line.discount,
+        lineSubtotal,
+        lineVat,
+        lineTotal,
+      };
+    });
+
+    const pending = {
+      uuid,
+      number,
+      customer: {
+        name: payload.customer.name,
+        vatId: payload.customer.vatId,
+        crNumber: payload.customer.crNumber,
+        phone: payload.customer.phone,
+        address: payload.customer.address,
+      },
+      lines: payload.lines.map((line) => ({
+        productId: line.productId,
+        quantity: Number(line.quantity),
+        discount: Number(line.discount || 0),
+        unitPrice: Number(line.unitPrice),
+      })),
+      notes: payload.notes,
+      createdAt,
+      status: "pending" as const,
+    };
+
+    await enqueuePending("receipt", pending);
+
+    const printData = await buildOfflinePrintData("receipt", pending, resolvedLines);
+
+    toast.success(dict.documentForm.totals.savedOfflineToast);
+    if (printAfter) {
+      setOfflinePrintData(printData);
+    } else {
+      resetForm();
+    }
+    setSaving(false);
   }
 
   return (
@@ -404,9 +495,11 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
       <PrintModal
         kind="receipt"
         documentId={printModalId}
+        initialData={offlinePrintData}
         onOpenChange={(open) => {
           if (!open) {
             setPrintModalId(null);
+            setOfflinePrintData(null);
             resetForm();
           }
         }}

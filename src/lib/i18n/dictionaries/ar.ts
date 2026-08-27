@@ -162,6 +162,8 @@ export const ar: Dictionary = {
       savePrint: "حفظ وطباعة",
       addAtLeastOneItem: "أضف صنفاً واحداً على الأقل",
       savedToast: "تم الحفظ",
+      offlineNumbersExhausted: "أنت غير متصل ونفدت الأرقام المحجوزة — يرجى إعادة الاتصال للاستمرار في البيع.",
+      savedOfflineToast: "تم الحفظ دون اتصال — ستتم المزامنة تلقائيًا عند عودة الاتصال.",
     },
   },
   receiptHistory: {
