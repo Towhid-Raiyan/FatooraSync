@@ -42,7 +42,7 @@ export function OfflineStatusIndicator() {
   if (online && pending === 0) return null;
 
   return (
-    <div className="flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-1.5 text-sm text-warning-fg">
+    <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm text-amber-800">
       <WifiOffIcon className="size-4" />
       {!online
         ? dict.offline.offlineBadge
