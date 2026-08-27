@@ -207,7 +207,19 @@ export async function POST(request: Request) {
           throw new ReceiptError("This number has already been used", 409);
         }
         number = preAssigned.number;
-        const tenantForHash = await txn.tenant.findUniqueOrThrow({ where: { id: tenantId }, select: { lastSalesReceiptHash: true } });
+        // Same row lock as the `else` branch's counter-incrementing `update`
+        // below (see the "Consuming the next receipt number takes a row lock
+        // on this tenant" comment above) -- `increment: 0` is a no-op on the
+        // stored value but still issues a real UPDATE, so two concurrent
+        // preAssigned saves for this tenant can't both read the same
+        // `lastSalesReceiptHash` and chain off the same predecessor. A plain
+        // `findUnique` here would take no lock and let that race corrupt the
+        // hash chain.
+        const tenantForHash = await txn.tenant.update({
+          where: { id: tenantId },
+          data: { nextSalesReceiptNumber: { increment: 0 } },
+          select: { lastSalesReceiptHash: true },
+        });
         previousInvoiceHash = tenantForHash.lastSalesReceiptHash ?? GENESIS_HASH;
       } else {
         const tenantCounters = await txn.tenant.update({
@@ -365,6 +377,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      // Two different unique constraints can raise P2002 here: Customer's
+      // `@@unique([tenantId, vatId])` (the long-standing case) and Document's
+      // `@@unique([tenantId, type, number])` -- the latter is reachable now
+      // that a `preAssigned` number's app-level `alreadyUsed` check (above)
+      // can lose a race to a near-simultaneous duplicate submission and fall
+      // through to the DB constraint as the last line of defense. `meta.target`
+      // identifies which constraint fired; Prisma reports it as either an
+      // array of column names or (for some engine/DB combinations) a single
+      // constraint-name string, so this checks for "number" as a substring of
+      // either shape rather than assuming one specific format.
+      const target = err.meta?.target;
+      const targetDescription = Array.isArray(target) ? target.join(",") : String(target ?? "");
+      if (targetDescription.includes("number")) {
+        return NextResponse.json({ error: "This number has already been used" }, { status: 409 });
+      }
       return NextResponse.json({ error: "This VAT ID is already used by another customer" }, { status: 409 });
     }
     throw err;
