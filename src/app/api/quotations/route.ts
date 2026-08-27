@@ -32,6 +32,8 @@ export async function POST(request: Request) {
   const blocked = await assertTenantAccess(tenantId);
   if (blocked) return blocked;
   const body = await request.json();
+  const deviceId = request.headers.get("X-Device-Id");
+  const preAssigned = body.preAssigned as { number: number; uuid: string } | undefined;
 
   const rawLines: RawLine[] = Array.isArray(body.lines) ? body.lines : [];
   if (rawLines.length === 0) {
@@ -74,8 +76,18 @@ export async function POST(request: Request) {
   const notes = trimmedNotes || null;
 
   try {
-    const document = await prisma.$transaction(async (txn) => {
+    const result = await prisma.$transaction(async (txn) => {
       const settings = await txn.settings.findUniqueOrThrow({ where: { tenantId } });
+
+      if (preAssigned?.uuid) {
+        const existing = await txn.document.findFirst({
+          where: { tenantId, uuid: preAssigned.uuid },
+          include: { lines: true },
+        });
+        if (existing) {
+          return { existing, isRetry: true } as const;
+        }
+      }
 
       const resolvedLines: {
         productId: string;
@@ -127,12 +139,47 @@ export async function POST(request: Request) {
       // same reason: this takes a row lock on the tenant for the rest of the
       // transaction, so two concurrent saves that both type a brand-new VAT ID can
       // never both miss the find-or-create lookup below and race into `create`.
-      const tenantCounters = await txn.tenant.update({
-        where: { id: tenantId },
-        data: { nextQuotationNumber: { increment: 1 } },
-        select: { nextQuotationNumber: true },
-      });
-      const number = tenantCounters.nextQuotationNumber - 1;
+      let number: number;
+      if (preAssigned) {
+        if (!deviceId) {
+          throw new QuotationError("X-Device-Id header is required with a pre-assigned number", 400);
+        }
+        const lease = await txn.numberLease.findFirst({
+          where: {
+            tenantId,
+            deviceId,
+            documentType: "QUOTATION",
+            rangeStart: { lte: preAssigned.number },
+            rangeEnd: { gte: preAssigned.number },
+          },
+        });
+        if (!lease) {
+          throw new QuotationError("This number was not leased to your device", 409);
+        }
+        const alreadyUsed = await txn.document.findFirst({ where: { tenantId, type: "QUOTATION", number: preAssigned.number } });
+        if (alreadyUsed) {
+          throw new QuotationError("This number has already been used", 409);
+        }
+        number = preAssigned.number;
+        // Same row lock as the `else` branch's counter-incrementing `update`
+        // below -- `increment: 0` is a no-op on the stored value but still
+        // issues a real UPDATE, so two concurrent preAssigned saves for this
+        // tenant can't both miss the customer find-or-create lookup below and
+        // race into `create`. There's no hash chain to protect here (unlike
+        // the receipt save), but the same customer-race-safety concern applies.
+        await txn.tenant.update({
+          where: { id: tenantId },
+          data: { nextQuotationNumber: { increment: 0 } },
+          select: { nextQuotationNumber: true },
+        });
+      } else {
+        const tenantCounters = await txn.tenant.update({
+          where: { id: tenantId },
+          data: { nextQuotationNumber: { increment: 1 } },
+          select: { nextQuotationNumber: true },
+        });
+        number = tenantCounters.nextQuotationNumber - 1;
+      }
 
       let customerId: string;
       if (hasFullCustomer) {
@@ -181,7 +228,7 @@ export async function POST(request: Request) {
       // `txn.product.update({ data: { quantity: { decrement } } })` loop) -- a
       // quotation is an estimate, not a completed sale. No invoiceHash /
       // previousInvoiceHash / qrCode either -- those are simply omitted, leaving
-      // them null (uuid still gets Prisma's own @default(uuid())).
+      // them null.
       const created = await txn.document.create({
         data: {
           tenantId,
@@ -192,6 +239,7 @@ export async function POST(request: Request) {
           vatTotal,
           grandTotal,
           notes,
+          uuid: preAssigned?.uuid,
           createdAt,
           lines: {
             create: resolvedLines.map((line) => ({
@@ -211,15 +259,31 @@ export async function POST(request: Request) {
         include: { lines: true },
       });
 
-      return created;
+      return { existing: created, isRetry: false } as const;
     }, { timeout: 15000, maxWait: 5000 });
 
-    return NextResponse.json(document, { status: 201 });
+    const { existing: document, isRetry } = result;
+    return NextResponse.json(document, { status: isRetry ? 200 : 201 });
   } catch (err) {
     if (err instanceof QuotationError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      // Two different unique constraints can raise P2002 here: Customer's
+      // `@@unique([tenantId, vatId])` (the long-standing case) and Document's
+      // `@@unique([tenantId, type, number])` -- the latter is reachable now
+      // that a `preAssigned` number's app-level `alreadyUsed` check (above)
+      // can lose a race to a near-simultaneous duplicate submission and fall
+      // through to the DB constraint as the last line of defense. `meta.target`
+      // identifies which constraint fired; Prisma reports it as either an
+      // array of column names or (for some engine/DB combinations) a single
+      // constraint-name string, so this checks for "number" as a substring of
+      // either shape rather than assuming one specific format.
+      const target = err.meta?.target;
+      const targetDescription = Array.isArray(target) ? target.join(",") : String(target ?? "");
+      if (targetDescription.includes("number")) {
+        return NextResponse.json({ error: "This number has already been used" }, { status: 409 });
+      }
       return NextResponse.json({ error: "This VAT ID is already used by another customer" }, { status: 409 });
     }
     throw err;
