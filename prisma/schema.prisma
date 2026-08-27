@@ -93,6 +93,7 @@ model Tenant {
   stockMovements       StockMovement[]
   purchaseReceipts     PurchaseReceipt[]
   purchaseReceiptLines PurchaseReceiptLine[]
+  numberLeases         NumberLease[]
 }
 
 model Settings {
@@ -342,4 +343,18 @@ model StockMovement {
 
   @@index([tenantId, productId])
   @@index([tenantId, createdAt])
+}
+
+model NumberLease {
+  id           String       @id @default(uuid())
+  tenantId     String
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  deviceId     String
+  documentType DocumentType
+  rangeStart   Int
+  rangeEnd     Int
+  nextToIssue  Int
+  leasedAt     DateTime     @default(now())
+
+  @@index([tenantId, deviceId, documentType])
 }
