@@ -519,6 +519,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
         product={null}
         onOpenChange={setQuickCreateOpen}
         onSaved={handleQuickCreateSaved}
+        offlineCapable
       />
 
       <PrintModal

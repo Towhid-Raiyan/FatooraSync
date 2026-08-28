@@ -65,6 +65,38 @@ describe("/api/products", () => {
     expect(secondNumber).toBe(firstNumber + 1);
   });
 
+  it("POST creates a product with a client-supplied id, for offline quick-create sync", async () => {
+    const clientId = "11111111-1111-1111-1111-111111111111";
+    const request = new Request("http://localhost/api/products", {
+      method: "POST",
+      body: JSON.stringify({ id: clientId, nameEn: "Offline Product", unitPrice: "9.99" }),
+    });
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.id).toBe(clientId);
+    expect(body.sku).toMatch(/^SKU-\d{6}$/);
+  });
+
+  it("POST is idempotent on a client-supplied id -- a resubmission returns the existing product, not a duplicate", async () => {
+    const clientId = "22222222-2222-2222-2222-222222222222";
+    const body = { id: clientId, nameEn: "Retried Offline Product", unitPrice: "5" };
+    const makeRequest = () => new Request("http://localhost/api/products", { method: "POST", body: JSON.stringify(body) });
+
+    const first = await POST(makeRequest());
+    expect(first.status).toBe(201);
+    const firstBody = await first.json();
+
+    const second = await POST(makeRequest());
+    expect(second.status).toBe(200);
+    const secondBody = await second.json();
+    expect(secondBody.id).toBe(firstBody.id);
+    expect(secondBody.sku).toBe(firstBody.sku);
+
+    const count = await withTenant(tenantId, (tx) => tx.product.count({ where: { id: clientId } }));
+    expect(count).toBe(1);
+  });
+
   it("GET returns only this tenant's products, never another tenant's", async () => {
     const response = await GET();
     const body = await response.json();

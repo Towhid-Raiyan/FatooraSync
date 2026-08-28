@@ -1,7 +1,7 @@
 {
   "name": "FatooraSync",
   "short_name": "FatooraSync",
-  "start_url": "/",
+  "start_url": "/receipts/new",
   "display": "standalone",
   "background_color": "#FAFBFA",
   "theme_color": "#006C35",

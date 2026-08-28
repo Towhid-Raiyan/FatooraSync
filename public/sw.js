@@ -1,8 +1,32 @@
 const SHELL_CACHE = "fatoorasync-shell-v1";
 const OFFLINE_ROUTES = ["/receipts/new", "/quotations/new"];
 
+// Actively warm the shell cache the moment this worker installs, rather than
+// waiting for the cashier to happen to load one of these routes online first.
+// Without this, a fresh install's very first offline launch (start_url is
+// /receipts/new) has nothing cached yet and falls through to the browser's
+// own offline interstitial -- the app never even gets a chance to render.
+// This fetch runs with the installing page's cookies (same-origin, default
+// credentials), so it only actually caches real content when the install
+// happens while signed in; an unauthenticated install-time fetch resolves to
+// the redirected /login page, which the same ok/redirected/basic guard below
+// already refuses to cache -- the runtime fetch handler picks it up normally
+// on this device's first real online visit instead.
 self.addEventListener("install", (event) => {
   self.skipWaiting();
+  event.waitUntil(
+    Promise.all(
+      OFFLINE_ROUTES.map((route) =>
+        fetch(route, { cache: "no-store" })
+          .then((response) => {
+            if (response.ok && !response.redirected && response.type === "basic") {
+              return caches.open(SHELL_CACHE).then((cache) => cache.put(route, response));
+            }
+          })
+          .catch(() => {})
+      )
+    )
+  );
 });
 
 self.addEventListener("activate", (event) => {

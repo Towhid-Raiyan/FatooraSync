@@ -38,15 +38,16 @@ export async function syncOfflineCache(): Promise<void> {
     // (sign back into A, let it sync, then switch), and it is deliberately made
     // visible by the cache staying stale rather than made invisible by a
     // silent delete.
-    const [pendingReceipts, pendingQuotations] = await Promise.all([
+    const [pendingReceipts, pendingQuotations, pendingProducts] = await Promise.all([
       offlineDb.pendingReceipts.count(),
       offlineDb.pendingQuotations.count(),
+      offlineDb.pendingProducts.count(),
     ]);
-    if (pendingReceipts > 0 || pendingQuotations > 0) return;
+    if (pendingReceipts > 0 || pendingQuotations > 0 || pendingProducts > 0) return;
 
     await offlineDb.transaction(
       "rw",
-      [offlineDb.products, offlineDb.customers, offlineDb.settings, offlineDb.tenant, offlineDb.numberLeases, offlineDb.pendingReceipts, offlineDb.pendingQuotations],
+      [offlineDb.products, offlineDb.customers, offlineDb.settings, offlineDb.tenant, offlineDb.numberLeases, offlineDb.pendingReceipts, offlineDb.pendingQuotations, offlineDb.pendingProducts],
       async () => {
         await Promise.all([
           offlineDb.products.clear(),
@@ -56,14 +57,40 @@ export async function syncOfflineCache(): Promise<void> {
           offlineDb.numberLeases.clear(),
           offlineDb.pendingReceipts.clear(),
           offlineDb.pendingQuotations.clear(),
+          offlineDb.pendingProducts.clear(),
         ]);
       }
     );
   }
 
-  await offlineDb.transaction("rw", [offlineDb.products, offlineDb.customers, offlineDb.settings, offlineDb.tenant], async () => {
+  await offlineDb.transaction("rw", [offlineDb.products, offlineDb.customers, offlineDb.settings, offlineDb.tenant, offlineDb.pendingProducts], async () => {
     await offlineDb.products.clear();
     await offlineDb.products.bulkAdd(data.products);
+    // Re-merge any product quick-created offline that hasn't synced yet. This
+    // refresh just wiped the products table back to server truth, which would
+    // otherwise make a still-queued product vanish from the picker until its
+    // own outbox replay happens to run -- a real (if narrow) window, since this
+    // page-load refresh and the 30s outbox retry are independent timers. Once a
+    // product actually syncs, its pendingProducts row is deleted and this
+    // merge naturally stops re-adding it -- the server's own copy in
+    // `data.products` takes over from then on.
+    const stillPending = await offlineDb.pendingProducts.toArray();
+    if (stillPending.length > 0) {
+      await offlineDb.products.bulkPut(
+        stillPending.map((p) => ({
+          id: p.id,
+          nameEn: p.nameEn,
+          nameAr: p.nameAr,
+          sku: "(pending)",
+          barcode: p.barcode,
+          unitPrice: p.unitPrice,
+          vatRate: p.vatRate,
+          quantity: p.quantity,
+          unit: p.unit,
+          isActive: true,
+        }))
+      );
+    }
     await offlineDb.customers.clear();
     await offlineDb.customers.bulkAdd(data.customers);
     await offlineDb.settings.put({ id: "singleton", ...data.settings });

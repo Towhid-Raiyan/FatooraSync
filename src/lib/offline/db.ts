@@ -74,6 +74,26 @@ export interface PendingDocument {
   status: "pending" | "syncing" | "failed";
 }
 
+// A product quick-created while offline, from within New Receipt/New
+// Quotation. `id` is a client-generated UUID -- also the idempotency key sent
+// to the server (mirrors PendingDocument.uuid) -- and becomes the product's
+// REAL, permanent id once synced, so any receipt/quotation line already
+// referencing it (via that same id) never needs to be patched up afterward.
+// `sku` is deliberately absent: it's always server-generated (see
+// src/app/api/products/route.ts), never known until sync.
+export interface PendingProduct {
+  id: string;
+  nameEn: string;
+  nameAr: string | null;
+  barcode: string | null;
+  unit: string;
+  unitPrice: string;
+  vatRate: string | null;
+  quantity: string;
+  lowStockThreshold: string | null;
+  createdAt: string; // ISO 8601, for replay ordering (products before the sales that reference them)
+}
+
 class OfflineDatabase extends Dexie {
   products!: Table<CachedProduct, string>;
   customers!: Table<CachedCustomer, string>;
@@ -82,6 +102,7 @@ class OfflineDatabase extends Dexie {
   numberLeases!: Table<StoredNumberLease, number>;
   pendingReceipts!: Table<PendingDocument, string>;
   pendingQuotations!: Table<PendingDocument, string>;
+  pendingProducts!: Table<PendingProduct, string>;
 
   constructor() {
     super("fatoorasync-offline");
@@ -101,6 +122,12 @@ class OfflineDatabase extends Dexie {
     this.version(2).stores({
       pendingReceipts: "uuid, status, createdAt",
       pendingQuotations: "uuid, status, createdAt",
+    });
+    // v3 adds the offline quick-create-product outbox, indexed by `createdAt`
+    // for the same reason as v2: products must replay (and land server-side)
+    // before any sale that references them.
+    this.version(3).stores({
+      pendingProducts: "id, createdAt",
     });
   }
 }

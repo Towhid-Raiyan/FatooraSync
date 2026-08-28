@@ -419,6 +419,7 @@ export function QuotationForm({ initialCustomers, initialProducts, defaultVatRat
         product={null}
         onOpenChange={setQuickCreateOpen}
         onSaved={handleQuickCreateSaved}
+        offlineCapable
       />
 
       <PrintModal

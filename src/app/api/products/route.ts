@@ -76,6 +76,21 @@ export async function POST(request: Request) {
   // sku is intentionally never read from the request body -- it's always
   // system-generated below, never user-supplied.
 
+  // Optional client-supplied id: only used by the offline quick-create-product
+  // sync (a device generates this id at creation time, before it ever reaches
+  // the server, exactly like Document.uuid for receipts/quotations) so a
+  // receipt/quotation line that already references it never needs patching up.
+  // Idempotent by design: a resubmission of an id that already exists (the
+  // same offline device retrying after a lost response) returns the existing
+  // row rather than erroring or creating a duplicate.
+  const clientId = typeof body.id === "string" && body.id.trim() ? body.id.trim() : null;
+  if (clientId) {
+    const existing = await withTenant(tenantId, (tx) => tx.product.findFirst({ where: { id: clientId } }));
+    if (existing) {
+      return NextResponse.json(existing, { status: 200 });
+    }
+  }
+
   const barcodeConflict = await withTenant(tenantId, (tx) => findBarcodeConflict(tx, barcode));
   if (barcodeConflict) {
     return NextResponse.json({ error: "This barcode is already in use by another product" }, { status: 409 });
@@ -86,6 +101,7 @@ export async function POST(request: Request) {
       const sku = await generateNextSku(tx, tenantId);
       return tx.product.create({
         data: {
+          ...(clientId ? { id: clientId } : {}),
           nameEn,
           nameAr: body.nameAr || null,
           sku,

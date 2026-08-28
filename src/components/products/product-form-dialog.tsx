@@ -11,12 +11,58 @@ import { BarcodeScannerModal } from "@/components/barcode-scanner-modal";
 import { useLocale } from "@/lib/i18n/language-provider";
 import type { Dictionary } from "@/lib/i18n/dictionaries/dictionary.types";
 import type { SerializedProduct } from "./products-client";
+import { offlineDb, type PendingProduct } from "@/lib/offline/db";
+import { enqueuePendingProduct } from "@/lib/offline/product-outbox";
+import { useOnlineStatus } from "@/lib/offline/connectivity";
+
+// A temporary, clearly-marked stand-in for the real, server-assigned SKU
+// (see PendingProduct's doc comment) -- formatted like a real code so it
+// doesn't need translation and doesn't look broken in the Arabic UI, unlike
+// an English placeholder phrase would.
+const PENDING_SKU_PLACEHOLDER = "SKU-PENDING";
 
 interface ProductFormDialogProps {
   open: boolean;
   product: SerializedProduct | null;
   onOpenChange: (open: boolean) => void;
   onSaved: (product: SerializedProduct) => void;
+  // When true, a genuine network failure while CREATING a new product (never
+  // while editing an existing one -- that stays out of scope, see spec §2)
+  // falls back to queuing it locally instead of just showing an error. Only
+  // the quick-create dialog opened from New Receipt/New Quotation passes
+  // this; the standalone Products management page leaves it unset, since
+  // that page can't be reached offline in the first place.
+  offlineCapable?: boolean;
+}
+
+function validateOfflineProduct(form: {
+  nameEn: string;
+  unitPrice: string;
+  quantity: string;
+  useDefaultVat: boolean;
+  vatRate: string;
+  lowStockThreshold: string;
+}): string | null {
+  // Mirrors src/app/api/products/route.ts's own validation exactly, since
+  // there's no server to validate against while offline.
+  if (!form.nameEn.trim()) return "English name is required";
+  const unitPrice = Number(form.unitPrice);
+  if (form.unitPrice === "" || !Number.isFinite(unitPrice) || unitPrice < 0) {
+    return "Unit price is required and must be zero or more";
+  }
+  if (form.quantity !== "") {
+    const quantity = Number(form.quantity);
+    if (!Number.isFinite(quantity) || quantity < 0) return "Quantity must be zero or more";
+  }
+  if (!form.useDefaultVat && form.vatRate !== "") {
+    const vatRate = Number(form.vatRate);
+    if (!Number.isFinite(vatRate) || vatRate < 0 || vatRate > 100) return "VAT rate must be between 0 and 100";
+  }
+  if (form.lowStockThreshold !== "") {
+    const lowStockThreshold = Number(form.lowStockThreshold);
+    if (!Number.isFinite(lowStockThreshold) || lowStockThreshold < 0) return "Low stock threshold must be zero or more";
+  }
+  return null;
 }
 
 export function getUnitOptions(dict: Dictionary): { value: string; label: string }[] {
@@ -48,8 +94,9 @@ const EMPTY_FORM = {
 
 const LABEL_CLASS = "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wider text-muted-fg";
 
-export function ProductFormDialog({ open, product, onOpenChange, onSaved }: ProductFormDialogProps) {
+export function ProductFormDialog({ open, product, onOpenChange, onSaved, offlineCapable }: ProductFormDialogProps) {
   const { dict } = useLocale();
+  const online = useOnlineStatus();
   const unitOptions = getUnitOptions(dict);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
@@ -96,20 +143,103 @@ export function ProductFormDialog({ open, product, onOpenChange, onSaved }: Prod
       lowStockThreshold: form.lowStockThreshold,
     };
 
-    try {
-      const response = await fetch(url, { method, body: JSON.stringify(payload) });
-      const body = await response.json();
+    // Skip the network attempt entirely when already known offline (same
+    // pattern as receipt-form.tsx/quotation-form.tsx) -- a genuinely offline
+    // device shouldn't sit waiting on a doomed request before falling back.
+    // `online` can still be stale/true for a request that then itself fails,
+    // which the catch below covers the same way either path does.
+    let response: Response | null = null;
+    if (online || !offlineCapable || product) {
+      try {
+        response = await fetch(url, { method, body: JSON.stringify(payload) });
+      } catch {
+        response = null; // genuine network failure -- may fall through to the offline path below
+      }
+    }
 
+    if (response) {
+      const body = await response.json().catch(() => null);
+      if (body === null) {
+        setError(dict.common.somethingWentWrong);
+        setSaving(false);
+        return;
+      }
       if (!response.ok) {
         setError(body.error ?? dict.common.somethingWentWrong);
+        setSaving(false);
         return;
       }
       onSaved(body);
-    } catch {
-      setError(dict.common.somethingWentWrong);
-    } finally {
       setSaving(false);
+      return;
     }
+
+    // response is null: the request never reached the server. Only offer the
+    // offline fallback for a genuinely new product on an offline-capable
+    // caller -- editing an existing product offline stays out of scope.
+    if (!offlineCapable || product) {
+      setError(dict.common.somethingWentWrong);
+      setSaving(false);
+      return;
+    }
+
+    const validationError = validateOfflineProduct(form);
+    if (validationError) {
+      setError(validationError);
+      setSaving(false);
+      return;
+    }
+
+    const id = crypto.randomUUID();
+    const nameAr = form.nameAr.trim() || null;
+    const barcode = form.barcode.trim() || null;
+    const vatRate = form.useDefaultVat ? null : form.vatRate;
+    const lowStockThreshold = form.lowStockThreshold === "" ? null : form.lowStockThreshold;
+    const quantity = form.quantity === "" ? "0" : form.quantity;
+    const createdAt = new Date().toISOString();
+
+    const pending: PendingProduct = {
+      id,
+      nameEn: form.nameEn.trim(),
+      nameAr,
+      barcode,
+      unit: form.unit,
+      unitPrice: form.unitPrice,
+      vatRate,
+      quantity,
+      lowStockThreshold,
+      createdAt,
+    };
+    await enqueuePendingProduct(pending);
+    await offlineDb.products.put({
+      id,
+      nameEn: pending.nameEn,
+      nameAr,
+      sku: PENDING_SKU_PLACEHOLDER,
+      barcode,
+      unitPrice: form.unitPrice,
+      vatRate,
+      quantity,
+      unit: form.unit,
+      isActive: true,
+    });
+
+    onSaved({
+      id,
+      tenantId: "", // not read by any caller of onSaved -- fine to leave blank client-side
+      nameEn: pending.nameEn,
+      nameAr,
+      sku: PENDING_SKU_PLACEHOLDER,
+      barcode,
+      unit: form.unit as SerializedProduct["unit"],
+      unitPrice: form.unitPrice,
+      vatRate,
+      quantity,
+      lowStockThreshold,
+      isActive: true,
+      createdAt: new Date(createdAt),
+    });
+    setSaving(false);
   }
 
   return (
