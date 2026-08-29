@@ -36,18 +36,22 @@ export function TenantDeleteDialog({
   onConfirm: () => void;
 }) {
   const [typedName, setTypedName] = useState("");
-  const nameMatches = typedName.trim() === tenant.tradeNameEn;
+  const nameMatches = typedName.trim() === tenant.tradeNameEn.trim();
   const withinRetention = isWithinRetentionWindow(tenant.latestDocumentAt ? new Date(tenant.latestDocumentAt) : null);
 
+  // Both the dialog's own internally-triggered closes (Esc, overlay click)
+  // and the Cancel button must go through this so typedName always resets --
+  // Radix only calls Dialog's onOpenChange for internally-triggered closes,
+  // not an externally-driven open={false}, so Cancel must call this directly
+  // rather than the raw onOpenChange prop.
+  function handleOpenChange(next: boolean) {
+    if (deleting) return;
+    if (!next) setTypedName("");
+    onOpenChange(next);
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (deleting) return;
-        if (!next) setTypedName("");
-        onOpenChange(next);
-      }}
-    >
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Delete {tenant.tradeNameEn}?</DialogTitle>
@@ -102,7 +106,7 @@ export function TenantDeleteDialog({
         )}
 
         <DialogFooter>
-          <Button variant="outline" disabled={deleting} onClick={() => onOpenChange(false)}>
+          <Button variant="outline" disabled={deleting} onClick={() => handleOpenChange(false)}>
             Cancel
           </Button>
           <Button variant="destructive" disabled={deleting || !nameMatches} onClick={onConfirm}>

@@ -1,10 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PASSWORD_RULES, isPasswordValid } from "@/lib/auth/password-rules";
 import { useToast } from "@/lib/toast/toast-provider";
 import { Spinner } from "@/components/admin/spinner";
+
+interface MatchingArchive {
+  id: string;
+  tradeNameEn: string;
+  deletedAt: string;
+}
 
 const RULE_LABELS: Record<string, string> = {
   minLength: "8+ characters",
@@ -27,6 +34,7 @@ export function TenantCreateForm() {
   const [error, setError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [createdTenant, setCreatedTenant] = useState<{ id: string; tradeNameEn: string; ownerEmail: string; ownerPassword: string } | null>(null);
+  const [matchingArchive, setMatchingArchive] = useState<MatchingArchive | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -60,6 +68,7 @@ export function TenantCreateForm() {
       }
       toast.success(`Client "${body.tradeNameEn}" created`);
       setCreatedTenant({ id: body.id, tradeNameEn: body.tradeNameEn, ownerEmail, ownerPassword: password });
+      setMatchingArchive(body.matchingArchive ?? null);
     } catch {
       setError("Something went wrong.");
     } finally {
@@ -68,7 +77,13 @@ export function TenantCreateForm() {
   }
 
   if (createdTenant) {
-    return <TenantCreatedPanel tenant={createdTenant} onContinue={() => router.push(`/admin/tenants/${createdTenant.id}`)} />;
+    return (
+      <TenantCreatedPanel
+        tenant={createdTenant}
+        matchingArchive={matchingArchive}
+        onContinue={() => router.push(`/admin/tenants/${createdTenant.id}`)}
+      />
+    );
   }
 
   return (
@@ -148,9 +163,11 @@ export function TenantCreateForm() {
 
 function TenantCreatedPanel({
   tenant,
+  matchingArchive,
   onContinue,
 }: {
   tenant: { id: string; tradeNameEn: string; ownerEmail: string; ownerPassword: string };
+  matchingArchive: MatchingArchive | null;
   onContinue: () => void;
 }) {
   const { toast } = useToast();
@@ -173,6 +190,19 @@ function TenantCreatedPanel({
       <p className="mb-5 text-sm text-neutral-500">
         {tenant.tradeNameEn} is ready. Share these Owner credentials now — the password will not be shown again.
       </p>
+
+      {matchingArchive && (
+        <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <p>
+            This VAT number belonged to a previously deleted client, <strong>{matchingArchive.tradeNameEn}</strong>, deleted{" "}
+            {new Date(matchingArchive.deletedAt).toLocaleDateString()} —{" "}
+            <Link href={`/admin/tenants/deleted/${matchingArchive.id}`} className="font-semibold underline hover:no-underline">
+              view archive
+            </Link>
+            .
+          </p>
+        </div>
+      )}
 
       <div className="mb-5 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
         <div className="mb-3">

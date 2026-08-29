@@ -22,6 +22,7 @@ export function TenantDeleteSection({ tenantId, summary }: { tenantId: string; s
         setDeleting(false);
         return;
       }
+      router.refresh();
       router.push("/admin/tenants");
     } catch {
       setError("Something went wrong");
