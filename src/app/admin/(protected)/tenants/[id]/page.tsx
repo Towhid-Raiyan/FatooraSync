@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/client";
+import { getAdminSession } from "@/lib/admin-auth/get-admin-session";
 import { StatusPill } from "@/components/admin/status-pill";
 import { TenantBillingForm } from "@/components/admin/tenant-billing-form";
 import { TenantDeleteSection } from "@/components/admin/tenant-delete-section";
@@ -8,6 +9,7 @@ import { TenantInfoForm } from "@/components/admin/tenant-info-form";
 
 export default async function AdminTenantDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const session = await getAdminSession();
   const tenant = await prisma.tenant.findUnique({
     where: { id },
     select: {
@@ -75,19 +77,21 @@ export default async function AdminTenantDetailPage({ params }: { params: Promis
         />
       </div>
 
-      <div className="mt-6">
-        <TenantDeleteSection
-          tenantId={tenant.id}
-          summary={{
-            tradeNameEn: tenant.tradeNameEn,
-            receiptCount,
-            quotationCount,
-            customerCount: tenant.customers.length,
-            productCount: tenant.products.length,
-            latestDocumentAt: latestDocumentAt ? latestDocumentAt.toISOString() : null,
-          }}
-        />
-      </div>
+      {session?.user.role === "CTO" && (
+        <div className="mt-6">
+          <TenantDeleteSection
+            tenantId={tenant.id}
+            summary={{
+              tradeNameEn: tenant.tradeNameEn,
+              receiptCount,
+              quotationCount,
+              customerCount: tenant.customers.length,
+              productCount: tenant.products.length,
+              latestDocumentAt: latestDocumentAt ? latestDocumentAt.toISOString() : null,
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
