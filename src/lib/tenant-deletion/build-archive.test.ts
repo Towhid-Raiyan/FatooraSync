@@ -30,10 +30,24 @@ function sampleData(): GatheredTenantData {
     qrCode: null, createdAt: new Date("2026-01-02"), lines: [receiptLine],
   } as unknown as GatheredTenantData["receipts"][number];
 
+  const quotationLine = {
+    id: "line-2", tenantId: "tenant-1", documentId: "doc-2", productId: "prod-1", productName: "Test Product",
+    quantity: 2 as unknown as number, unitPrice: 20 as unknown as number, discount: 0 as unknown as number,
+    vatRate: 15 as unknown as number, lineSubtotal: 40 as unknown as number, lineVat: 6 as unknown as number,
+    lineTotal: 46 as unknown as number,
+  };
+
+  const quotation = {
+    id: "doc-2", tenantId: "tenant-1", type: "QUOTATION", number: 1, customerId: "cust-1", customer,
+    subtotal: 40 as unknown as number, vatTotal: 6 as unknown as number, grandTotal: 46 as unknown as number,
+    notes: null, creditNoteOfDocumentId: null, uuid: "uuid-2", invoiceHash: null, previousInvoiceHash: null,
+    qrCode: null, createdAt: new Date("2026-01-03"), lines: [quotationLine],
+  } as unknown as GatheredTenantData["quotations"][number];
+
   return {
-    tenant, customers: [customer], products: [], suppliers: [], receipts: [receipt], quotations: [],
+    tenant, customers: [customer], products: [], suppliers: [], receipts: [receipt], quotations: [quotation],
     purchaseReceipts: [], stockMovements: [],
-    summary: { receiptCount: 1, quotationCount: 0, earliestDocumentAt: receipt.createdAt, latestDocumentAt: receipt.createdAt },
+    summary: { receiptCount: 1, quotationCount: 1, earliestDocumentAt: receipt.createdAt, latestDocumentAt: quotation.createdAt },
   };
 }
 
@@ -60,10 +74,26 @@ describe("buildTenantArchive", () => {
   it("produces a zip with no receipts/ or quotations/ folder entries when there are none", { timeout: 30000 }, async () => {
     const data = sampleData();
     data.receipts = [];
+    data.quotations = [];
     data.summary.receiptCount = 0;
+    data.summary.quotationCount = 0;
     const buffer = await buildTenantArchive(data);
     const zip = await JSZip.loadAsync(buffer);
     expect(zip.file("receipts/1.pdf")).toBeNull();
+    expect(zip.file("quotations/1.pdf")).toBeNull();
     expect(zip.file("manifest.json")).not.toBeNull();
+  });
+
+  it("renders one PDF per quotation via QuotationPdfA4Document", { timeout: 30000 }, async () => {
+    const buffer = await buildTenantArchive(sampleData());
+    const zip = await JSZip.loadAsync(buffer);
+
+    expect(zip.file("quotations/1.pdf")).not.toBeNull();
+
+    const manifest = JSON.parse(await zip.file("manifest.json")!.async("string"));
+    expect(manifest.quotationCount).toBe(1);
+
+    const pdfBytes = await zip.file("quotations/1.pdf")!.async("uint8array");
+    expect(pdfBytes.length).toBeGreaterThan(0);
   });
 });
