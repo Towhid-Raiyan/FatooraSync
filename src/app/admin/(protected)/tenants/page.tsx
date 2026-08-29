@@ -39,6 +39,12 @@ export default async function AdminTenantsPage() {
         >
           + New Client
         </Link>
+        <Link
+          href="/admin/tenants/deleted"
+          className="self-start text-[13px] font-semibold text-neutral-500 hover:text-neutral-700 sm:self-auto"
+        >
+          View Deleted Clients
+        </Link>
       </div>
 
       <TenantsListClient initialTenants={initialTenants} />
