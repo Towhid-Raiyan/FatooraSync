@@ -40,7 +40,7 @@ describe("GET /api/admin/tenants/archived/[id]", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.tradeNameEn).toBe("Detail Shop");
-    expect(body.archiveUrl).toBe("https://example.com/detail-archive.zip");
+    expect(body.archiveUrl).toBeUndefined();
   });
 
   it("returns 404 for an archive that does not exist", { timeout: 30000 }, async () => {

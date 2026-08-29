@@ -9,7 +9,27 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
-  const archive = await prisma.tenantArchive.findUnique({ where: { id } });
+  const archive = await prisma.tenantArchive.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      originalTenantId: true,
+      legalName: true,
+      tradeNameEn: true,
+      tradeNameAr: true,
+      vatNumber: true,
+      crNumber: true,
+      phone: true,
+      address: true,
+      joinedAt: true,
+      deletedAt: true,
+      deletedByAgencyStaffId: true,
+      receiptCount: true,
+      quotationCount: true,
+      earliestDocumentAt: true,
+      latestDocumentAt: true,
+    },
+  });
   if (!archive) {
     return NextResponse.json({ error: "Archive not found" }, { status: 404 });
   }
