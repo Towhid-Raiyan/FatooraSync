@@ -99,7 +99,7 @@ model Tenant {
 model Settings {
   id                      String      @id @default(uuid())
   tenantId                String      @unique
-  tenant                  Tenant      @relation(fields: [tenantId], references: [id])
+  tenant                  Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   defaultVatRate          Decimal     @default(15.00) @db.Decimal(5, 2)
   language                String      @default("en")
   printFormat             PrintFormat @default(THERMAL)
@@ -111,7 +111,7 @@ model Settings {
 model User {
   id           String   @id @default(uuid())
   tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   email        String   @unique
   passwordHash String
   role         UserRole @default(OWNER)
@@ -143,7 +143,8 @@ model AgencyStaff {
   role         AgencyStaffRole @default(DEVELOPER)
   createdAt    DateTime        @default(now())
 
-  auditLogs AuditLog[]
+  auditLogs      AuditLog[]
+  tenantArchives TenantArchive[]
 }
 
 model AuditLog {
@@ -159,7 +160,7 @@ model AuditLog {
 model Customer {
   id        String   @id @default(uuid())
   tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name      String
   vatId     String?
   address   String?
@@ -177,7 +178,7 @@ model Customer {
 model Product {
   id                String   @id @default(uuid())
   tenantId          String
-  tenant            Tenant   @relation(fields: [tenantId], references: [id])
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   nameEn            String
   nameAr            String?
   sku               String?
@@ -201,7 +202,7 @@ model Product {
 model Document {
   id                     String       @id @default(uuid())
   tenantId               String
-  tenant                 Tenant       @relation(fields: [tenantId], references: [id])
+  tenant                 Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   type                   DocumentType
   number                 Int
   customerId             String
@@ -228,7 +229,7 @@ model Document {
 model DocumentLine {
   id           String   @id @default(uuid())
   tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   documentId   String
   document     Document @relation(fields: [documentId], references: [id])
   productId    String
@@ -249,7 +250,7 @@ model DocumentLine {
 model Supplier {
   id        String   @id @default(uuid())
   tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name      String
   vatId     String?
   crNumber  String?
@@ -273,7 +274,7 @@ model Supplier {
 model PurchaseReceipt {
   id                    String        @id @default(uuid())
   tenantId              String
-  tenant                Tenant        @relation(fields: [tenantId], references: [id])
+  tenant                Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   number                Int
   supplierReceiptNumber String?
   supplierId            String
@@ -295,7 +296,7 @@ model PurchaseReceipt {
 model PurchaseReceiptLine {
   id                String          @id @default(uuid())
   tenantId          String
-  tenant            Tenant          @relation(fields: [tenantId], references: [id])
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   purchaseReceiptId String
   purchaseReceipt   PurchaseReceipt @relation(fields: [purchaseReceiptId], references: [id])
   productId         String
@@ -322,7 +323,7 @@ model PurchaseReceiptLine {
 model StockMovement {
   id                String                 @id @default(uuid())
   tenantId          String
-  tenant            Tenant                 @relation(fields: [tenantId], references: [id])
+  tenant            Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   productId         String
   product           Product                @relation(fields: [productId], references: [id])
   type              StockMovementType
@@ -348,7 +349,7 @@ model StockMovement {
 model NumberLease {
   id           String       @id @default(uuid())
   tenantId     String
-  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   deviceId     String
   documentType DocumentType
   rangeStart   Int
@@ -357,4 +358,29 @@ model NumberLease {
   leasedAt     DateTime     @default(now())
 
   @@index([tenantId, deviceId, documentType])
+}
+
+model TenantArchive {
+  id                     String      @id @default(uuid())
+  // Deliberately NOT a foreign key to Tenant -- this record must survive the
+  // Tenant row (and everything under it) being deleted entirely.
+  originalTenantId       String
+  legalName              String
+  tradeNameEn            String
+  tradeNameAr            String?
+  vatNumber              String
+  crNumber               String?
+  phone                  String?
+  address                String?
+  joinedAt               DateTime
+  deletedAt              DateTime    @default(now())
+  deletedByAgencyStaffId String
+  deletedByAgencyStaff   AgencyStaff @relation(fields: [deletedByAgencyStaffId], references: [id])
+  receiptCount           Int
+  quotationCount         Int
+  earliestDocumentAt     DateTime?
+  latestDocumentAt       DateTime?
+  archiveUrl             String
+
+  @@index([vatNumber])
 }
