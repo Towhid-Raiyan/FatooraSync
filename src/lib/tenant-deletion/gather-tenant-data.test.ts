@@ -21,6 +21,12 @@ describe("gatherTenantData", () => {
       tx.customer.create({ data: { name: "Walk-in", isWalkIn: true } as Prisma.CustomerUncheckedCreateInput })
     );
     await withTenant(tenantId, (tx) =>
+      tx.user.create({ data: { email: `gather-${Date.now()}@test.local`, passwordHash: "hashed-secret" } as Prisma.UserUncheckedCreateInput })
+    );
+    await prisma.numberLease.create({
+      data: { tenantId, documentType: "SALES_RECEIPT", deviceId: "gather-device", rangeStart: 1, rangeEnd: 100, nextToIssue: 1 } as Prisma.NumberLeaseUncheckedCreateInput,
+    });
+    await withTenant(tenantId, (tx) =>
       tx.document.create({
         data: {
           type: "SALES_RECEIPT",
@@ -45,6 +51,8 @@ describe("gatherTenantData", () => {
     await prisma.document.deleteMany({ where: { tenantId } });
     await prisma.customer.deleteMany({ where: { tenantId } });
     await prisma.product.deleteMany({ where: { tenantId } });
+    await prisma.numberLease.deleteMany({ where: { tenantId } });
+    await prisma.user.deleteMany({ where: { tenantId } });
     await prisma.settings.deleteMany({ where: { tenantId } });
     await prisma.tenant.delete({ where: { id: tenantId } });
     await prisma.$disconnect();
@@ -54,6 +62,13 @@ describe("gatherTenantData", () => {
     const data = await gatherTenantData(tenantId);
 
     expect(data.tenant.tradeNameEn).toBe("Gather Test Shop");
+    expect(data.settings).not.toBeNull();
+    expect(data.settings?.tenantId).toBe(tenantId);
+    expect(data.users).toHaveLength(1);
+    expect(data.users[0]).not.toHaveProperty("passwordHash");
+    expect(data.users[0].email).toMatch(/@test\.local$/);
+    expect(data.numberLeases).toHaveLength(1);
+    expect(data.numberLeases[0].deviceId).toBe("gather-device");
     expect(data.products).toHaveLength(1);
     expect(data.customers).toHaveLength(1);
     expect(data.receipts).toHaveLength(1);
@@ -74,6 +89,9 @@ describe("gatherTenantData", () => {
       expect(data.receipts).toHaveLength(0);
       expect(data.summary.receiptCount).toBe(0);
       expect(data.summary.earliestDocumentAt).toBeNull();
+      expect(data.settings).toBeNull();
+      expect(data.users).toHaveLength(0);
+      expect(data.numberLeases).toHaveLength(0);
     } finally {
       await prisma.tenant.delete({ where: { id: empty.id } });
     }

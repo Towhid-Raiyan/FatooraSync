@@ -1,9 +1,23 @@
-import type { Customer, Document, DocumentLine, Product, PurchaseReceipt, PurchaseReceiptLine, StockMovement, Supplier, Tenant } from "@prisma/client";
+import type { Customer, Document, DocumentLine, NumberLease, Product, PurchaseReceipt, PurchaseReceiptLine, Settings, StockMovement, Supplier, Tenant } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import { withTenant } from "@/lib/db/tenant-context";
 
+// Only the fields safe to export -- never passwordHash. Selected explicitly
+// (rather than filtered out after a full fetch) so a future field added to
+// User doesn't silently end up in an exported archive.
+export interface SafeUser {
+  id: string;
+  tenantId: string;
+  email: string;
+  role: string;
+  isActive: boolean;
+  createdAt: Date;
+}
+
 export interface GatheredTenantData {
   tenant: Tenant;
+  settings: Settings | null;
+  users: SafeUser[];
   customers: Customer[];
   products: Product[];
   suppliers: Supplier[];
@@ -11,6 +25,7 @@ export interface GatheredTenantData {
   quotations: (Document & { customer: Customer; lines: DocumentLine[] })[];
   purchaseReceipts: (PurchaseReceipt & { lines: PurchaseReceiptLine[] })[];
   stockMovements: StockMovement[];
+  numberLeases: NumberLease[];
   summary: {
     receiptCount: number;
     quotationCount: number;
@@ -27,15 +42,25 @@ export interface GatheredTenantData {
 export async function gatherTenantData(tenantId: string): Promise<GatheredTenantData> {
   const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
 
-  const [customers, products, suppliers, allDocuments, purchaseReceipts, stockMovements] = await withTenant(tenantId, (tx) =>
-    Promise.all([
-      tx.customer.findMany(),
-      tx.product.findMany(),
-      tx.supplier.findMany(),
-      tx.document.findMany({ include: { customer: true, lines: true }, orderBy: { createdAt: "asc" } }),
-      tx.purchaseReceipt.findMany({ include: { lines: true } }),
-      tx.stockMovement.findMany(),
-    ])
+  const [settings, users, customers, products, suppliers, allDocuments, purchaseReceipts, stockMovements, numberLeases] = await withTenant(
+    tenantId,
+    (tx) =>
+      Promise.all([
+        tx.settings.findUnique({ where: { tenantId } }),
+        tx.user.findMany({
+          select: { id: true, tenantId: true, email: true, role: true, isActive: true, createdAt: true },
+        }),
+        tx.customer.findMany(),
+        tx.product.findMany(),
+        tx.supplier.findMany(),
+        tx.document.findMany({ include: { customer: true, lines: true }, orderBy: { createdAt: "asc" } }),
+        tx.purchaseReceipt.findMany({ include: { lines: true } }),
+        tx.stockMovement.findMany(),
+        // NumberLease is deliberately not in TENANT_SCOPED_MODELS (see
+        // tenant-context.ts) -- every call site, including this one, must
+        // filter by tenantId explicitly rather than relying on auto-injection.
+        tx.numberLease.findMany({ where: { tenantId } }),
+      ])
   );
 
   const receipts = allDocuments.filter((d) => d.type === "SALES_RECEIPT");
@@ -43,6 +68,8 @@ export async function gatherTenantData(tenantId: string): Promise<GatheredTenant
 
   return {
     tenant,
+    settings,
+    users,
     customers,
     products,
     suppliers,
@@ -50,6 +77,7 @@ export async function gatherTenantData(tenantId: string): Promise<GatheredTenant
     quotations,
     purchaseReceipts,
     stockMovements,
+    numberLeases,
     summary: {
       receiptCount: receipts.length,
       quotationCount: quotations.length,

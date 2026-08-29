@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import QRCode from "qrcode";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { ReceiptPdfA4Document } from "@/lib/receipts/receipt-pdf-a4";
 import { QuotationPdfA4Document } from "@/lib/quotations/quotation-pdf-a4";
@@ -41,6 +42,7 @@ export async function buildTenantArchive(data: GatheredTenantData): Promise<Buff
         productCount: data.products.length,
         supplierCount: data.suppliers.length,
         purchaseReceiptCount: data.purchaseReceipts.length,
+        stockMovementCount: data.stockMovements.length,
         earliestDocumentAt: data.summary.earliestDocumentAt,
         latestDocumentAt: data.summary.latestDocumentAt,
       },
@@ -54,6 +56,8 @@ export async function buildTenantArchive(data: GatheredTenantData): Promise<Buff
     JSON.stringify(
       {
         tenant: data.tenant,
+        settings: data.settings,
+        users: data.users,
         customers: data.customers,
         products: data.products,
         suppliers: data.suppliers,
@@ -61,6 +65,7 @@ export async function buildTenantArchive(data: GatheredTenantData): Promise<Buff
         quotations: data.quotations,
         purchaseReceipts: data.purchaseReceipts,
         stockMovements: data.stockMovements,
+        numberLeases: data.numberLeases,
       },
       null,
       2
@@ -72,8 +77,9 @@ export async function buildTenantArchive(data: GatheredTenantData): Promise<Buff
   // thermal till -- independent of whatever print format the tenant's own
   // Settings had configured while they were active.
   for (const receipt of data.receipts) {
+    const qrImageDataUrl = receipt.qrCode ? await QRCode.toDataURL(receipt.qrCode) : null;
     const buffer = await renderToBuffer(
-      <ReceiptPdfA4Document tenant={data.tenant} document={receipt} qrImageDataUrl={null} />
+      <ReceiptPdfA4Document tenant={data.tenant} document={receipt} qrImageDataUrl={qrImageDataUrl} />
     );
     zip.file(`receipts/${receipt.number}.pdf`, buffer);
   }
