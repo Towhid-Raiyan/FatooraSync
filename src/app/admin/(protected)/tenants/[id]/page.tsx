@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/client";
 import { StatusPill } from "@/components/admin/status-pill";
 import { TenantBillingForm } from "@/components/admin/tenant-billing-form";
+import { TenantDeleteSection } from "@/components/admin/tenant-delete-section";
 import { TenantInfoForm } from "@/components/admin/tenant-info-form";
 
 export default async function AdminTenantDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -23,10 +24,19 @@ export default async function AdminTenantDetailPage({ params }: { params: Promis
       featureFlags: true,
       createdAt: true,
       users: { where: { role: "OWNER" }, select: { email: true }, take: 1 },
+      documents: { select: { type: true, createdAt: true } },
+      customers: { select: { id: true } },
+      products: { select: { id: true } },
     },
   });
 
   if (!tenant) notFound();
+
+  const receiptCount = tenant.documents.filter((d) => d.type === "SALES_RECEIPT").length;
+  const quotationCount = tenant.documents.filter((d) => d.type === "QUOTATION").length;
+  const latestDocumentAt = tenant.documents.length
+    ? tenant.documents.reduce((latest, d) => (d.createdAt > latest ? d.createdAt : latest), tenant.documents[0].createdAt)
+    : null;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 sm:px-7 sm:py-8">
@@ -62,6 +72,20 @@ export default async function AdminTenantDetailPage({ params }: { params: Promis
           initialStatus={tenant.billingStatus}
           initialTrialEndsAt={tenant.trialEndsAt ? tenant.trialEndsAt.toISOString() : null}
           initialFeatureFlags={tenant.featureFlags}
+        />
+      </div>
+
+      <div className="mt-6">
+        <TenantDeleteSection
+          tenantId={tenant.id}
+          summary={{
+            tradeNameEn: tenant.tradeNameEn,
+            receiptCount,
+            quotationCount,
+            customerCount: tenant.customers.length,
+            productCount: tenant.products.length,
+            latestDocumentAt: latestDocumentAt ? latestDocumentAt.toISOString() : null,
+          }}
         />
       </div>
     </div>
