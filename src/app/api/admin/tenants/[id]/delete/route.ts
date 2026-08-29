@@ -8,6 +8,10 @@ import { gatherTenantData } from "@/lib/tenant-deletion/gather-tenant-data";
 import { buildTenantArchive } from "@/lib/tenant-deletion/build-archive";
 import { uploadTenantArchive } from "@/lib/tenant-deletion/upload-archive";
 
+// Vercel's default Node function timeout (10s) is too short for gather ->
+// build PDFs -> upload -> transaction across a tenant with real data.
+export const maxDuration = 60;
+
 // Strict ordering per spec S4.2: gather -> build -> upload -> verify -> write
 // tombstone -> delete tenant. Each step's failure throws and stops the whole
 // request before the next step runs -- there is no partial-completion state
@@ -54,34 +58,47 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   // TenantArchive.originalTenantId has no uniqueness constraint, a retry
   // would create a second archive row for the same tenant. Same pattern as
   // src/app/api/admin/tenants/[id]/route.ts's own two-write transaction.
-  const [archive] = await prisma.$transaction([
-    prisma.tenantArchive.create({
-      data: {
-        originalTenantId: id,
-        legalName: tenant.legalName,
-        tradeNameEn: tenant.tradeNameEn,
-        tradeNameAr: tenant.tradeNameAr,
-        vatNumber: tenant.vatNumber,
-        crNumber: tenant.crNumber,
-        phone: tenant.phone,
-        address: tenant.address,
-        joinedAt: tenant.createdAt,
-        deletedByAgencyStaffId: session.user.agencyStaffId,
-        receiptCount: summary.receiptCount,
-        quotationCount: summary.quotationCount,
-        earliestDocumentAt: summary.earliestDocumentAt,
-        latestDocumentAt: summary.latestDocumentAt,
-        archiveUrl,
-      },
-    }),
-    prisma.tenant.delete({ where: { id } }),
-  ]);
+  let archive: { id: string };
+  try {
+    [archive] = await prisma.$transaction([
+      prisma.tenantArchive.create({
+        data: {
+          originalTenantId: id,
+          legalName: tenant.legalName,
+          tradeNameEn: tenant.tradeNameEn,
+          tradeNameAr: tenant.tradeNameAr,
+          vatNumber: tenant.vatNumber,
+          crNumber: tenant.crNumber,
+          phone: tenant.phone,
+          address: tenant.address,
+          joinedAt: tenant.createdAt,
+          deletedByAgencyStaffId: session.user.agencyStaffId,
+          receiptCount: summary.receiptCount,
+          quotationCount: summary.quotationCount,
+          earliestDocumentAt: summary.earliestDocumentAt,
+          latestDocumentAt: summary.latestDocumentAt,
+          archiveUrl,
+        },
+      }),
+      prisma.tenant.delete({ where: { id } }),
+    ]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Delete failed";
+    return NextResponse.json({ error: `Could not delete tenant: ${message}` }, { status: 500 });
+  }
 
-  await writeAuditLog({
-    agencyStaffId: session.user.agencyStaffId,
-    action: AUDIT_ACTIONS.TENANT_DELETED,
-    metadata: { tradeNameEn: tenant.tradeNameEn, archiveId: archive.id },
-  });
+  // The delete itself already succeeded at this point -- an audit-log write
+  // failure here must not turn a real, completed deletion into an error
+  // response for the CTO. Log it for operators and still return success.
+  try {
+    await writeAuditLog({
+      agencyStaffId: session.user.agencyStaffId,
+      action: AUDIT_ACTIONS.TENANT_DELETED,
+      metadata: { tradeNameEn: tenant.tradeNameEn, archiveId: archive.id },
+    });
+  } catch (error) {
+    console.error("Failed to write audit log for tenant deletion", { tenantId: id, archiveId: archive.id, error });
+  }
 
   return NextResponse.json({ archiveId: archive.id });
 }

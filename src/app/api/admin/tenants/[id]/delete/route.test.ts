@@ -124,6 +124,26 @@ describe("POST /api/admin/tenants/[id]/delete", () => {
     }
   });
 
+  it("returns a clean 500, not an unhandled rejection, when the delete transaction fails", { timeout: 30000 }, async () => {
+    const tenant = await createTestTenant("300000000000961");
+    const transactionSpy = vi.spyOn(prisma, "$transaction").mockRejectedValueOnce(new Error("Injected transaction failure"));
+    try {
+      const response = await POST(req(), { params: Promise.resolve({ id: tenant.id }) });
+      expect(response.status).toBe(500);
+      const body = await response.json();
+      expect(body.error).toBeDefined();
+
+      const stillThere = await prisma.tenant.findUnique({ where: { id: tenant.id } });
+      expect(stillThere).not.toBeNull();
+      const archiveCount = await prisma.tenantArchive.count({ where: { originalTenantId: tenant.id } });
+      expect(archiveCount).toBe(0);
+    } finally {
+      transactionSpy.mockRestore();
+      await prisma.settings.deleteMany({ where: { tenantId: tenant.id } });
+      await prisma.tenant.delete({ where: { id: tenant.id } });
+    }
+  });
+
   it("leaves the tenant and all its data untouched when the upload fails to verify", { timeout: 30000 }, async () => {
     const tenant = await createTestTenant("300000000000800");
     try {
@@ -193,7 +213,7 @@ describe("POST /api/admin/tenants/[id]/delete", () => {
       const response = await POST(req(), { params: Promise.resolve({ id: tenant.id }) });
       expect(response.status).toBe(200);
 
-      const [settings, customers, products, suppliers, documents, documentLines, purchaseReceipts, purchaseReceiptLines, stockMovements, numberLeases] =
+      const [settings, customers, products, suppliers, documents, documentLines, purchaseReceipts, purchaseReceiptLines, stockMovements, numberLeases, users] =
         await Promise.all([
           prisma.settings.count({ where: { tenantId: tenant.id } }),
           prisma.customer.count({ where: { tenantId: tenant.id } }),
@@ -205,11 +225,12 @@ describe("POST /api/admin/tenants/[id]/delete", () => {
           prisma.purchaseReceiptLine.count({ where: { tenantId: tenant.id } }),
           prisma.stockMovement.count({ where: { tenantId: tenant.id } }),
           prisma.numberLease.count({ where: { tenantId: tenant.id } }),
+          prisma.user.count({ where: { tenantId: tenant.id } }),
         ]);
 
-      expect({ settings, customers, products, suppliers, documents, documentLines, purchaseReceipts, purchaseReceiptLines, stockMovements, numberLeases }).toEqual({
+      expect({ settings, customers, products, suppliers, documents, documentLines, purchaseReceipts, purchaseReceiptLines, stockMovements, numberLeases, users }).toEqual({
         settings: 0, customers: 0, products: 0, suppliers: 0, documents: 0, documentLines: 0,
-        purchaseReceipts: 0, purchaseReceiptLines: 0, stockMovements: 0, numberLeases: 0,
+        purchaseReceipts: 0, purchaseReceiptLines: 0, stockMovements: 0, numberLeases: 0, users: 0,
       });
 
       await prisma.tenantArchive.deleteMany({ where: { originalTenantId: tenant.id } });
