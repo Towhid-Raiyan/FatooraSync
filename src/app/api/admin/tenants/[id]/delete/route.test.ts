@@ -80,6 +80,7 @@ describe("POST /api/admin/tenants/[id]/delete", () => {
 
   afterAll(async () => {
     await prisma.tenantArchive.deleteMany({ where: { deletedByAgencyStaffId: { in: [ctoId, developerId] } } });
+    await prisma.auditLog.deleteMany({ where: { agencyStaffId: { in: [ctoId, developerId] } } });
     await prisma.agencyStaff.deleteMany({ where: { id: { in: [ctoId, developerId] } } });
     await prisma.$disconnect();
   });
