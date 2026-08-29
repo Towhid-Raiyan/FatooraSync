@@ -509,6 +509,7 @@ git commit -m "Add buildTenantArchive to render the full export zip"
 
 **Files:**
 - Create: `src/lib/tenant-deletion/upload-archive.ts`
+- Test: `src/lib/tenant-deletion/upload-archive.test.ts`
 
 **Interfaces:**
 - Produces: `uploadTenantArchive(tenantId: string, buffer: Buffer): Promise<{ url: string }>` — throws if the upload cannot be verified. Used by Task 6 (the delete route).
@@ -665,6 +666,7 @@ This is the task that wires Tasks 1-5 together into the actual ordered flow.
 **Files:**
 - Create: `src/app/api/admin/tenants/[id]/delete/route.ts`
 - Test: `src/app/api/admin/tenants/[id]/delete/route.test.ts`
+- Modify: `src/lib/admin-auth/audit-actions.ts` (add the `TENANT_DELETED` entry)
 
 **Interfaces:**
 - Consumes: `gatherTenantData` (Task 2), `buildTenantArchive` (Task 3), `uploadTenantArchive` (Task 4), `getAdminSession`/`assertCtoRole` (existing), `AUDIT_ACTIONS`/`writeAuditLog` (existing).
@@ -1682,7 +1684,7 @@ git commit -m "Wire the Delete Client action into the tenant detail page"
 - Modify: `src/app/admin/(protected)/tenants/page.tsx`
 
 **Interfaces:**
-- Consumes: `GET /api/admin/tenants/archived` (Task 7).
+- Consumes: `TenantArchive` (Task 1) directly via a server-component Prisma query — matching this codebase's existing pattern where `/admin/tenants/page.tsx` queries Prisma directly for its initial render rather than calling its own API route. `GET /api/admin/tenants/archived` (Task 7) is not called by this page; it remains standalone API surface satisfying spec §6, exercised only by Task 7's own tests.
 
 - [ ] **Step 1: Create the list component**
 
