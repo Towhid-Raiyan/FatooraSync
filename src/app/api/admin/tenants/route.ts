@@ -79,6 +79,12 @@ export async function POST(request: Request) {
       ownerPassword,
     });
 
+    const matchingArchive = await prisma.tenantArchive.findFirst({
+      where: { vatNumber },
+      select: { id: true, tradeNameEn: true, deletedAt: true },
+      orderBy: { deletedAt: "desc" },
+    });
+
     await writeAuditLog({
       agencyStaffId: session.user.agencyStaffId,
       action: AUDIT_ACTIONS.TENANT_CREATED,
@@ -87,7 +93,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(
-      { id: result.tenant.id, tradeNameEn: result.tenant.tradeNameEn, vatNumber: result.tenant.vatNumber },
+      { id: result.tenant.id, tradeNameEn: result.tenant.tradeNameEn, vatNumber: result.tenant.vatNumber, matchingArchive },
       { status: 201 }
     );
   } catch (err) {

@@ -109,4 +109,49 @@ describe("/api/admin/tenants", () => {
     const body = await response.json();
     expect(body.tenants.some((t: { tradeNameEn: string }) => t.tradeNameEn === "Route Test Shop")).toBe(true);
   });
+
+  it("POST surfaces a matching archived tenant by VAT number without blocking creation", { timeout: 30000 }, async () => {
+    const staff = await prisma.agencyStaff.create({ data: { email: `vat-match-${Date.now()}@test.local`, passwordHash: "x", role: "CTO" } });
+    const archive = await prisma.tenantArchive.create({
+      data: {
+        originalTenantId: "orig-vat-match", legalName: "Previously Deleted Co", tradeNameEn: "Previously Deleted Shop",
+        vatNumber: "300000000000770", joinedAt: new Date("2025-01-01"), deletedByAgencyStaffId: staff.id,
+        receiptCount: 0, quotationCount: 0, archiveUrl: "https://example.com/x.zip",
+      },
+    });
+    try {
+      const request = new Request("http://localhost/api/admin/tenants", {
+        method: "POST",
+        body: JSON.stringify({
+          legalName: "New Owner Co", tradeNameEn: "New Owner Shop", vatNumber: "300000000000770",
+          ownerEmail: `rejoin-${Date.now()}@test.local`, ownerPassword: "Password123!",
+        }),
+      });
+      const response = await POST(request);
+      expect(response.status).toBe(201);
+      const body = await response.json();
+      expect(body.matchingArchive?.id).toBe(archive.id);
+
+      await prisma.tenant.delete({ where: { id: body.id } });
+    } finally {
+      await prisma.tenantArchive.delete({ where: { id: archive.id } });
+      await prisma.agencyStaff.delete({ where: { id: staff.id } });
+    }
+  });
+
+  it("POST leaves matchingArchive null for a VAT number with no archived match", { timeout: 30000 }, async () => {
+    const request = new Request("http://localhost/api/admin/tenants", {
+      method: "POST",
+      body: JSON.stringify({
+        legalName: "Brand New Co", tradeNameEn: "Brand New Shop", vatNumber: "300000000000824",
+        ownerEmail: `brand-new-${Date.now()}@test.local`, ownerPassword: "Password123!",
+      }),
+    });
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.matchingArchive).toBeNull();
+
+    await prisma.tenant.delete({ where: { id: body.id } });
+  });
 });
