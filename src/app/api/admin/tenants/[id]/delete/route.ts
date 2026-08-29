@@ -47,27 +47,35 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: `Could not export tenant data: ${message}` }, { status: 500 });
   }
 
-  const archive = await prisma.tenantArchive.create({
-    data: {
-      originalTenantId: id,
-      legalName: tenant.legalName,
-      tradeNameEn: tenant.tradeNameEn,
-      tradeNameAr: tenant.tradeNameAr,
-      vatNumber: tenant.vatNumber,
-      crNumber: tenant.crNumber,
-      phone: tenant.phone,
-      address: tenant.address,
-      joinedAt: tenant.createdAt,
-      deletedByAgencyStaffId: session.user.agencyStaffId,
-      receiptCount: summary.receiptCount,
-      quotationCount: summary.quotationCount,
-      earliestDocumentAt: summary.earliestDocumentAt,
-      latestDocumentAt: summary.latestDocumentAt,
-      archiveUrl,
-    },
-  });
-
-  await prisma.tenant.delete({ where: { id } });
+  // The tombstone write and the tenant delete must succeed or fail together --
+  // otherwise a transient failure on the delete after the archive already
+  // exists would leave an inconsistent state (an archive claiming the tenant
+  // was deleted while the live tenant and its data still exist), and since
+  // TenantArchive.originalTenantId has no uniqueness constraint, a retry
+  // would create a second archive row for the same tenant. Same pattern as
+  // src/app/api/admin/tenants/[id]/route.ts's own two-write transaction.
+  const [archive] = await prisma.$transaction([
+    prisma.tenantArchive.create({
+      data: {
+        originalTenantId: id,
+        legalName: tenant.legalName,
+        tradeNameEn: tenant.tradeNameEn,
+        tradeNameAr: tenant.tradeNameAr,
+        vatNumber: tenant.vatNumber,
+        crNumber: tenant.crNumber,
+        phone: tenant.phone,
+        address: tenant.address,
+        joinedAt: tenant.createdAt,
+        deletedByAgencyStaffId: session.user.agencyStaffId,
+        receiptCount: summary.receiptCount,
+        quotationCount: summary.quotationCount,
+        earliestDocumentAt: summary.earliestDocumentAt,
+        latestDocumentAt: summary.latestDocumentAt,
+        archiveUrl,
+      },
+    }),
+    prisma.tenant.delete({ where: { id } }),
+  ]);
 
   await writeAuditLog({
     agencyStaffId: session.user.agencyStaffId,
