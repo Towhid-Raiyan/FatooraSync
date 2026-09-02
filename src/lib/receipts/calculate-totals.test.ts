@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { round2, round3, calculateLine, calculateDocumentTotals, deriveUnitPriceFromTotal } from "./calculate-totals";
+import { round2, round3, calculateLine, calculateDocumentTotals, calculateLineFromTotal } from "./calculate-totals";
 
 describe("round2", () => {
   it("rounds to 2 decimal places", () => {
@@ -61,74 +61,75 @@ describe("calculateDocumentTotals", () => {
   });
 });
 
-describe("deriveUnitPriceFromTotal", () => {
-  it("is the exact inverse of calculateLine for a round-trip with no discount", () => {
-    const { lineTotal } = calculateLine({ unitPrice: 80, quantity: 1, vatRate: 15, discount: 0 });
-    expect(lineTotal).toBe(92);
-    const unitPrice = deriveUnitPriceFromTotal({ lineTotal: 92, quantity: 1, discount: 0, vatRate: 15 });
-    expect(unitPrice).toBe(80);
+describe("calculateLineFromTotal", () => {
+  it("reproduces the client-reported bug case exactly: 3 units, 15% VAT, target 12.00", () => {
+    // The reported bug: calculateLine's chained rounding (raw subtotal rounded,
+    // then VAT rounded from that already-rounded subtotal) has a genuine gap at
+    // this quantity/rate -- no unit price, at any precision, forward-computes to
+    // exactly 12.00 through that pipeline (the nearest reachable totals are 11.99
+    // and 12.01). calculateLineFromTotal sidesteps the gap entirely by treating
+    // the typed total as the fixed anchor instead of something to reconstruct.
+    const result = calculateLineFromTotal({ lineTotal: 12, quantity: 3, discount: 0, vatRate: 15 });
+    expect(result.lineTotal).toBe(12);
+    expect(result.lineSubtotal).toBe(10.43);
+    expect(result.lineVat).toBe(1.57);
+    expect(round2(result.lineSubtotal + result.lineVat)).toBe(12);
   });
 
-  it("accounts for discount and quantity together", () => {
-    // target total 51.75, qty 2, discount 5, vat 15% -> subtotal 45, raw subtotal 50, unit price 25
-    const unitPrice = deriveUnitPriceFromTotal({ lineTotal: 51.75, quantity: 2, discount: 5, vatRate: 15 });
-    expect(unitPrice).toBe(25);
-  });
-
-  it("clamps to zero instead of returning a negative unit price", () => {
-    // a negative target total isn't something a validated caller should ever pass,
-    // but the pure function still shouldn't hand back a negative price for one
-    const unitPrice = deriveUnitPriceFromTotal({ lineTotal: -10, quantity: 1, discount: 0, vatRate: 15 });
-    expect(unitPrice).toBe(0);
-  });
-
-  it("returns zero for a zero or negative quantity rather than dividing by it", () => {
-    expect(deriveUnitPriceFromTotal({ lineTotal: 100, quantity: 0, discount: 0, vatRate: 15 })).toBe(0);
-  });
-
-  it("round-trips to the exact target total when a cent-precision price achieving it exists", () => {
-    // qty 4, price 25.00 -> raw subtotal 100 -> vat 15 -> total 115, all exact
-    // divisions with no rounding along the way, so this target IS exactly
-    // achievable (unlike some quantity/total combinations, where chained
-    // rounding in calculateLine means no cent-precision price reproduces the
-    // target exactly -- see the next test for that case).
-    const unitPrice = deriveUnitPriceFromTotal({ lineTotal: 115, quantity: 4, discount: 0, vatRate: 15 });
-    expect(unitPrice).toBe(25);
-    const { lineTotal: reproduced } = calculateLine({ unitPrice, quantity: 4, vatRate: 15, discount: 0 });
-    expect(reproduced).toBe(115);
-  });
-
-  it("finds a unit price no worse than any other thousandth-precision candidate nearby, even when no price reproduces the target exactly", () => {
-    // Chained rounding in calculateLine (raw subtotal, discounted subtotal, VAT)
-    // means some totals simply aren't reachable by any thousandth-precision price
-    // at a given quantity. What the nearest-thousandth search guarantees isn't
-    // universal exactness, but that no other candidate in its search window does
-    // strictly better.
-    for (const quantity of [3, 6, 7]) {
-      for (const lineTotal of [100, 50, 33, 25]) {
-        const unitPrice = deriveUnitPriceFromTotal({ lineTotal, quantity, discount: 0, vatRate: 15 });
-        const achievedDiff = Math.abs(
-          calculateLine({ unitPrice, quantity, vatRate: 15, discount: 0 }).lineTotal - lineTotal
-        );
-        for (let thousandths = -20; thousandths <= 20; thousandths++) {
-          const candidate = round3(unitPrice + thousandths / 1000);
-          if (candidate < 0) continue;
-          const candidateDiff = Math.abs(
-            calculateLine({ unitPrice: candidate, quantity, vatRate: 15, discount: 0 }).lineTotal - lineTotal
-          );
-          expect(candidateDiff).toBeGreaterThanOrEqual(achievedDiff);
-        }
+  it("is exact for every quantity/total combination that defeated the old back-solve approach", () => {
+    // Same sweep the old deriveUnitPriceFromTotal test used to document as
+    // "not always exact" -- this function must be exact for all of them, by
+    // construction, since it never rounds a subtotal and then multiplies back up.
+    for (const quantity of [3, 5, 6, 7]) {
+      for (const lineTotal of [100, 75, 50, 33, 25, 12]) {
+        const result = calculateLineFromTotal({ lineTotal, quantity, discount: 0, vatRate: 15 });
+        expect(result.lineTotal).toBe(lineTotal);
+        expect(round2(result.lineSubtotal + result.lineVat)).toBe(lineTotal);
       }
     }
   });
 
-  it("round-trips exactly at 5 units / 75.00 target / 15% VAT, which no 2dp unit price can reproduce", () => {
-    // The motivating bug: at cent precision the best candidate (13.04) forward-
-    // computes to 74.98, a 2-cent gap. A thousandth-precision price (13.043)
-    // closes it exactly.
-    const unitPrice = deriveUnitPriceFromTotal({ lineTotal: 75, quantity: 5, discount: 0, vatRate: 15 });
-    expect(unitPrice).toBe(13.043);
-    const { lineTotal: reproduced } = calculateLine({ unitPrice, quantity: 5, vatRate: 15, discount: 0 });
-    expect(reproduced).toBe(75);
+  it("matches calculateLine's plain-division result when the target is exactly achievable", () => {
+    // qty 4, price 25.00 -> subtotal 100, vat 15, total 115 -- no rounding drift
+    // possible either direction, so both formulas must agree.
+    const forward = calculateLine({ unitPrice: 25, quantity: 4, vatRate: 15, discount: 0 });
+    const fromTotal = calculateLineFromTotal({ lineTotal: 115, quantity: 4, discount: 0, vatRate: 15 });
+    expect(fromTotal.lineSubtotal).toBe(forward.lineSubtotal);
+    expect(fromTotal.lineVat).toBe(forward.lineVat);
+    expect(fromTotal.lineTotal).toBe(115);
+    expect(fromTotal.unitPrice).toBe(25);
+  });
+
+  it("accounts for a flat discount when deriving the informational unit price", () => {
+    // target total 51.75, qty 2, discount 5, vat 15% -> subtotal 45, vat 6.75,
+    // raw (pre-discount) subtotal 50, unit price 25
+    const result = calculateLineFromTotal({ lineTotal: 51.75, quantity: 2, discount: 5, vatRate: 15 });
+    expect(result.lineSubtotal).toBe(45);
+    expect(result.lineVat).toBe(6.75);
+    expect(result.lineTotal).toBe(51.75);
+    expect(result.unitPrice).toBe(25);
+  });
+
+  it("handles a zero-VAT (exempt) line", () => {
+    const result = calculateLineFromTotal({ lineTotal: 30, quantity: 3, discount: 0, vatRate: 0 });
+    expect(result).toEqual({ lineSubtotal: 30, lineVat: 0, lineTotal: 30, unitPrice: 10 });
+  });
+
+  it("returns a zero unit price for a zero or negative quantity rather than dividing by it", () => {
+    const result = calculateLineFromTotal({ lineTotal: 100, quantity: 0, discount: 0, vatRate: 15 });
+    expect(result.unitPrice).toBe(0);
+    // lineSubtotal/lineVat are still well-defined at qty 0 -- only unitPrice, a
+    // per-unit derivation, is meaningless and floored instead of divided by zero.
+    expect(round2(result.lineSubtotal + result.lineVat)).toBe(100);
+  });
+
+  it("floors at zero instead of returning a negative subtotal for a negative target total", () => {
+    // Not something a validated caller should ever pass, but the pure function
+    // still shouldn't hand back negative money for one.
+    const result = calculateLineFromTotal({ lineTotal: -10, quantity: 1, discount: 0, vatRate: 15 });
+    expect(result.lineTotal).toBe(0);
+    expect(result.lineSubtotal).toBe(0);
+    expect(result.lineVat).toBe(0);
+    expect(result.unitPrice).toBe(0);
   });
 });

@@ -62,6 +62,10 @@ export interface PendingLine {
   quantity: number;
   discount: number;
   unitPrice: number;
+  // Present only when the cashier typed this line's Total directly rather than
+  // its Unit Price -- see calculateLineFromTotal in calculate-totals.ts for why
+  // that can't always be losslessly represented as just a different unitPrice.
+  lineTotal?: number;
 }
 
 export interface PendingDocument {

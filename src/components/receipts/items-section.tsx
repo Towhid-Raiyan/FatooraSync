@@ -34,6 +34,16 @@ export interface ReceiptLine {
   discount: string;
   vatRate: string | null;
   stockAtAdd: string;
+  // Set when the cashier last edited this line's Total directly rather than its
+  // Unit Price. The typed total is the source of truth for this line's
+  // subtotal/VAT/total (see calculateLineFromTotal) instead of being re-derived
+  // by forward-computing from `unitPrice` -- some quantity/VAT-rate/total
+  // combinations have no unit price whose forward computation reproduces the
+  // target exactly, so trusting the typed total directly is the only way to
+  // honor it. Cleared by any edit to quantity, discount, or unit price, since
+  // the total was only ever a snapshot for the values that were in effect when
+  // it was typed, not a durable pin that should hold at a different quantity.
+  totalOverride: string | null;
 }
 
 interface ItemsSectionProps {
@@ -168,10 +178,8 @@ export function ItemsSection({
 
   // Only commits if the draft actually differs from what the field was seeded
   // with on focus. Without this check, simply tabbing through a Total cell with
-  // no edit still round-trips through the back-calculation -- and because
-  // `deriveUnitPriceFromTotal` inverts continuous-math while `calculateLine`
-  // rounds at several points, a no-op focus/blur could silently nudge the unit
-  // price by a cent on fractional quantities.
+  // no edit would still set `totalOverride` and clear the line's un-pinned
+  // (unit-price-driven) state on a plain no-op focus/blur.
   function commitTotalDraft(key: string, seededValue: string) {
     const draft = totalDrafts[key];
     if (draft !== undefined && draft !== seededValue) {

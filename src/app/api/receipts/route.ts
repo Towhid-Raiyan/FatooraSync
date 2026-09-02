@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/client";
-import { round2, round3, calculateLine, calculateDocumentTotals } from "@/lib/receipts/calculate-totals";
+import { round2, round3, calculateLine, calculateLineFromTotal, calculateDocumentTotals } from "@/lib/receipts/calculate-totals";
 import { computeInvoiceHash, GENESIS_HASH } from "@/lib/zatca/hash-chain";
 import { buildZatcaQrPayload } from "@/lib/zatca/qr-payload";
 import { withTenant } from "@/lib/db/tenant-context";
@@ -24,6 +24,7 @@ interface RawLine {
   quantity?: unknown;
   discount?: unknown;
   unitPrice?: unknown;
+  lineTotal?: unknown;
 }
 
 // The creation timestamp for a save. Normally (the online path) this is simply
@@ -70,6 +71,7 @@ export async function POST(request: Request) {
     quantity: number;
     discount: number;
     unitPriceOverride: number | null;
+    lineTotalOverride: number | null;
   }[] = [];
   for (const line of rawLines) {
     const quantity = Number(line.quantity);
@@ -88,6 +90,13 @@ export async function POST(request: Request) {
     // save a different amount than what was shown on screen before saving.
     const unitPriceOverride =
       line.unitPrice === undefined || line.unitPrice === null ? null : round3(Number(line.unitPrice));
+    // `lineTotal` is the same trust exception, one level up: present only when the
+    // cashier typed this line's Total directly rather than its Unit Price. When
+    // present it takes priority over `unitPriceOverride` below -- see
+    // calculateLineFromTotal in calculate-totals.ts for why a typed total can't
+    // always be losslessly represented as just a different unit price.
+    const lineTotalOverride =
+      line.lineTotal === undefined || line.lineTotal === null ? null : round2(Number(line.lineTotal));
     if (typeof line.productId !== "string" || !Number.isFinite(quantity) || quantity <= 0) {
       return NextResponse.json({ error: "Each item must have a positive quantity" }, { status: 400 });
     }
@@ -97,7 +106,10 @@ export async function POST(request: Request) {
     if (unitPriceOverride !== null && (!Number.isFinite(unitPriceOverride) || unitPriceOverride < 0)) {
       return NextResponse.json({ error: "Unit price must be zero or more" }, { status: 400 });
     }
-    parsedLines.push({ productId: line.productId, quantity, discount, unitPriceOverride });
+    if (lineTotalOverride !== null && (!Number.isFinite(lineTotalOverride) || lineTotalOverride < 0)) {
+      return NextResponse.json({ error: "Total must be zero or more" }, { status: 400 });
+    }
+    parsedLines.push({ productId: line.productId, quantity, discount, unitPriceOverride, lineTotalOverride });
   }
 
   // Customer: a flat { name, vatId, crNumber, phone, address } draft, not a
@@ -158,11 +170,11 @@ export async function POST(request: Request) {
 
       // Trust boundary: `productName` and `vatRate` are always the server's own fresh
       // read of the product/settings -- never anything from the request body. `unitPrice`
-      // is the deliberate exception: a cashier is allowed to override a line's price at
-      // the point of sale (e.g. a manual discount negotiated in person), so a
-      // client-supplied value is honored here instead of being discarded. What still
-      // can't happen is the client picking which *product* or *tax rate* applies --
-      // those are always resolved from this fresh, tenant-scoped read.
+      // (and, one level up, `lineTotal`) are the deliberate exception: a cashier is
+      // allowed to override a line's price -- or its total outright -- at the point of
+      // sale, so a client-supplied value is honored here instead of being discarded.
+      // What still can't happen is the client picking which *product* or *tax rate*
+      // applies -- those are always resolved from this fresh, tenant-scoped read.
       for (const line of parsedLines) {
         const product = await txn.product.findFirst({
           where: { id: line.productId, tenantId, isActive: true },
@@ -170,18 +182,36 @@ export async function POST(request: Request) {
         if (!product) {
           throw new ReceiptError("One or more items are no longer available", 400);
         }
-        const unitPrice = line.unitPriceOverride ?? Number(product.unitPrice);
-        const rawSubtotal = round2(unitPrice * line.quantity);
-        if (line.discount > rawSubtotal) {
-          throw new ReceiptError("Discount cannot exceed the item's subtotal", 400);
-        }
         const vatRate = product.vatRate !== null ? Number(product.vatRate) : Number(settings.defaultVatRate);
-        const { lineSubtotal, lineVat, lineTotal } = calculateLine({
-          unitPrice,
-          quantity: line.quantity,
-          vatRate,
-          discount: line.discount,
-        });
+
+        let unitPrice: number;
+        let lineSubtotal: number;
+        let lineVat: number;
+        let lineTotal: number;
+        if (line.lineTotalOverride !== null) {
+          // Total-anchored: the discount-exceeds-subtotal check below doesn't apply
+          // here -- the total is fixed regardless of discount, and there is no raw
+          // (pre-discount) subtotal to compare against without first deriving one
+          // from the very total this branch treats as authoritative.
+          ({ unitPrice, lineSubtotal, lineVat, lineTotal } = calculateLineFromTotal({
+            lineTotal: line.lineTotalOverride,
+            quantity: line.quantity,
+            vatRate,
+            discount: line.discount,
+          }));
+        } else {
+          unitPrice = line.unitPriceOverride ?? Number(product.unitPrice);
+          const rawSubtotal = round2(unitPrice * line.quantity);
+          if (line.discount > rawSubtotal) {
+            throw new ReceiptError("Discount cannot exceed the item's subtotal", 400);
+          }
+          ({ lineSubtotal, lineVat, lineTotal } = calculateLine({
+            unitPrice,
+            quantity: line.quantity,
+            vatRate,
+            discount: line.discount,
+          }));
+        }
         resolvedLines.push({
           productId: product.id,
           productName: product.nameEn,

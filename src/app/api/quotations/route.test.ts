@@ -141,6 +141,58 @@ describe("/api/quotations", () => {
     expect(response.status).toBe(400);
   });
 
+  it("honors a client-supplied lineTotal override exactly, even for a total that has no exact unit-price representation", { timeout: 30000 }, async () => {
+    // Same rounding gap as the receipt save (src/app/api/receipts/route.test.ts,
+    // where the full reasoning lives): 3 units at 15% VAT targeting 12.00 has no
+    // unit price at any precision that forward-computes to exactly 12.00.
+    const response = await POST(
+      postRequest({
+        customer: { name: "", vatId: "" },
+        lines: [{ productId, quantity: "3", lineTotal: "12" }],
+      })
+    );
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.lines[0].lineSubtotal).toBe("10.43");
+    expect(body.lines[0].lineVat).toBe("1.57");
+    expect(body.lines[0].lineTotal).toBe("12");
+    expect(body.grandTotal).toBe("12");
+  });
+
+  it("returns 400 for a negative lineTotal override", { timeout: 30000 }, async () => {
+    const response = await POST(
+      postRequest({
+        customer: { name: "", vatId: "" },
+        lines: [{ productId, quantity: "1", lineTotal: "-5" }],
+      })
+    );
+    expect(response.status).toBe(400);
+  });
+
+  it("prioritizes lineTotal over unitPrice when both are present in the request", { timeout: 30000 }, async () => {
+    const response = await POST(
+      postRequest({
+        customer: { name: "", vatId: "" },
+        lines: [{ productId, quantity: "3", unitPrice: "999", lineTotal: "12" }],
+      })
+    );
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.lines[0].lineTotal).toBe("12");
+  });
+
+  it("does not apply the discount-exceeds-subtotal check to a lineTotal-anchored line", { timeout: 30000 }, async () => {
+    const response = await POST(
+      postRequest({
+        customer: { name: "", vatId: "" },
+        lines: [{ productId, quantity: "1", lineTotal: "12", discount: "999" }],
+      })
+    );
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.lines[0].lineTotal).toBe("12");
+  });
+
   it("returns 401 when unauthenticated", { timeout: 30000 }, async () => {
     mockSession = null;
     try {

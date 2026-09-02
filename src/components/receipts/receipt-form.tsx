@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import { PrintModal } from "@/components/documents/print-modal";
 import type { SerializedProduct } from "@/components/products/products-client";
-import { round3, calculateLine, calculateDocumentTotals, deriveUnitPriceFromTotal } from "@/lib/receipts/calculate-totals";
+import { round3, calculateLine, calculateLineFromTotal, calculateDocumentTotals } from "@/lib/receipts/calculate-totals";
 import { formatQuotationNumber } from "@/lib/quotations/quotation-number";
 import { issueNumber } from "@/lib/offline/lease-store";
 import { enqueuePending } from "@/lib/offline/outbox";
@@ -48,7 +48,7 @@ interface ReceiptFormProps {
 
 interface ReceiptPayload {
   customer: CustomerDraft;
-  lines: { productId: string; quantity: string; discount: string; unitPrice: string }[];
+  lines: { productId: string; quantity: string; discount: string; unitPrice: string; lineTotal?: string }[];
   notes: string;
 }
 
@@ -80,15 +80,27 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
   // a manually-typed sub-thousandth price would otherwise feed an unrounded value
   // into `calculateLine` on screen but a rounded one on save, producing two
   // different totals for the same typed input.
+  //
+  // A line with `totalOverride` set uses `calculateLineFromTotal` instead --
+  // trusting the typed total exactly rather than re-deriving it by forward-
+  // computing from `unitPrice`, which for some quantity/VAT-rate/total
+  // combinations can never reproduce the exact target (see calculate-totals.ts).
   const lineTotals = useMemo(
     () =>
       lines.map((line) =>
-        calculateLine({
-          unitPrice: round3(Number(line.unitPrice)),
-          quantity: Number(line.quantity),
-          vatRate: Number(line.vatRate ?? defaultVatRate),
-          discount: Number(line.discount),
-        })
+        line.totalOverride !== null
+          ? calculateLineFromTotal({
+              lineTotal: Number(line.totalOverride),
+              quantity: Number(line.quantity),
+              vatRate: Number(line.vatRate ?? defaultVatRate),
+              discount: Number(line.discount),
+            })
+          : calculateLine({
+              unitPrice: round3(Number(line.unitPrice)),
+              quantity: Number(line.quantity),
+              vatRate: Number(line.vatRate ?? defaultVatRate),
+              discount: Number(line.discount),
+            })
       ),
     [lines, defaultVatRate]
   );
@@ -120,6 +132,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
           discount: "0",
           vatRate: product.vatRate,
           stockAtAdd: product.quantity,
+          totalOverride: null,
         },
       ];
     });
@@ -172,6 +185,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
               discount: line.discount,
               vatRate: line.vatRate,
               stockAtAdd: line.stockAtAdd,
+              totalOverride: null,
             });
           }
         }
@@ -192,18 +206,23 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
 
   // The cashier can override a line's Unit Price directly -- a manual price at the
   // point of sale (see the trust-boundary note in route.ts). This is a plain
-  // forward-direction edit, same as quantity/discount.
+  // forward-direction edit, same as quantity/discount -- and it un-pins any Total
+  // that was previously typed for this line, reverting to normal unit-price-driven
+  // computation.
   function handleUnitPriceChange(key: string, unitPrice: string) {
-    setLines((prev) => prev.map((line) => (line.key === key ? { ...line, unitPrice } : line)));
+    setLines((prev) => prev.map((line) => (line.key === key ? { ...line, unitPrice, totalOverride: null } : line)));
   }
 
-  // Editing Total is the reverse direction: back-solve the Unit Price that would
-  // produce the typed total, holding quantity/discount/VAT fixed, using the same
-  // pure function the totals math itself is built on. A genuinely unparsable or
-  // negative total is ignored -- the line keeps its last valid price rather than
-  // being corrupted by a stray edit. A cleared field parses as `0`, same as
-  // Unit Price, and is honored as an explicit zero rather than being ignored --
-  // it's indistinguishable from deliberately typing "0".
+  // Editing Total pins this line's subtotal/VAT/total to the typed value exactly
+  // (calculateLineFromTotal, in the `lineTotals` useMemo above) instead of trying
+  // to back-solve a unit price that would reproduce it -- for some quantity/VAT-
+  // rate/total combinations no such unit price exists at any precision (see
+  // calculate-totals.ts). `unitPrice` is still updated here, to the total's own
+  // derived value, purely so the Price column doesn't show a stale number. A
+  // genuinely unparsable or negative total is ignored -- the line keeps its last
+  // valid state rather than being corrupted by a stray edit. A cleared field
+  // parses as `0`, same as Unit Price, and is honored as an explicit zero rather
+  // than being ignored -- it's indistinguishable from deliberately typing "0".
   function handleTotalChange(key: string, rawTotal: string) {
     const newTotal = Number(rawTotal);
     if (!Number.isFinite(newTotal) || newTotal < 0) return;
@@ -213,13 +232,13 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
         const quantity = Number(line.quantity);
         if (!(quantity > 0)) return line;
         const vatRate = Number(line.vatRate ?? defaultVatRate);
-        const unitPrice = deriveUnitPriceFromTotal({
+        const { unitPrice } = calculateLineFromTotal({
           lineTotal: newTotal,
           quantity,
           discount: Number(line.discount),
           vatRate,
         });
-        return { ...line, unitPrice: unitPrice.toFixed(3) };
+        return { ...line, unitPrice: unitPrice.toFixed(3), totalOverride: rawTotal };
       })
     );
   }
@@ -246,6 +265,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
         quantity: line.quantity,
         discount: line.discount,
         unitPrice: line.unitPrice,
+        ...(line.totalOverride !== null ? { lineTotal: line.totalOverride } : {}),
       })),
       notes,
     };
@@ -342,17 +362,19 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
       const uuid = crypto.randomUUID();
       const createdAt = new Date().toISOString();
 
-      // Resolved with the same round3 + calculateLine + VAT-resolution the server
-      // itself applies (src/app/api/receipts/route.ts), so the receipt printed now
-      // from local data and the one the server writes when this replays carry
-      // identical totals.
+      // Resolved with the same round3 + calculateLine/calculateLineFromTotal +
+      // VAT-resolution the server itself applies (src/app/api/receipts/route.ts),
+      // so the receipt printed now from local data and the one the server writes
+      // when this replays carry identical totals.
       const resolvedLines: OfflineResolvedLine[] = payload.lines.map((line) => {
         const product = products.find((p) => p.id === line.productId);
-        const unitPrice = round3(Number(line.unitPrice));
         const quantity = Number(line.quantity);
         const discount = Number(line.discount || 0);
         const vatRate = product?.vatRate != null ? Number(product.vatRate) : Number(defaultVatRate);
-        const { lineSubtotal, lineVat, lineTotal } = calculateLine({ unitPrice, quantity, vatRate, discount });
+        const { lineSubtotal, lineVat, lineTotal } =
+          line.lineTotal !== undefined
+            ? calculateLineFromTotal({ lineTotal: Number(line.lineTotal), quantity, vatRate, discount })
+            : calculateLine({ unitPrice: round3(Number(line.unitPrice)), quantity, vatRate, discount });
         return {
           id: line.productId,
           productName: product?.nameEn ?? "",
@@ -380,6 +402,7 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
           quantity: Number(line.quantity),
           discount: Number(line.discount || 0),
           unitPrice: Number(line.unitPrice),
+          ...(line.lineTotal !== undefined ? { lineTotal: Number(line.lineTotal) } : {}),
         })),
         notes: payload.notes,
         createdAt,
@@ -435,11 +458,11 @@ export function ReceiptForm({ initialCustomers, initialProducts, defaultVatRate 
           onAddLine={addLine}
           onRemoveLine={(key) => setLines((prev) => prev.filter((l) => l.key !== key))}
           onQuantityChange={(key, quantity) =>
-            setLines((prev) => prev.map((l) => (l.key === key ? { ...l, quantity } : l)))
+            setLines((prev) => prev.map((l) => (l.key === key ? { ...l, quantity, totalOverride: null } : l)))
           }
           onUnitPriceChange={handleUnitPriceChange}
           onDiscountChange={(key, discount) =>
-            setLines((prev) => prev.map((l) => (l.key === key ? { ...l, discount } : l)))
+            setLines((prev) => prev.map((l) => (l.key === key ? { ...l, discount, totalOverride: null } : l)))
           }
           onTotalChange={handleTotalChange}
           onOpenQuickCreate={() => setQuickCreateOpen(true)}

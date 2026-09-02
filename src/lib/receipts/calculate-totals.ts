@@ -51,51 +51,39 @@ export function calculateDocumentTotals(lines: LineTotals[]): DocumentTotals {
   return { subtotal, vatTotal, grandTotal };
 }
 
-export interface UnitPriceFromTotalInput {
+export interface LineFromTotalInput {
   lineTotal: number;
   quantity: number;
   discount: number;
   vatRate: number;
 }
 
-// Inverse of calculateLine: given a target lineTotal (the cashier typed a total
-// directly instead of a unit price), back-solve for the unit price that would
-// produce it, holding quantity/discount/vatRate fixed. Clamped to zero -- a
-// target total low enough to imply a negative unit price is not representable,
-// so it's floored rather than propagated as a negative price.
-export function deriveUnitPriceFromTotal(input: UnitPriceFromTotalInput): number {
-  if (!(input.quantity > 0)) return 0;
-  const lineSubtotal = input.lineTotal / (1 + input.vatRate / 100);
-  const rawSubtotal = lineSubtotal + input.discount;
-  const estimate = round3(Math.max(0, rawSubtotal / input.quantity));
-
-  // The algebra above is exact in continuous math, but `calculateLine` rounds at
-  // three separate points (raw subtotal, discounted subtotal, VAT), so forward-
-  // calculating from the algebraic estimate doesn't always reproduce the exact
-  // target total. Search a small neighborhood of thousandths-precision candidates
-  // around the estimate for the one whose forward calculation comes closest --
-  // this keeps the function a true (nearest-thousandth) inverse of `calculateLine`
-  // rather than just its continuous-math approximation.
-  let best = estimate;
-  let bestDiff = Math.abs(forwardTotal(estimate, input) - input.lineTotal);
-  for (let thousandths = -5; thousandths <= 5; thousandths++) {
-    if (thousandths === 0) continue;
-    const candidate = round3(estimate + thousandths / 1000);
-    if (candidate < 0) continue;
-    const diff = Math.abs(forwardTotal(candidate, input) - input.lineTotal);
-    if (diff < bestDiff) {
-      bestDiff = diff;
-      best = candidate;
-    }
-  }
-  return best;
+export interface LineTotalsFromTotal extends LineTotals {
+  unitPrice: number;
 }
 
-function forwardTotal(unitPrice: number, input: UnitPriceFromTotalInput): number {
-  return calculateLine({
-    unitPrice,
-    quantity: input.quantity,
-    vatRate: input.vatRate,
-    discount: input.discount,
-  }).lineTotal;
+// For a line where the cashier typed a Total directly instead of a unit price.
+// `calculateLine` computes subtotal-first: round the raw subtotal, then round
+// VAT from that already-rounded subtotal, then sum. That direction has genuine
+// gaps -- for some quantity/VAT-rate/total combinations, NO unit price at any
+// precision forward-computes through that pipeline to hit an exact target total
+// (e.g. 3 units at 15% VAT: the reachable totals near 12.00 are 11.99 and
+// 12.01, skipping 12.00 entirely, because the subtotal's own rounding already
+// commits to a value whose VAT can never land on the missing cent). No amount
+// of back-solving the unit price can close a gap that isn't about precision.
+//
+// This function sidesteps the gap by anchoring on the total instead: the typed
+// value is trusted exactly (it's already 2dp), the subtotal is derived from it
+// by simple division, and VAT is computed as the *remainder* against the fixed
+// total rather than independently rounded -- so lineSubtotal + lineVat always
+// equals lineTotal exactly, for any quantity or VAT rate, by construction. The
+// returned `unitPrice` is purely informational (for the Price column and for
+// storage/reporting); it does not need to forward-reproduce the total, because
+// for this line the total/subtotal/VAT are the source of truth, not the price.
+export function calculateLineFromTotal(input: LineFromTotalInput): LineTotalsFromTotal {
+  const lineTotal = Math.max(0, round2(input.lineTotal));
+  const lineSubtotal = round2(lineTotal / (1 + input.vatRate / 100));
+  const lineVat = round2(lineTotal - lineSubtotal);
+  const unitPrice = input.quantity > 0 ? round3((lineSubtotal + input.discount) / input.quantity) : 0;
+  return { lineSubtotal, lineVat, lineTotal, unitPrice };
 }

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/client";
-import { round2, round3, calculateLine, calculateDocumentTotals } from "@/lib/receipts/calculate-totals";
+import { round2, round3, calculateLine, calculateLineFromTotal, calculateDocumentTotals } from "@/lib/receipts/calculate-totals";
 import { withTenant } from "@/lib/db/tenant-context";
 import { PAGE_SIZE } from "@/lib/receipts/constants";
 import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
@@ -21,6 +21,7 @@ interface RawLine {
   quantity?: unknown;
   discount?: unknown;
   unitPrice?: unknown;
+  lineTotal?: unknown;
 }
 
 // Same rule as the receipt save (src/app/api/receipts/route.ts, where the full
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
     quantity: number;
     discount: number;
     unitPriceOverride: number | null;
+    lineTotalOverride: number | null;
   }[] = [];
   for (const line of rawLines) {
     const quantity = Number(line.quantity);
@@ -71,6 +73,10 @@ export async function POST(request: Request) {
     // productName/vatRate are always the server's own fresh read.
     const unitPriceOverride =
       line.unitPrice === undefined || line.unitPrice === null ? null : round3(Number(line.unitPrice));
+    // `lineTotal` is the same trust exception, one level up -- see the matching
+    // note in src/app/api/receipts/route.ts.
+    const lineTotalOverride =
+      line.lineTotal === undefined || line.lineTotal === null ? null : round2(Number(line.lineTotal));
     if (typeof line.productId !== "string" || !Number.isFinite(quantity) || quantity <= 0) {
       return NextResponse.json({ error: "Each item must have a positive quantity" }, { status: 400 });
     }
@@ -80,7 +86,10 @@ export async function POST(request: Request) {
     if (unitPriceOverride !== null && (!Number.isFinite(unitPriceOverride) || unitPriceOverride < 0)) {
       return NextResponse.json({ error: "Unit price must be zero or more" }, { status: 400 });
     }
-    parsedLines.push({ productId: line.productId, quantity, discount, unitPriceOverride });
+    if (lineTotalOverride !== null && (!Number.isFinite(lineTotalOverride) || lineTotalOverride < 0)) {
+      return NextResponse.json({ error: "Total must be zero or more" }, { status: 400 });
+    }
+    parsedLines.push({ productId: line.productId, quantity, discount, unitPriceOverride, lineTotalOverride });
   }
 
   const customerDraft = body.customer ?? {};
@@ -124,18 +133,34 @@ export async function POST(request: Request) {
         if (!product) {
           throw new QuotationError("One or more items are no longer available", 400);
         }
-        const unitPrice = line.unitPriceOverride ?? Number(product.unitPrice);
-        const rawSubtotal = round2(unitPrice * line.quantity);
-        if (line.discount > rawSubtotal) {
-          throw new QuotationError("Discount cannot exceed the item's subtotal", 400);
-        }
         const vatRate = product.vatRate !== null ? Number(product.vatRate) : Number(settings.defaultVatRate);
-        const { lineSubtotal, lineVat, lineTotal } = calculateLine({
-          unitPrice,
-          quantity: line.quantity,
-          vatRate,
-          discount: line.discount,
-        });
+
+        let unitPrice: number;
+        let lineSubtotal: number;
+        let lineVat: number;
+        let lineTotal: number;
+        if (line.lineTotalOverride !== null) {
+          // Total-anchored -- see the matching note in src/app/api/receipts/route.ts
+          // for why the discount-exceeds-subtotal check doesn't apply here.
+          ({ unitPrice, lineSubtotal, lineVat, lineTotal } = calculateLineFromTotal({
+            lineTotal: line.lineTotalOverride,
+            quantity: line.quantity,
+            vatRate,
+            discount: line.discount,
+          }));
+        } else {
+          unitPrice = line.unitPriceOverride ?? Number(product.unitPrice);
+          const rawSubtotal = round2(unitPrice * line.quantity);
+          if (line.discount > rawSubtotal) {
+            throw new QuotationError("Discount cannot exceed the item's subtotal", 400);
+          }
+          ({ lineSubtotal, lineVat, lineTotal } = calculateLine({
+            unitPrice,
+            quantity: line.quantity,
+            vatRate,
+            discount: line.discount,
+          }));
+        }
         resolvedLines.push({
           productId: product.id,
           productName: product.nameEn,

@@ -209,6 +209,68 @@ describe("/api/receipts", () => {
     expect(body.lines[0].unitPrice).toBe("20");
   });
 
+  it("honors a client-supplied lineTotal override exactly, even for a total that has no exact unit-price representation", { timeout: 30000 }, async () => {
+    // 3 units at 15% VAT targeting 12.00: no unit price at any precision
+    // forward-computes through calculateLine to exactly 12.00 (the reachable
+    // totals nearby are 11.99 and 12.01) -- this is the client-reported bug.
+    // calculateLineFromTotal, used when lineTotal is present, anchors on the
+    // typed total directly instead of trying to reverse-engineer a unit price.
+    const response = await POST(
+      postRequest({
+        customer: { name: "", vatId: "" },
+        lines: [{ productId, quantity: "3", lineTotal: "12" }],
+      })
+    );
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.lines[0].lineSubtotal).toBe("10.43");
+    expect(body.lines[0].lineVat).toBe("1.57");
+    expect(body.lines[0].lineTotal).toBe("12");
+    expect(body.grandTotal).toBe("12");
+  });
+
+  it("returns 400 for a negative lineTotal override", { timeout: 30000 }, async () => {
+    const response = await POST(
+      postRequest({
+        customer: { name: "", vatId: "" },
+        lines: [{ productId, quantity: "1", lineTotal: "-5" }],
+      })
+    );
+    expect(response.status).toBe(400);
+  });
+
+  it("prioritizes lineTotal over unitPrice when both are present in the request", { timeout: 30000 }, async () => {
+    // The client always sends both -- unitPrice as the (purely informational)
+    // derived display price, lineTotal as the pinned truth -- but the server
+    // must trust lineTotal, not silently fall back to the stale unitPrice.
+    const response = await POST(
+      postRequest({
+        customer: { name: "", vatId: "" },
+        lines: [{ productId, quantity: "3", unitPrice: "999", lineTotal: "12" }],
+      })
+    );
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.lines[0].lineTotal).toBe("12");
+  });
+
+  it("does not apply the discount-exceeds-subtotal check to a lineTotal-anchored line", { timeout: 30000 }, async () => {
+    // In unit-price mode a discount this large relative to the price would be
+    // rejected (see the two tests below), but a lineTotal-anchored line has no
+    // raw pre-discount subtotal to compare against -- the total is fixed
+    // regardless of discount, which only affects the derived, informational
+    // unit price.
+    const response = await POST(
+      postRequest({
+        customer: { name: "", vatId: "" },
+        lines: [{ productId, quantity: "1", lineTotal: "12", discount: "999" }],
+      })
+    );
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.lines[0].lineTotal).toBe("12");
+  });
+
   it("checks discount against the overridden price, not the catalog price -- rejecting when the override makes it too small", { timeout: 30000 }, async () => {
     // catalog price is 20 (would allow a discount of 10), but the override drops
     // the effective subtotal to 5, which a 10 discount now exceeds
