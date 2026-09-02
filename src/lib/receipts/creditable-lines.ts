@@ -26,7 +26,7 @@ export async function getCreditableLines(tenantId: string, documentId: string): 
   return withTenant(tenantId, async (tx) => {
     const document = await tx.document.findFirst({
       where: { id: documentId, type: "SALES_RECEIPT" },
-      include: { lines: true },
+      include: { lines: { orderBy: { id: "asc" } } },
     });
     if (!document) return null;
 

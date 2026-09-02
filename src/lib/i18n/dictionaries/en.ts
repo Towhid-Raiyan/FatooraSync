@@ -186,6 +186,20 @@ export const en: Dictionary = {
     total: "Total",
     loadError: "Something went wrong loading quotations",
   },
+  creditNote: {
+    pageTitleWithNumber: (number: number) => `Credit Note for Receipt #${number}`,
+    headers: {
+      product: "Product",
+      originalQty: "Original Qty",
+      alreadyCredited: "Already Credited",
+      remaining: "Remaining",
+      creditQty: "Credit Qty",
+    },
+    noRemainingLines: "Nothing left to credit on this receipt.",
+    addAtLeastOneItem: "Enter a quantity for at least one item.",
+    quantityExceedsRemaining: "Quantity exceeds what's remaining.",
+    submit: "Issue Credit Note",
+  },
   printChrome: {
     print: "Print",
     receiptTitle: "Receipt",

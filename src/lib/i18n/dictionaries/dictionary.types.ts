@@ -184,6 +184,20 @@ export interface Dictionary {
     total: string;
     loadError: string;
   };
+  creditNote: {
+    pageTitleWithNumber: (number: number) => string;
+    headers: {
+      product: string;
+      originalQty: string;
+      alreadyCredited: string;
+      remaining: string;
+      creditQty: string;
+    };
+    noRemainingLines: string;
+    addAtLeastOneItem: string;
+    quantityExceedsRemaining: string;
+    submit: string;
+  };
   printChrome: {
     print: string;
     receiptTitle: string;

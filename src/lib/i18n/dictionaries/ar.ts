@@ -186,6 +186,20 @@ export const ar: Dictionary = {
     total: "الإجمالي",
     loadError: "حدث خطأ أثناء تحميل عروض الأسعار",
   },
+  creditNote: {
+    pageTitleWithNumber: (number: number) => `إشعار دائن للفاتورة رقم ${number}`,
+    headers: {
+      product: "المنتج",
+      originalQty: "الكمية الأصلية",
+      alreadyCredited: "تم إرجاعه سابقًا",
+      remaining: "المتبقي",
+      creditQty: "الكمية المرتجعة",
+    },
+    noRemainingLines: "لا توجد عناصر متاحة للإرجاع في هذه الفاتورة.",
+    addAtLeastOneItem: "أدخل كمية لعنصر واحد على الأقل.",
+    quantityExceedsRemaining: "الكمية تتجاوز المتبقي.",
+    submit: "إصدار إشعار الدائن",
+  },
   printChrome: {
     print: "طباعة",
     receiptTitle: "فاتورة",
