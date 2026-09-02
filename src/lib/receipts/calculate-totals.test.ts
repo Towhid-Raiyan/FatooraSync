@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { round2, round3, calculateLine, calculateDocumentTotals, calculateLineFromTotal } from "./calculate-totals";
+import { round2, round3, calculateLine, calculateDocumentTotals, calculateLineFromTotal, calculateCreditNoteLine } from "./calculate-totals";
 
 describe("round2", () => {
   it("rounds to 2 decimal places", () => {
@@ -131,5 +131,47 @@ describe("calculateLineFromTotal", () => {
     expect(result.lineSubtotal).toBe(0);
     expect(result.lineVat).toBe(0);
     expect(result.unitPrice).toBe(0);
+  });
+});
+
+describe("calculateCreditNoteLine", () => {
+  it("reproduces the original line's totals exactly when the full quantity is credited", () => {
+    const result = calculateCreditNoteLine({
+      unitPrice: 25,
+      vatRate: 15,
+      originalQuantity: 3,
+      originalDiscount: 6,
+      creditedQuantity: 3,
+    });
+    // Same math as calculateLine({ unitPrice: 25, quantity: 3, vatRate: 15, discount: 6 })
+    expect(result).toEqual({ lineSubtotal: 69, lineVat: 10.35, lineTotal: 79.35 });
+  });
+
+  it("scales the discount proportionally for a partial credit", () => {
+    // Original: 3 units, discount 1.00 total. Crediting 1 of the 3 units scales
+    // the discount to round2(1.00 * 1/3) = 0.33.
+    const result = calculateCreditNoteLine({
+      unitPrice: 10,
+      vatRate: 15,
+      originalQuantity: 3,
+      originalDiscount: 1,
+      creditedQuantity: 1,
+    });
+    // calculateLine({ unitPrice: 10, quantity: 1, vatRate: 15, discount: 0.33 }):
+    // rawSubtotal = 10, lineSubtotal = 9.67, lineVat = round2(9.67*0.15) = 1.45, lineTotal = 11.12
+    expect(result).toEqual({ lineSubtotal: 9.67, lineVat: 1.45, lineTotal: 11.12 });
+  });
+
+  it("applies zero discount unchanged", () => {
+    const result = calculateCreditNoteLine({
+      unitPrice: 12,
+      vatRate: 15,
+      originalQuantity: 5,
+      originalDiscount: 0,
+      creditedQuantity: 2,
+    });
+    // calculateLine({ unitPrice: 12, quantity: 2, vatRate: 15, discount: 0 }):
+    // lineSubtotal = 24, lineVat = 3.6, lineTotal = 27.6
+    expect(result).toEqual({ lineSubtotal: 24, lineVat: 3.6, lineTotal: 27.6 });
   });
 });
