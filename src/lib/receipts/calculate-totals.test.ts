@@ -144,7 +144,7 @@ describe("calculateCreditNoteLine", () => {
       creditedQuantity: 3,
     });
     // Same math as calculateLine({ unitPrice: 25, quantity: 3, vatRate: 15, discount: 6 })
-    expect(result).toEqual({ lineSubtotal: 69, lineVat: 10.35, lineTotal: 79.35 });
+    expect(result).toEqual({ lineSubtotal: 69, lineVat: 10.35, lineTotal: 79.35, discount: 6 });
   });
 
   it("scales the discount proportionally for a partial credit", () => {
@@ -159,7 +159,7 @@ describe("calculateCreditNoteLine", () => {
     });
     // calculateLine({ unitPrice: 10, quantity: 1, vatRate: 15, discount: 0.33 }):
     // rawSubtotal = 10, lineSubtotal = 9.67, lineVat = round2(9.67*0.15) = 1.45, lineTotal = 11.12
-    expect(result).toEqual({ lineSubtotal: 9.67, lineVat: 1.45, lineTotal: 11.12 });
+    expect(result).toEqual({ lineSubtotal: 9.67, lineVat: 1.45, lineTotal: 11.12, discount: 0.33 });
   });
 
   it("applies zero discount unchanged", () => {
@@ -172,6 +172,6 @@ describe("calculateCreditNoteLine", () => {
     });
     // calculateLine({ unitPrice: 12, quantity: 2, vatRate: 15, discount: 0 }):
     // lineSubtotal = 24, lineVat = 3.6, lineTotal = 27.6
-    expect(result).toEqual({ lineSubtotal: 24, lineVat: 3.6, lineTotal: 27.6 });
+    expect(result).toEqual({ lineSubtotal: 24, lineVat: 3.6, lineTotal: 27.6, discount: 0 });
   });
 });

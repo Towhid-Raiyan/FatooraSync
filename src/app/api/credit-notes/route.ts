@@ -89,7 +89,7 @@ export async function POST(request: Request) {
       const originalLineIds = original.lines.map((line) => line.id);
       const creditedSums = await txn.documentLine.groupBy({
         by: ["creditedForLineId"],
-        where: { creditedForLineId: { in: originalLineIds } },
+        where: { tenantId, creditedForLineId: { in: originalLineIds } },
         _sum: { quantity: true },
       });
       const creditedByLineId = new Map(
@@ -109,16 +109,29 @@ export async function POST(request: Request) {
         creditedForLineId: string;
       }[] = [];
 
+      // Tracks how much of each original line this *request* has already
+      // committed to crediting, on top of what the DB-sourced
+      // `creditedByLineId` already reflects. Without this, a request that
+      // repeats the same originalLineId in multiple entries would have each
+      // entry check its quantity against the same DB-only `remaining` in
+      // isolation -- e.g. two { originalLineId: "X", quantity: 1 } entries
+      // against a line with 1 unit remaining would each individually pass
+      // (1 > 1 is false), together over-crediting the line and restoring
+      // phantom stock.
+      const talliedThisRequest = new Map<string, number>();
+
       for (const line of parsedLines) {
         const originalLine = originalLinesById.get(line.originalLineId)!;
         const alreadyCredited = creditedByLineId.get(line.originalLineId) ?? 0;
+        const alreadyTalliedThisRequest = talliedThisRequest.get(line.originalLineId) ?? 0;
         const originalQuantity = Number(originalLine.quantity);
-        const remaining = originalQuantity - alreadyCredited;
+        const remaining = originalQuantity - alreadyCredited - alreadyTalliedThisRequest;
         if (line.quantity > remaining) {
           throw new CreditNoteError("Quantity exceeds what's left to credit on this item", 400);
         }
+        talliedThisRequest.set(line.originalLineId, alreadyTalliedThisRequest + line.quantity);
 
-        const { lineSubtotal, lineVat, lineTotal } = calculateCreditNoteLine({
+        const { lineSubtotal, lineVat, lineTotal, discount } = calculateCreditNoteLine({
           unitPrice: Number(originalLine.unitPrice),
           vatRate: Number(originalLine.vatRate),
           originalQuantity,
@@ -131,7 +144,7 @@ export async function POST(request: Request) {
           productName: originalLine.productName,
           quantity: line.quantity,
           unitPrice: Number(originalLine.unitPrice),
-          discount: 0,
+          discount,
           vatRate: Number(originalLine.vatRate),
           lineSubtotal,
           lineVat,

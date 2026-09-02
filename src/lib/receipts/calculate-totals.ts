@@ -96,21 +96,30 @@ export interface CreditNoteLineInput {
   creditedQuantity: number;
 }
 
+export interface CreditNoteLineTotals extends LineTotals {
+  discount: number;
+}
+
 // A partial credit note line reuses the *original* line's unit price, VAT rate,
 // and discount rate -- crediting the customer back exactly what they were
 // actually charged per unit, rather than re-deriving pricing from a total
 // (which would reintroduce the exact rounding gap calculateLineFromTotal exists
 // to avoid). The discount, which was a flat per-line amount, is scaled by the
-// fraction of the line being credited.
-export function calculateCreditNoteLine(input: CreditNoteLineInput): LineTotals {
+// fraction of the line being credited. The scaled `discount` is returned
+// alongside the totals -- not just used internally -- so a caller persisting
+// the credit note line can store a `discount` that actually reconciles with
+// `lineSubtotal` (unitPrice * quantity - discount = lineSubtotal), rather than
+// leaving the stored row internally inconsistent.
+export function calculateCreditNoteLine(input: CreditNoteLineInput): CreditNoteLineTotals {
   const scaledDiscount =
     input.originalQuantity > 0
       ? round2(input.originalDiscount * (input.creditedQuantity / input.originalQuantity))
       : 0;
-  return calculateLine({
+  const totals = calculateLine({
     unitPrice: input.unitPrice,
     quantity: input.creditedQuantity,
     vatRate: input.vatRate,
     discount: scaledDiscount,
   });
+  return { ...totals, discount: scaledDiscount };
 }

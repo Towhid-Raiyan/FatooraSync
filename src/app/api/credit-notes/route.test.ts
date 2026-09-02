@@ -148,6 +148,34 @@ describe("POST /api/credit-notes", () => {
     expect(second.status).toBe(400);
   });
 
+  it("rejects a single request that repeats the same line and together over-credits it", { timeout: 20000 }, async () => {
+    // A receipt with only 1 unit remaining on the line: two entries in the same
+    // request each individually ask for 1 (each passing a naive "1 > 1 is
+    // false" check on its own), but together they ask for 2 -- more than the
+    // line has. This must be rejected as a whole, not split into one accepted
+    // and one rejected line within a single credit note.
+    const receipt = await seedReceipt([1]);
+    const response = await POST(
+      postRequest({
+        originalDocumentId: receipt.id,
+        lines: [
+          { originalLineId: receipt.lines[0].id, quantity: 1 },
+          { originalLineId: receipt.lines[0].id, quantity: 1 },
+        ],
+      })
+    );
+    expect(response.status).toBe(400);
+  });
+
+  it("rejects an originalLineId that belongs to a different receipt", { timeout: 20000 }, async () => {
+    const receiptA = await seedReceipt([2]);
+    const receiptB = await seedReceipt([2]);
+    const response = await POST(
+      postRequest({ originalDocumentId: receiptA.id, lines: [{ originalLineId: receiptB.lines[0].id, quantity: 1 }] })
+    );
+    expect(response.status).toBe(400);
+  });
+
   it("rejects crediting a credit note (not a sales receipt)", { timeout: 20000 }, async () => {
     const receipt = await seedReceipt([2]);
     const creditNoteResponse = await POST(
