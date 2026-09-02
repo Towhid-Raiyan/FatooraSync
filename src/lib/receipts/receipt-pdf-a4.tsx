@@ -37,9 +37,9 @@ export function ReceiptPdfA4Document({ tenant, document, qrImageDataUrl }: Recei
             <A4BusinessHeader
               tenant={tenant}
               document={document}
-              docTitleEn="Simplified Tax Invoice"
-              docTitleAr="فاتورة ضريبية مبسطة"
-              docNumberLabel="Invoice"
+              docTitleEn={document.type === "CREDIT_NOTE" ? "Credit Note" : "Simplified Tax Invoice"}
+              docTitleAr={document.type === "CREDIT_NOTE" ? "إشعار دائن" : "فاتورة ضريبية مبسطة"}
+              docNumberLabel={document.type === "CREDIT_NOTE" ? "Credit Note" : "Invoice"}
             />
             <View style={a4PdfStyles.hr} />
             {isFirstPage && <A4BilledTo customer={document.customer} />}

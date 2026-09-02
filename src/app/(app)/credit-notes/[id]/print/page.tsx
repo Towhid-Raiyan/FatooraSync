@@ -4,12 +4,12 @@ import { getDocumentPrintData } from "@/lib/receipts/get-print-data";
 import { ReceiptPrintThermal } from "@/components/receipts/receipt-print-thermal";
 import { ReceiptPrintA4 } from "@/components/receipts/receipt-print-a4";
 
-export default async function ReceiptPrintPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CreditNotePrintPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   const tenantId = session!.user.tenantId;
 
-  const data = await getDocumentPrintData(tenantId, id, "SALES_RECEIPT");
+  const data = await getDocumentPrintData(tenantId, id, "CREDIT_NOTE");
   if (!data) {
     notFound();
   }

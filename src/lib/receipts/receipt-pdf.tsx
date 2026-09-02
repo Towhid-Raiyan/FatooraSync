@@ -124,7 +124,11 @@ export function ReceiptPdfDocument({ tenant, document, qrImageDataUrl }: Receipt
         </View>
 
         <View style={styles.meta}>
-          <Text>فاتورة ضريبية مبسطة / Simplified Tax Invoice #{document.number}</Text>
+          <Text>
+            {document.type === "CREDIT_NOTE"
+              ? `إشعار دائن / Credit Note #${document.number}`
+              : `فاتورة ضريبية مبسطة / Simplified Tax Invoice #${document.number}`}
+          </Text>
           <Text>{formatRiyadhDateTime(document.createdAt)}</Text>
           <Text>{formatHijriDate(document.createdAt)}</Text>
         </View>

@@ -58,7 +58,11 @@ export function ReceiptPrintThermal({
       </div>
 
       <div className="mb-3 text-xs">
-        <div>فاتورة ضريبية مبسطة / Simplified Tax Invoice #{document.number}</div>
+        <div>
+          {document.type === "CREDIT_NOTE"
+            ? `إشعار دائن / Credit Note #${document.number}`
+            : `فاتورة ضريبية مبسطة / Simplified Tax Invoice #${document.number}`}
+        </div>
         <div>{formatRiyadhDateTime(document.createdAt)}</div>
         <div>{formatHijriDate(document.createdAt)}</div>
       </div>

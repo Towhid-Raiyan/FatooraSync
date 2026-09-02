@@ -16,7 +16,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (blocked) return blocked;
   const { id } = await params;
 
-  const data = await getDocumentPrintData(tenantId, id, "SALES_RECEIPT");
+  const data = await getDocumentPrintData(tenantId, id, "CREDIT_NOTE");
   if (!data) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -32,7 +32,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="receipt-${data.document.number}.pdf"`,
+      "Content-Disposition": `attachment; filename="credit-note-${data.document.number}.pdf"`,
     },
   });
 }

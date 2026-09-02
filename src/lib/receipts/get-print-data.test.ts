@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/db/client";
 import { withTenant } from "@/lib/db/tenant-context";
-import { getReceiptPrintData } from "./get-print-data";
+import { getDocumentPrintData } from "./get-print-data";
 
 let tenantId: string;
 let receiptId: string;
 
-describe("getReceiptPrintData", () => {
+describe("getDocumentPrintData", () => {
   beforeAll(async () => {
     const tenant = await prisma.tenant.create({
       data: { legalName: "Print Data Test Co", tradeNameEn: "Print Data Shop", vatNumber: "300000000000140" },
@@ -41,7 +41,7 @@ describe("getReceiptPrintData", () => {
   });
 
   it("returns the document, tenant, printFormat, and a generated QR image", async () => {
-    const result = await getReceiptPrintData(tenantId, receiptId);
+    const result = await getDocumentPrintData(tenantId, receiptId, "SALES_RECEIPT");
     expect(result).not.toBeNull();
     expect(result?.document.id).toBe(receiptId);
     expect(result?.tenant.id).toBe(tenantId);
@@ -50,7 +50,7 @@ describe("getReceiptPrintData", () => {
   });
 
   it("returns null for a nonexistent id", async () => {
-    const result = await getReceiptPrintData(tenantId, "00000000-0000-0000-0000-000000000000");
+    const result = await getDocumentPrintData(tenantId, "00000000-0000-0000-0000-000000000000", "SALES_RECEIPT");
     expect(result).toBeNull();
   });
 
@@ -58,13 +58,13 @@ describe("getReceiptPrintData", () => {
     const otherTenant = await prisma.tenant.create({
       data: { legalName: "Other Print Data Co", tradeNameEn: "Other Print Data Shop", vatNumber: "300000000000157" },
     });
-    // getReceiptPrintData looks up Settings for the requesting tenant (to pick
+    // getDocumentPrintData looks up Settings for the requesting tenant (to pick
     // the print format), so every tenant it queries against needs a Settings
     // row -- same as in production, where onboarding always creates one
     // alongside the tenant.
     await withTenant(otherTenant.id, (tx) => tx.settings.create({ data: { tenantId: otherTenant.id } }));
     try {
-      const result = await getReceiptPrintData(otherTenant.id, receiptId);
+      const result = await getDocumentPrintData(otherTenant.id, receiptId, "SALES_RECEIPT");
       expect(result).toBeNull();
     } finally {
       await prisma.settings.deleteMany({ where: { tenantId: otherTenant.id } });
@@ -87,7 +87,12 @@ describe("getReceiptPrintData", () => {
         },
       })
     );
-    const result = await getReceiptPrintData(tenantId, receiptWithoutQr.id);
+    const result = await getDocumentPrintData(tenantId, receiptWithoutQr.id, "SALES_RECEIPT");
     expect(result?.qrImageDataUrl).toBeNull();
+  });
+
+  it("returns null when a SALES_RECEIPT id is looked up as a CREDIT_NOTE", async () => {
+    const result = await getDocumentPrintData(tenantId, receiptId, "CREDIT_NOTE");
+    expect(result).toBeNull();
   });
 });

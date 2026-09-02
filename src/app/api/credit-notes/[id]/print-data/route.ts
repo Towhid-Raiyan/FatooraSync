@@ -13,16 +13,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (blocked) return blocked;
   const { id } = await params;
 
-  const data = await getDocumentPrintData(tenantId, id, "SALES_RECEIPT");
+  const data = await getDocumentPrintData(tenantId, id, "CREDIT_NOTE");
   if (!data) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  // Only the fields the print modal's PrintData shape (print-modal.tsx) actually
-  // uses cross the network boundary here -- `data` itself also carries the full
-  // Tenant row (billing internals) and full Document row (ZATCA hash-chain
-  // internals), which are fine for the server-only PDF routes/print pages but
-  // shouldn't be readable as raw JSON by any authenticated tenant user.
   return NextResponse.json({
     printFormat: data.printFormat,
     tenant: {
