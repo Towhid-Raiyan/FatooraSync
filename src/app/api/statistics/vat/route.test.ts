@@ -99,6 +99,34 @@ describe("/api/statistics/vat", () => {
     expect(Number(body.netPayable)).toBe(-15);
   });
 
+  it("nets a credit note's VAT off the outgoing VAT for the quarter it was issued in", async () => {
+    const customer = await withTenant(tenantId, (tx) => tx.customer.findFirstOrThrow({ where: { isWalkIn: true } }));
+    // Q1 2026 credit note reversing part of the Q1 sale above: 40 subtotal, 6 VAT.
+    // Outgoing VAT for the quarter should drop from 15 to 15 - 6 = 9.
+    await withTenant(tenantId, (tx) =>
+      tx.document.create({
+        data: {
+          type: "CREDIT_NOTE",
+          number: 1,
+          customerId: customer.id,
+          subtotal: 40,
+          vatTotal: 6,
+          grandTotal: 46,
+          createdAt: new Date("2026-02-20T12:00:00Z"),
+        } as Prisma.DocumentUncheckedCreateInput,
+      })
+    );
+    try {
+      const response = await GET(getRequest("?year=2026&quarter=1"));
+      const body = await response.json();
+      expect(Number(body.outgoingVat)).toBe(9);
+      expect(Number(body.incomingVat)).toBe(30);
+      expect(Number(body.netPayable)).toBe(-21);
+    } finally {
+      await prisma.document.deleteMany({ where: { tenantId, type: "CREDIT_NOTE" } });
+    }
+  });
+
   it("returns zeros for a quarter with no activity", async () => {
     const response = await GET(getRequest("?year=2019&quarter=3"));
     const body = await response.json();
