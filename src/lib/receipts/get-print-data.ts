@@ -1,5 +1,5 @@
 import QRCode from "qrcode";
-import type { Customer, DocumentLine, DocumentType, Tenant, Document as PrismaDocument } from "@prisma/client";
+import type { Customer, DocumentLine, Tenant, Document as PrismaDocument } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import { withTenant } from "@/lib/db/tenant-context";
 
@@ -13,7 +13,7 @@ export interface DocumentPrintData {
 export async function getDocumentPrintData(
   tenantId: string,
   id: string,
-  type: DocumentType
+  type: "SALES_RECEIPT" | "CREDIT_NOTE"
 ): Promise<DocumentPrintData | null> {
   const [document, settings] = await withTenant(tenantId, (tx) =>
     Promise.all([

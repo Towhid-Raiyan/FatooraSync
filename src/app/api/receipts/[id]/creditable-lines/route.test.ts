@@ -151,6 +151,65 @@ describe("GET /api/receipts/[id]/creditable-lines", () => {
     expect(response.status).toBe(404);
   });
 
+  it("computes an exact remainingQuantity for fractional quantities, not a long float", { timeout: 20000 }, async () => {
+    const fractionalProduct = await withTenant(tenantId, (tx) =>
+      tx.product.create({ data: { nameEn: "Weighted Product", unitPrice: 10, quantity: 100 } as Prisma.ProductUncheckedCreateInput })
+    );
+    const saveResponse = await createReceipt(
+      new Request("http://localhost/api/receipts", {
+        method: "POST",
+        body: JSON.stringify({
+          customer: { name: "", vatId: "" },
+          lines: [{ productId: fractionalProduct.id, quantity: "0.3" }],
+        }),
+      })
+    );
+    const saved = await saveResponse.json();
+    const fractionalReceiptId = saved.id;
+    const fractionalLineId = saved.lines[0].id;
+
+    await withTenant(tenantId, (tx) =>
+      tx.document.create({
+        data: {
+          tenantId,
+          type: "CREDIT_NOTE",
+          number: 2,
+          customerId: saved.customerId,
+          subtotal: 1,
+          vatTotal: 0.15,
+          grandTotal: 1.15,
+          creditNoteOfDocumentId: fractionalReceiptId,
+          lines: {
+            create: [
+              {
+                tenantId,
+                productId: fractionalProduct.id,
+                productName: "Weighted Product",
+                quantity: 0.1,
+                unitPrice: 10,
+                discount: 0,
+                vatRate: 15,
+                lineSubtotal: 1,
+                lineVat: 0.15,
+                lineTotal: 1.15,
+                creditedForLineId: fractionalLineId,
+              },
+            ],
+          },
+        } as unknown as Prisma.DocumentUncheckedCreateInput,
+      })
+    );
+
+    const response = await GET(
+      new Request(`http://localhost/api/receipts/${fractionalReceiptId}/creditable-lines`),
+      req(fractionalReceiptId)
+    );
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    const line = body.lines.find((l: { id: string }) => l.id === fractionalLineId);
+    expect(line.remainingQuantity).toBe(0.2);
+  });
+
   it("401s when unauthenticated", async () => {
     mockSession = null;
     const response = await GET(new Request(`http://localhost/api/receipts/${receiptId}/creditable-lines`), req(receiptId));

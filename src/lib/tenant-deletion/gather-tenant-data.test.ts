@@ -44,6 +44,19 @@ describe("gatherTenantData", () => {
         data: { type: "QUOTATION", number: 1, customerId: customer.id, subtotal: 10, vatTotal: 1.5, grandTotal: 11.5 } as Prisma.DocumentUncheckedCreateInput,
       })
     );
+    await withTenant(tenantId, (tx) =>
+      tx.document.create({
+        data: {
+          type: "CREDIT_NOTE",
+          number: 1,
+          customerId: customer.id,
+          subtotal: 10,
+          vatTotal: 1.5,
+          grandTotal: 11.5,
+          lines: { create: [{ tenantId, productId: product.id, productName: "Gathered Product", quantity: 1, unitPrice: 10, vatRate: 15, lineSubtotal: 10, lineVat: 1.5, lineTotal: 11.5 }] },
+        } as Prisma.DocumentUncheckedCreateInput,
+      })
+    );
   }, 30000);
 
   afterAll(async () => {
@@ -73,9 +86,12 @@ describe("gatherTenantData", () => {
     expect(data.customers).toHaveLength(1);
     expect(data.receipts).toHaveLength(1);
     expect(data.quotations).toHaveLength(1);
+    expect(data.creditNotes).toHaveLength(1);
     expect(data.receipts[0].lines).toHaveLength(1);
+    expect(data.creditNotes[0].lines).toHaveLength(1);
     expect(data.summary.receiptCount).toBe(1);
     expect(data.summary.quotationCount).toBe(1);
+    expect(data.summary.creditNoteCount).toBe(1);
     expect(data.summary.earliestDocumentAt).not.toBeNull();
     expect(data.summary.latestDocumentAt).not.toBeNull();
   });
@@ -87,7 +103,9 @@ describe("gatherTenantData", () => {
     try {
       const data = await gatherTenantData(empty.id);
       expect(data.receipts).toHaveLength(0);
+      expect(data.creditNotes).toHaveLength(0);
       expect(data.summary.receiptCount).toBe(0);
+      expect(data.summary.creditNoteCount).toBe(0);
       expect(data.summary.earliestDocumentAt).toBeNull();
       expect(data.settings).toBeNull();
       expect(data.users).toHaveLength(0);

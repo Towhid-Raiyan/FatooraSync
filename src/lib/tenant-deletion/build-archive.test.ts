@@ -44,6 +44,20 @@ function sampleData(): GatheredTenantData {
     qrCode: null, createdAt: new Date("2026-01-03"), lines: [quotationLine],
   } as unknown as GatheredTenantData["quotations"][number];
 
+  const creditNoteLine = {
+    id: "line-3", tenantId: "tenant-1", documentId: "doc-3", productId: "prod-1", productName: "Test Product",
+    quantity: 1 as unknown as number, unitPrice: 10 as unknown as number, discount: 0 as unknown as number,
+    vatRate: 15 as unknown as number, lineSubtotal: 10 as unknown as number, lineVat: 1.5 as unknown as number,
+    lineTotal: 11.5 as unknown as number,
+  };
+
+  const creditNote = {
+    id: "doc-3", tenantId: "tenant-1", type: "CREDIT_NOTE", number: 1, customerId: "cust-1", customer,
+    subtotal: 10 as unknown as number, vatTotal: 1.5 as unknown as number, grandTotal: 11.5 as unknown as number,
+    notes: null, creditNoteOfDocumentId: "doc-1", uuid: "uuid-3", invoiceHash: null, previousInvoiceHash: null,
+    qrCode: "AQVUZXN0AhAzMDAwMDAwMDAwMDAwNzI1", createdAt: new Date("2026-01-04"), lines: [creditNoteLine],
+  } as unknown as GatheredTenantData["creditNotes"][number];
+
   const settings = {
     id: "settings-1", tenantId: "tenant-1", defaultVatRate: 15 as unknown as number, language: "en",
     printFormat: "THERMAL", cashierCanManageCatalog: true, labelWidthMm: 50, labelHeightMm: 30,
@@ -61,8 +75,9 @@ function sampleData(): GatheredTenantData {
 
   return {
     tenant, settings, users: [user], customers: [customer], products: [], suppliers: [], receipts: [receipt], quotations: [quotation],
+    creditNotes: [creditNote],
     purchaseReceipts: [], stockMovements: [], numberLeases: [numberLease],
-    summary: { receiptCount: 1, quotationCount: 1, earliestDocumentAt: receipt.createdAt, latestDocumentAt: quotation.createdAt },
+    summary: { receiptCount: 1, quotationCount: 1, creditNoteCount: 1, earliestDocumentAt: receipt.createdAt, latestDocumentAt: creditNote.createdAt },
   };
 }
 
@@ -130,6 +145,23 @@ describe("buildTenantArchive", () => {
     expect(manifest.quotationCount).toBe(1);
 
     const pdfBytes = await zip.file("quotations/1.pdf")!.async("uint8array");
+    expect(pdfBytes.length).toBeGreaterThan(0);
+  });
+
+  it("renders one correctly-labeled Credit Note PDF per credit note via ReceiptPdfA4Document", { timeout: 30000 }, async () => {
+    const buffer = await buildTenantArchive(sampleData());
+    const zip = await JSZip.loadAsync(buffer);
+
+    expect(zip.file("credit-notes/1.pdf")).not.toBeNull();
+
+    const manifest = JSON.parse(await zip.file("manifest.json")!.async("string"));
+    expect(manifest.creditNoteCount).toBe(1);
+
+    const data = JSON.parse(await zip.file("data.json")!.async("string"));
+    expect(data.creditNotes).toHaveLength(1);
+    expect(data.creditNotes[0].type).toBe("CREDIT_NOTE");
+
+    const pdfBytes = await zip.file("credit-notes/1.pdf")!.async("uint8array");
     expect(pdfBytes.length).toBeGreaterThan(0);
   });
 });

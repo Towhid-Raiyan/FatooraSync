@@ -38,6 +38,7 @@ export async function buildTenantArchive(data: GatheredTenantData): Promise<Buff
         exportedAt: new Date().toISOString(),
         receiptCount: data.summary.receiptCount,
         quotationCount: data.summary.quotationCount,
+        creditNoteCount: data.summary.creditNoteCount,
         customerCount: data.customers.length,
         productCount: data.products.length,
         supplierCount: data.suppliers.length,
@@ -63,6 +64,7 @@ export async function buildTenantArchive(data: GatheredTenantData): Promise<Buff
         suppliers: data.suppliers,
         receipts: data.receipts,
         quotations: data.quotations,
+        creditNotes: data.creditNotes,
         purchaseReceipts: data.purchaseReceipts,
         stockMovements: data.stockMovements,
         numberLeases: data.numberLeases,
@@ -87,6 +89,14 @@ export async function buildTenantArchive(data: GatheredTenantData): Promise<Buff
   for (const quotation of data.quotations) {
     const buffer = await renderToBuffer(<QuotationPdfA4Document tenant={data.tenant} document={quotation} />);
     zip.file(`quotations/${quotation.number}.pdf`, buffer);
+  }
+
+  for (const creditNote of data.creditNotes) {
+    const qrImageDataUrl = creditNote.qrCode ? await QRCode.toDataURL(creditNote.qrCode) : null;
+    const buffer = await renderToBuffer(
+      <ReceiptPdfA4Document tenant={data.tenant} document={creditNote} qrImageDataUrl={qrImageDataUrl} />
+    );
+    zip.file(`credit-notes/${creditNote.number}.pdf`, buffer);
   }
 
   return zip.generateAsync({ type: "nodebuffer" });

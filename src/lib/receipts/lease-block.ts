@@ -1,5 +1,6 @@
-import type { DocumentType } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
+
+type LeasableDocumentType = "SALES_RECEIPT" | "QUOTATION";
 
 // Atomically reserves the next `blockSize` numbers for one device, so it can
 // issue final invoice/quotation numbers offline with zero further server
@@ -16,7 +17,7 @@ import { prisma } from "@/lib/db/client";
 export async function leaseNumberBlock(
   tenantId: string,
   deviceId: string,
-  documentType: DocumentType,
+  documentType: LeasableDocumentType,
   blockSize: number
 ): Promise<{ rangeStart: number; rangeEnd: number }> {
   return prisma.$transaction(

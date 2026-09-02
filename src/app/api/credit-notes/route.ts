@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/client";
-import { calculateCreditNoteLine, calculateDocumentTotals } from "@/lib/receipts/calculate-totals";
+import { calculateCreditNoteLine, calculateDocumentTotals, round3 } from "@/lib/receipts/calculate-totals";
 import { computeInvoiceHash, GENESIS_HASH } from "@/lib/zatca/hash-chain";
 import { buildZatcaQrPayload } from "@/lib/zatca/qr-payload";
 import { assertTenantAccess } from "@/lib/billing/require-tenant-access";
@@ -125,19 +125,27 @@ export async function POST(request: Request) {
         const alreadyCredited = creditedByLineId.get(line.originalLineId) ?? 0;
         const alreadyTalliedThisRequest = talliedThisRequest.get(line.originalLineId) ?? 0;
         const originalQuantity = Number(originalLine.quantity);
-        const remaining = originalQuantity - alreadyCredited - alreadyTalliedThisRequest;
+        const remaining = Math.max(0, round3(originalQuantity - alreadyCredited - alreadyTalliedThisRequest));
         if (line.quantity > remaining) {
           throw new CreditNoteError("Quantity exceeds what's left to credit on this item", 400);
         }
         talliedThisRequest.set(line.originalLineId, alreadyTalliedThisRequest + line.quantity);
 
-        const { lineSubtotal, lineVat, lineTotal, discount } = calculateCreditNoteLine({
-          unitPrice: Number(originalLine.unitPrice),
-          vatRate: Number(originalLine.vatRate),
-          originalQuantity,
-          originalDiscount: Number(originalLine.discount),
-          creditedQuantity: line.quantity,
-        });
+        const isFullLineCredit = line.quantity === originalQuantity;
+        const { lineSubtotal, lineVat, lineTotal, discount } = isFullLineCredit
+          ? {
+              lineSubtotal: Number(originalLine.lineSubtotal),
+              lineVat: Number(originalLine.lineVat),
+              lineTotal: Number(originalLine.lineTotal),
+              discount: Number(originalLine.discount),
+            }
+          : calculateCreditNoteLine({
+              unitPrice: Number(originalLine.unitPrice),
+              vatRate: Number(originalLine.vatRate),
+              originalQuantity,
+              originalDiscount: Number(originalLine.discount),
+              creditedQuantity: line.quantity,
+            });
 
         resolvedLines.push({
           productId: originalLine.productId,

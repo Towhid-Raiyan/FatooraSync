@@ -23,12 +23,14 @@ export interface GatheredTenantData {
   suppliers: Supplier[];
   receipts: (Document & { customer: Customer; lines: DocumentLine[] })[];
   quotations: (Document & { customer: Customer; lines: DocumentLine[] })[];
+  creditNotes: (Document & { customer: Customer; lines: DocumentLine[] })[];
   purchaseReceipts: (PurchaseReceipt & { lines: PurchaseReceiptLine[] })[];
   stockMovements: StockMovement[];
   numberLeases: NumberLease[];
   summary: {
     receiptCount: number;
     quotationCount: number;
+    creditNoteCount: number;
     earliestDocumentAt: Date | null;
     latestDocumentAt: Date | null;
   };
@@ -65,6 +67,7 @@ export async function gatherTenantData(tenantId: string): Promise<GatheredTenant
 
   const receipts = allDocuments.filter((d) => d.type === "SALES_RECEIPT");
   const quotations = allDocuments.filter((d) => d.type === "QUOTATION");
+  const creditNotes = allDocuments.filter((d) => d.type === "CREDIT_NOTE");
 
   return {
     tenant,
@@ -75,12 +78,14 @@ export async function gatherTenantData(tenantId: string): Promise<GatheredTenant
     suppliers,
     receipts,
     quotations,
+    creditNotes,
     purchaseReceipts,
     stockMovements,
     numberLeases,
     summary: {
       receiptCount: receipts.length,
       quotationCount: quotations.length,
+      creditNoteCount: creditNotes.length,
       earliestDocumentAt: allDocuments[0]?.createdAt ?? null,
       latestDocumentAt: allDocuments[allDocuments.length - 1]?.createdAt ?? null,
     },

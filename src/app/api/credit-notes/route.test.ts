@@ -96,6 +96,39 @@ describe("POST /api/credit-notes", () => {
     }
   );
 
+  it(
+    "fully credits a line where the cashier typed a Total, reconciling exactly to the original (no off-by-a-cent)",
+    { timeout: 20000 },
+    async () => {
+      // 3 units, a typed lineTotal of 12.00, default 15% VAT: this is the exact
+      // combination calculateLineFromTotal's own comment cites as one where the
+      // subtotal-first math (calculateLine, working forward from the back-solved
+      // unitPrice) can't land on 12.00 -- it lands on 11.99 instead. A full credit
+      // that recomputes forward from the stored unitPrice would therefore produce
+      // a credit note that's 1 cent short of the receipt it's crediting.
+      const response = await createReceipt(
+        new Request("http://localhost/api/receipts", {
+          method: "POST",
+          body: JSON.stringify({
+            customer: { name: "", vatId: "" },
+            lines: [{ productId, quantity: "3", lineTotal: "12.00" }],
+          }),
+        })
+      );
+      const receipt = await response.json();
+      expect(Number(receipt.lines[0].lineTotal)).toBe(12);
+
+      const creditResponse = await POST(
+        postRequest({ originalDocumentId: receipt.id, lines: [{ originalLineId: receipt.lines[0].id, quantity: 3 }] })
+      );
+      expect(creditResponse.status).toBe(201);
+      const creditNote = await creditResponse.json();
+
+      expect(Number(creditNote.lines[0].lineTotal)).toBe(Number(receipt.lines[0].lineTotal));
+      expect(Number(creditNote.grandTotal)).toBe(Number(receipt.grandTotal));
+    }
+  );
+
   it("partially credits one line of a multi-line receipt", { timeout: 20000 }, async () => {
     const receipt = await seedReceipt([3, 5]);
     const response = await POST(

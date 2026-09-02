@@ -1,4 +1,5 @@
 import { withTenant } from "@/lib/db/tenant-context";
+import { round3 } from "./calculate-totals";
 
 export interface CreditableLine {
   id: string;
@@ -57,7 +58,7 @@ export async function getCreditableLines(tenantId: string, documentId: string): 
           discount: Number(line.discount),
           vatRate: Number(line.vatRate),
           creditedQuantity,
-          remainingQuantity: quantity - creditedQuantity,
+          remainingQuantity: Math.max(0, round3(quantity - creditedQuantity)),
         };
       }),
     };
