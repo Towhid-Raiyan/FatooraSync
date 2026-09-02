@@ -263,23 +263,23 @@ export async function POST(request: Request) {
         // on this tenant" comment above) -- `increment: 0` is a no-op on the
         // stored value but still issues a real UPDATE, so two concurrent
         // preAssigned saves for this tenant can't both read the same
-        // `lastSalesReceiptHash` and chain off the same predecessor. A plain
+        // `lastInvoiceHash` and chain off the same predecessor. A plain
         // `findUnique` here would take no lock and let that race corrupt the
         // hash chain.
         const tenantForHash = await txn.tenant.update({
           where: { id: tenantId },
           data: { nextSalesReceiptNumber: { increment: 0 } },
-          select: { lastSalesReceiptHash: true },
+          select: { lastInvoiceHash: true },
         });
-        previousInvoiceHash = tenantForHash.lastSalesReceiptHash ?? GENESIS_HASH;
+        previousInvoiceHash = tenantForHash.lastInvoiceHash ?? GENESIS_HASH;
       } else {
         const tenantCounters = await txn.tenant.update({
           where: { id: tenantId },
           data: { nextSalesReceiptNumber: { increment: 1 } },
-          select: { nextSalesReceiptNumber: true, lastSalesReceiptHash: true },
+          select: { nextSalesReceiptNumber: true, lastInvoiceHash: true },
         });
         number = tenantCounters.nextSalesReceiptNumber - 1;
-        previousInvoiceHash = tenantCounters.lastSalesReceiptHash ?? GENESIS_HASH;
+        previousInvoiceHash = tenantCounters.lastInvoiceHash ?? GENESIS_HASH;
       }
 
       let customerId: string;
@@ -415,7 +415,7 @@ export async function POST(request: Request) {
 
       await txn.tenant.update({
         where: { id: tenantId },
-        data: { lastSalesReceiptHash: invoiceHash },
+        data: { lastInvoiceHash: invoiceHash },
       });
 
       return { existing: created, isRetry: false } as const;

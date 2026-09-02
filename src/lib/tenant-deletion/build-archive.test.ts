@@ -8,7 +8,7 @@ function sampleData(): GatheredTenantData {
     id: "tenant-1", legalName: "Archive Test Co", tradeNameEn: "Archive Test Shop", tradeNameAr: null,
     vatNumber: "300000000000725", crNumber: null, address: null, phone: null, defaultLocale: "en",
     createdAt: new Date("2026-01-01"), nextProductSkuNumber: 1, nextSalesReceiptNumber: 2, nextQuotationNumber: 1,
-    nextPurchaseReceiptNumber: 1, lastSalesReceiptHash: null, billingStatus: "ACTIVE", trialEndsAt: null, featureFlags: {},
+    nextPurchaseReceiptNumber: 1, lastInvoiceHash: null, billingStatus: "ACTIVE", trialEndsAt: null, featureFlags: {},
   } as GatheredTenantData["tenant"];
 
   const customer = {

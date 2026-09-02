@@ -11,6 +11,7 @@ datasource db {
 enum DocumentType {
   SALES_RECEIPT
   QUOTATION
+  CREDIT_NOTE
 }
 
 enum Unit {
@@ -49,6 +50,7 @@ enum StockMovementType {
   SALE
   RESTOCK
   ADJUSTMENT
+  RETURN
 }
 
 enum StockAdjustmentReason {
@@ -78,7 +80,8 @@ model Tenant {
   nextSalesReceiptNumber    Int           @default(1)
   nextQuotationNumber       Int           @default(1)
   nextPurchaseReceiptNumber Int           @default(1)
-  lastSalesReceiptHash      String?
+  nextCreditNoteNumber      Int           @default(1)
+  lastInvoiceHash           String?
   billingStatus             BillingStatus @default(TRIALING)
   trialEndsAt               DateTime?
   featureFlags              Json          @default("{}")
@@ -243,8 +246,13 @@ model DocumentLine {
   lineVat      Decimal  @db.Decimal(12, 2)
   lineTotal    Decimal  @db.Decimal(12, 2)
 
+  creditedForLineId String?
+  creditedForLine   DocumentLine?  @relation("CreditedLine", fields: [creditedForLineId], references: [id])
+  creditingLines    DocumentLine[] @relation("CreditedLine")
+
   @@index([documentId])
   @@index([tenantId])
+  @@index([creditedForLineId])
 }
 
 model Supplier {
