@@ -190,6 +190,7 @@ export const ar: Dictionary = {
     print: "طباعة",
     receiptTitle: "فاتورة",
     quotationTitle: "عرض سعر",
+    issueCreditNote: "إصدار إشعار دائن",
   },
   staff: {
     title: "الموظفون",

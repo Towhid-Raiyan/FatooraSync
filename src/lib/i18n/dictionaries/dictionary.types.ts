@@ -188,6 +188,7 @@ export interface Dictionary {
     print: string;
     receiptTitle: string;
     quotationTitle: string;
+    issueCreditNote: string;
   };
   staff: {
     title: string;

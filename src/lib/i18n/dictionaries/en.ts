@@ -190,6 +190,7 @@ export const en: Dictionary = {
     print: "Print",
     receiptTitle: "Receipt",
     quotationTitle: "Quotation",
+    issueCreditNote: "Issue Credit Note",
   },
   staff: {
     title: "Staff",

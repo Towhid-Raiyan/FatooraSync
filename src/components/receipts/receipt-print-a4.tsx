@@ -11,6 +11,7 @@ import {
   type A4Document,
 } from "@/components/print-format/a4-print-parts";
 import { PrintButton } from "./print-button";
+import { IssueCreditNoteButton } from "./issue-credit-note-button";
 
 const prata = Prata({ subsets: ["latin"], weight: "400" });
 const inter = Inter({ subsets: ["latin"], weight: ["400", "600"] });
@@ -20,11 +21,13 @@ export function ReceiptPrintA4({
   document,
   qrImageDataUrl,
   showPrintButton = true,
+  hasRemainingCreditableLines = false,
 }: {
   tenant: Tenant;
   document: A4Document;
   qrImageDataUrl: string | null;
   showPrintButton?: boolean;
+  hasRemainingCreditableLines?: boolean;
 }) {
   const hasDiscount = document.lines.some((line) => Number(line.discount) > 0);
   const pageItemCounts = paginateA4Items(document.lines.length);
@@ -69,6 +72,9 @@ export function ReceiptPrintA4({
       })}
 
       {showPrintButton && <PrintButton />}
+      {document.type === "SALES_RECEIPT" && hasRemainingCreditableLines && (
+        <IssueCreditNoteButton receiptId={document.id} />
+      )}
 
       <style>{`
         @media screen {

@@ -1,6 +1,7 @@
 import type { Customer, Tenant, Document as PrismaDocument } from "@prisma/client";
 import { formatRiyadhDateTime, formatHijriDate } from "@/lib/format-datetime";
 import { PrintButton } from "./print-button";
+import { IssueCreditNoteButton } from "./issue-credit-note-button";
 
 function money(value: { toString(): string }): string {
   return Number(value.toString()).toFixed(2);
@@ -29,11 +30,13 @@ export function ReceiptPrintThermal({
   document,
   qrImageDataUrl,
   showPrintButton = true,
+  hasRemainingCreditableLines = false,
 }: {
   tenant: Tenant;
   document: ReceiptDocument;
   qrImageDataUrl: string | null;
   showPrintButton?: boolean;
+  hasRemainingCreditableLines?: boolean;
 }) {
   const hasDiscount = document.lines.some((line) => Number(line.discount) > 0);
 
@@ -122,6 +125,9 @@ export function ReceiptPrintThermal({
       )}
 
       {showPrintButton && <PrintButton />}
+      {document.type === "SALES_RECEIPT" && hasRemainingCreditableLines && (
+        <IssueCreditNoteButton receiptId={document.id} />
+      )}
 
       <style>{`
         @media print {
