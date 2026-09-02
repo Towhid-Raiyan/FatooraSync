@@ -240,11 +240,13 @@ export interface Dictionary {
     typeSale: string;
     typeRestock: string;
     typeAdjustment: string;
+    typeReturn: string;
     reasonDamage: string;
     reasonLossTheft: string;
     reasonRecount: string;
     reasonOther: string;
     receiptLabel: (number: number) => string;
+    creditNoteLabel: (number: number) => string;
     restockDialogTitle: string;
     restockDialogSubtitle: string;
     adjustDialogTitle: string;

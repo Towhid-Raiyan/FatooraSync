@@ -13,7 +13,7 @@ import { AdjustDialog } from "./adjust-dialog";
 import { PurchaseReceiptModal } from "./purchase-receipt-modal";
 import { PurchaseHistoryClient, type PurchaseReceiptsResponse } from "./purchase-history-client";
 
-export type MovementType = "SALE" | "RESTOCK" | "ADJUSTMENT";
+export type MovementType = "SALE" | "RESTOCK" | "ADJUSTMENT" | "RETURN";
 export type AdjustmentReason = "DAMAGE" | "LOSS_THEFT" | "RECOUNT" | "OTHER";
 
 export interface SupplierOption {
@@ -47,7 +47,7 @@ export interface SerializedMovement {
   product: { nameEn: string; nameAr: string | null; sku: string | null };
   supplier: { name: string } | null;
   createdByUser: { email: string };
-  document: { type: "SALES_RECEIPT" | "QUOTATION"; number: number } | null;
+  document: { type: "SALES_RECEIPT" | "QUOTATION" | "CREDIT_NOTE"; number: number } | null;
   purchaseReceipt: { number: number } | null;
 }
 
@@ -56,11 +56,13 @@ function typePill(type: MovementType, dict: Dictionary) {
     SALE: "bg-primary/10 text-primary",
     RESTOCK: "bg-green-50 text-green-700",
     ADJUSTMENT: "bg-amber-50 text-amber-700",
+    RETURN: "bg-sky-50 text-sky-700",
   };
   const labels: Record<MovementType, string> = {
     SALE: dict.inventory.typeSale,
     RESTOCK: dict.inventory.typeRestock,
     ADJUSTMENT: dict.inventory.typeAdjustment,
+    RETURN: dict.inventory.typeReturn,
   };
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ${styles[type]}`}>
@@ -82,6 +84,9 @@ function reasonLabel(reason: AdjustmentReason, dict: Dictionary) {
 function detailCell(movement: SerializedMovement, dict: Dictionary) {
   if (movement.type === "SALE") {
     return movement.document ? dict.inventory.receiptLabel(movement.document.number) : "—";
+  }
+  if (movement.type === "RETURN") {
+    return movement.document ? dict.inventory.creditNoteLabel(movement.document.number) : "—";
   }
   if (movement.type === "RESTOCK") {
     if (movement.purchaseReceipt) {
