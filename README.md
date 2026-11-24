@@ -9,6 +9,8 @@ Cloud-based, multi-tenant POS and business-management SaaS for Saudi SMEs — gr
 ### Deployed
 Live on Vercel at `fatoorasync.vercel.app`, auto-deploying from `main`. A separate production Neon database, kept isolated from local development.
 
+Production deploys run `prisma migrate deploy` before building (`scripts/vercel-build.mjs`, wired up as the `vercel-build` script), so the database schema always matches the deployed code. This needs `DIRECT_URL` (the database owner role) set in Vercel's Production environment. Preview deploys skip migrations so an unmerged branch can never change a shared database. If a migration fails, the build fails and the previous deployment keeps serving.
+
 ### Built and working
 - Auth & manual tenant onboarding (email/password, JWT sessions)
 - Customers & Products — CRUD, autocomplete, quick-create from the receipt screen, per-product VAT override
